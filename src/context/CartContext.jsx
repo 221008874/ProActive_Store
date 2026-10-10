@@ -1,5 +1,14 @@
 // src/context/CartContext.jsx
 import { createContext, useContext, useReducer, useCallback, useState, useEffect } from 'react'
+import {
+  lineKey,
+  addLine,
+  removeLine,
+  setLineQuantity,
+  reconcileCart,
+  cartCount,
+  cartSubtotal
+} from '../utils/cartLogic'
 
 const CartContext = createContext()
 
@@ -8,6 +17,7 @@ const ADD_ITEM = 'ADD_ITEM'
 const REMOVE_ITEM = 'REMOVE_ITEM'
 const UPDATE_QUANTITY = 'UPDATE_QUANTITY'
 const CLEAR_CART = 'CLEAR_CART'
+const SET_ITEMS = 'SET_ITEMS'
 const SET_ERROR = 'SET_ERROR'
 const CLEAR_ERROR = 'CLEAR_ERROR'
 const SET_DELIVERY_INFO = 'SET_DELIVERY_INFO'
@@ -42,72 +52,32 @@ const cartReducer = (state, action) => {
       }
       
     case ADD_ITEM: {
-      const { product, quantity = 1 } = action.payload
-      const existingItem = state.items.find(item => item.id === product.id)
-      
-      if (existingItem) {
-        const newQuantity = existingItem.quantity + quantity
-        if (newQuantity > product.stock) {
-          return {
-            ...state,
-            error: {
-              type: 'STOCK_LIMIT',
-              message: `Only ${product.stock} available. You already have ${existingItem.quantity} in cart.`,
-              productId: product.id
-            }
-          }
-        }
-        
-        return {
-          ...state,
-          items: state.items.map(item =>
-            item.id === product.id
-              ? { ...item, quantity: newQuantity }
-              : item
-          ),
-          error: null
-        }
-      } else {
-        return {
-          ...state,
-          items: [...state.items, { ...product, quantity }],
-          error: null
-        }
-      }
+      const { line, quantity = 1 } = action.payload
+      const { items, error } = addLine(state.items, line, quantity)
+      return { ...state, items, error }
     }
     
     case REMOVE_ITEM:
       return {
         ...state,
-        items: state.items.filter(item => item.id !== action.payload.id),
+        items: removeLine(state.items, action.payload.id),
         error: null
       }
       
     case UPDATE_QUANTITY: {
       const { id, quantity, stock } = action.payload
-      
-      if (quantity > stock) {
-        return {
-          ...state,
-          error: {
-            type: 'STOCK_LIMIT',
-            message: `Only ${stock} units available`,
-            productId: id
-          }
-        }
-      }
-      
-      return {
-        ...state,
-        items: state.items.map(item =>
-          item.id === id
-            ? { ...item, quantity: Math.max(0, quantity) }
-            : item
-        ).filter(item => item.quantity > 0),
-        error: null
-      }
+      const { items, error } = setLineQuantity(state.items, id, quantity, stock)
+      return { ...state, items, error }
     }
     
+    case SET_ITEMS:
+      // Used by reconcileCart to apply live availability in one go.
+      return {
+        ...state,
+        items: action.payload,
+        error: null
+      }
+
     case CLEAR_CART:
       return { 
         ...state, 
@@ -174,7 +144,11 @@ export function CartProvider({ children }) {
     setAppliedCouponState(null)
   }, [])
 
-  const addToCart = useCallback((product, quantity = 1) => {
+  // product is the parent product; variant is the chosen colour/size (optional,
+// so legacy single-variant products still work). The cart line is keyed on the
+// composite product+variant id, which lives in `id` so existing call sites that
+// use item.id keep working.
+  const addToCart = useCallback((product, quantity = 1, variant = null) => {
     if (!product) {
       dispatch({ 
         type: SET_ERROR, 
@@ -183,48 +157,61 @@ export function CartProvider({ children }) {
       return { success: false, message: 'Invalid product' }
     }
 
-    if (!product.stock || product.stock <= 0) {
+    const variantId = variant?.id ?? product.variantId ?? null
+    const stock = Number(variant?.stock ?? product.stock ?? 0)
+    const name = product.title?.en ?? product.title?.ar ?? product.name ?? 'Product'
+    const id = lineKey(product.id, variantId)
+
+    if (!stock || stock <= 0) {
       dispatch({ 
         type: SET_ERROR, 
         payload: { 
           type: 'OUT_OF_STOCK', 
-          message: `${product.name} is out of stock`,
-          productId: product.id
+          message: `${name} is out of stock`,
+          productId: product.id,
+          variantId
         }
       })
       return { success: false, message: 'Out of stock', type: 'OUT_OF_STOCK' }
     }
 
-    if (quantity > product.stock) {
-      dispatch({ 
-        type: SET_ERROR, 
-        payload: { 
-          type: 'INSUFFICIENT_STOCK', 
-          message: `Only ${product.stock} units available`,
-          productId: product.id
-        }
-      })
-      return { success: false, message: `Only ${product.stock} available`, type: 'INSUFFICIENT_STOCK', availableStock: product.stock }
-    }
-
-    const existingItem = cart.items.find(item => item.id === product.id)
+    const existingItem = cart.items.find(item => item.id === id)
     const currentCartQuantity = existingItem ? existingItem.quantity : 0
-    
-    if (currentCartQuantity + quantity > product.stock) {
-      const canAdd = product.stock - currentCartQuantity
+
+    if (currentCartQuantity + quantity > stock) {
+      const canAdd = stock - currentCartQuantity
       const message = canAdd > 0 
         ? `Only ${canAdd} more can be added (you have ${currentCartQuantity} in cart)`
-        : `You already have ${currentCartQuantity} in cart (stock limit: ${product.stock})`
+        : `You already have ${currentCartQuantity} in cart (stock limit: ${stock})`
       
       dispatch({ 
         type: SET_ERROR, 
-        payload: { type: 'CART_LIMIT', message, productId: product.id, canAdd }
+        payload: { type: 'CART_LIMIT', message, productId: product.id, variantId, canAdd }
       })
-      return { success: false, message, type: 'CART_LIMIT', canAdd, currentInCart: currentCartQuantity, stock: product.stock }
+      return { success: false, message, type: 'CART_LIMIT', canAdd, currentInCart: currentCartQuantity, stock }
     }
 
-    dispatch({ type: ADD_ITEM, payload: { product, quantity }})
-    return { success: true, message: `Added ${quantity} × ${product.name} to cart`, added: quantity, totalInCart: currentCartQuantity + quantity }
+    dispatch({
+      type: ADD_ITEM,
+      payload: {
+        line: {
+          id,
+          productId: product.id,
+          variantId,
+          title: product.title ?? name,
+          name,
+          image: variant?.image ?? product.images?.[0]?.url ?? product.image ?? null,
+          color: variant?.color ?? null,
+          size: variant?.size ?? null,
+          // Snapshot: the price shown is what the order line will carry.
+          price: Number(variant?.priceOverride ?? product.price ?? 0),
+          stock
+        },
+        quantity
+      }
+    })
+
+    return { success: true, message: `Added ${quantity} × ${name} to cart`, added: quantity, totalInCart: currentCartQuantity + quantity }
   }, [cart.items])
 
   const removeFromCart = useCallback((productId) => {
@@ -258,25 +245,29 @@ export function CartProvider({ children }) {
     dispatch({ type: CLEAR_DELIVERY_INFO })
   }, [])
 
-  const validateCart = useCallback((products) => {
-    const invalidItems = []
-    const updatedItems = cart.items.map(item => {
-      const currentProduct = products.find(p => p.id === item.id)
-      if (!currentProduct) {
-        invalidItems.push({ ...item, reason: 'Product no longer available' })
-        return null
-      }
-      if (currentProduct.stock < item.quantity) {
-        invalidItems.push({ ...item, reason: 'Stock reduced', requested: item.quantity, available: currentProduct.stock })
-        return { ...item, quantity: currentProduct.stock }
-      }
-      return item
-    }).filter(Boolean)
+  // Refreshes the cart against live Firestore data. `catalogue` maps a cart line
+// id (productId:variantId) to its live variant data. Lines that vanished or sold
+// out are removed, over-stock lines are clamped, and every change is reported
+// so the UI can tell the shopper rather than silently altering their order.
+  const validateCart = useCallback((catalogue = {}) => {
+    const { items, issues } = reconcileCart(cart.items, catalogue)
 
-    if (invalidItems.length > 0) {
-      dispatch({ type: SET_ERROR, payload: { type: 'CART_VALIDATION', message: `${invalidItems.length} item(s) updated due to stock changes`, invalidItems }})
+    if (JSON.stringify(items) !== JSON.stringify(cart.items)) {
+      dispatch({ type: 'SET_ITEMS', payload: items })
     }
-    return { valid: invalidItems.length === 0, invalidItems }
+
+    if (issues.length > 0) {
+      dispatch({
+        type: SET_ERROR,
+        payload: {
+          type: 'CART_VALIDATION',
+          message: `${issues.length} item(s) updated due to availability changes`,
+          invalidItems: issues
+        }
+      })
+    }
+
+    return { valid: issues.length === 0, issues, items }
   }, [cart.items])
 
   const getCartStockInfo = useCallback((productId) => {
@@ -285,8 +276,8 @@ export function CartProvider({ children }) {
     return { inCart: quantity, canAddMore: (stock) => stock > quantity, remaining: (stock) => Math.max(0, stock - quantity) }
   }, [cart.items])
 
-  const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0)
-  const totalPrice = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalItems = cartCount(cart.items)
+  const totalPrice = cartSubtotal(cart.items)
 
   return (
     <CartContext.Provider

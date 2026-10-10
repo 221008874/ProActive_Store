@@ -1,167 +1,83 @@
-// src/pages/PrivacyPolicy.jsx
-import { useTheme } from '../context/ThemeContext'
-import { useLanguage } from '../context/LanguageContext'
+// src/pages/PrivacyPolicy.jsx — ProActive Fashion design system refactor.
+//
+// Content is unchanged: the same six policy sections still resolve through the
+// translation table and the "last updated" date is the same literal. The
+// page-local header is gone (the app shell renders chrome), the back-to-home
+// handler survives on a design-system outline button, and the ~900px card is
+// now a full-bleed .pa-block band with a centred .pa-container measure.
+
 import { useNavigate } from 'react-router-dom'
+import { useLanguage } from '../context/LanguageContext'
+import StoreFooter from '../components/StoreFooter'
+import { Button, PageTitle } from '../ui'
 
 export default function PrivacyPolicy() {
-  const { theme } = useTheme()
   const { t, lang } = useLanguage()
   const navigate = useNavigate()
 
-  const colors = {
-    light: {
-      primary: '#3E2723',
-      secondary: '#D4A017',
-      background: '#F8F4F0',
-      card: '#FCFAF8',
-      textDark: '#2E1B1B',
-      textLight: '#6B5E57',
-      border: '#E8DDD4'
-    },
-    dark: {
-      primary: '#2E1B1B',
-      secondary: '#D4A017',
-      background: '#1A1412',
-      card: '#2E1B1B',
-      textDark: '#F8F4F0',
-      textLight: '#C4B5AD',
-      border: '#3E2723'
-    }
+  const ar = lang === 'ar'
+  const L = (key, en, fallback) => {
+    const v = t(key)
+    return v && v !== key ? v : (ar ? fallback : en)
   }
 
-  const c = theme === 'light' ? colors.light : colors.dark
+  const sections = [
+    {
+      key: 'informationWeCollect',
+      title: L('informationWeCollect', 'Information We Collect', 'المعلومات اللي بنجمعها'),
+      body: L('infoCollectionText', 'We collect information when you use our app, such as products added to your cart and order details. We do not collect any sensitive personal information.', 'بنجمع معلومات لما تستخدم التطبيق، زي المنتجات اللي بتضاف للعربة وتفاصيل الطلب. مش بنجمع أي معلومات شخصية حساسة.')
+    },
+    {
+      key: 'howWeUseInfo',
+      title: L('howWeUseInfo', 'How We Use Your Information', 'إزاي بنستخدم معلوماتك'),
+      body: L('useInfoText', 'We use the collected information to improve your shopping experience, show relevant products, and provide technical support.', 'بنستخدم المعلومات اللي اجتمعناها عشان نحسّن تجربة التسوق، نعرض منتجات مناسبة، وندعمك فنياً.')
+    },
+    {
+      key: 'dataSharing',
+      title: L('dataSharing', 'Data Sharing', 'مشاركة البيانات'),
+      body: L('dataSharingText', 'We do not share your data with any third parties. All information is securely stored in our Firebase databases.', 'مبنشاركش بياناتك مع أي طرف تاني. كل المعلومات محفوظة بشكل آمن في قواعد بيانات Firebase.')
+    },
+    {
+      key: 'dataSecurity',
+      title: L('dataSecurity', 'Data Security', 'أمان البيانات'),
+      body: L('securityText', 'We follow industry best practices to protect your data from unauthorized access, alteration, disclosure, or destruction.', 'بنتبع أفضل الممارسات عشان نحمي بياناتك من أي وصول أو تعديل أو إفصاح أو إتلاف غير مصرح بيه.')
+    },
+    {
+      key: 'yourRights',
+      title: L('yourRights', 'Your Rights', 'حقوقك'),
+      body: L('rightsText', 'You have the right to request deletion or correction of your data at any time by contacting us.', 'من حقك تطلب حذف أو تصحيح بياناتك في أي وقت عن طريق التواصل معانا.')
+    },
+    {
+      key: 'contactUs',
+      title: L('contactUs', 'Contact Us', 'تواصل معانا'),
+      body: L('contactPrivacyText', 'For any questions about this Privacy Policy, please email us at: louablefactory@gmail.com', 'لو عندك أي أسئلة عن سياسة الخصوصية، ابعتلنا على: louablefactory@gmail.com')
+    }
+  ]
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: c.background,
-      color: c.textDark,
-      fontFamily: 'Georgia, serif'
-    }}>
-      {/* Header */}
-      <header style={{
-        padding: '20px 32px',
-        background: c.card,
-        boxShadow: theme === 'light' 
-          ? '0 2px 8px rgba(62, 39, 35, 0.08)' 
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        borderBottom: `1px solid ${c.border}`
-      }}>
-        <h1 style={{ 
-          margin: 0, 
-          fontSize: '1.5rem', 
-          fontWeight: '700',
-          color: c.textDark,
-          letterSpacing: '-0.5px'
-        }}>
-          {t('ProActive Store')}
-        </h1>
-        
-        <button
-          onClick={() => navigate('/home')}
-          style={{
-            background: 'transparent',
-            border: `2px solid ${c.primary}`,
-            borderRadius: '8px',
-            padding: '8px 16px',
-            cursor: 'pointer',
-            color: c.primary,
-            fontWeight: '600',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = c.primary
-            e.currentTarget.style.color = theme === 'light' ? '#FFFFFF' : c.textDark
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = c.primary
-          }}
-        >
-          ← {t('backToHome')}
-        </button>
-      </header>
+    <>
+      <PageTitle
+        title={L('privacyPolicy', 'Privacy Policy', 'سياسة الخصوصية')}
+        subtitle={<>{L('lastUpdated', 'Last Updated', 'آخر تحديث')}: February 1, 2026</>}
+        actions={
+          <Button variant="outline" onClick={() => navigate('/home')}>
+            {L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+          </Button>
+        }
+      />
 
-      {/* Main Content */}
-      <main style={{
-        maxWidth: '900px',
-        margin: '40px auto',
-        padding: '0 24px'
-      }}>
-        <div style={{
-          background: c.card,
-          borderRadius: '16px',
-          padding: '40px',
-          border: `1px solid ${c.border}`,
-          boxShadow: theme === 'light'
-            ? '0 4px 20px rgba(62, 39, 35, 0.1)'
-            : '0 4px 20px rgba(0, 0, 0, 0.3)'
-        }}>
-          <h2 style={{
-            fontSize: '2.5rem',
-            fontWeight: '700',
-            color: c.textDark,
-            marginBottom: '24px',
-            textAlign: lang === 'ar' ? 'right' : 'left'
-          }}>
-            {t('privacyPolicy')}
-          </h2>
-
-          <div style={{ lineHeight: 1.8, fontSize: '1.05rem', color: c.textLight }}>
-            <p style={{ marginBottom: '20px' }}>
-              <strong>{t('lastUpdated')}:</strong> February 1, 2026
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('informationWeCollect')}
-            </h3>
-            <p style={{ marginBottom: '20px' }}>
-              {t('infoCollectionText')}
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('howWeUseInfo')}
-            </h3>
-            <p style={{ marginBottom: '20px' }}>
-              {t('useInfoText')}
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('dataSharing')}
-            </h3>
-            <p style={{ marginBottom: '20px' }}>
-              {t('dataSharingText')}
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('dataSecurity')}
-            </h3>
-            <p style={{ marginBottom: '20px' }}>
-              {t('securityText')}
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('yourRights')}
-            </h3>
-            <p style={{ marginBottom: '20px' }}>
-              {t('rightsText')}
-            </p>
-
-            <h3 style={{ color: c.textDark, marginTop: '30px', marginBottom: '15px' }}>
-              {t('contactUs')}
-            </h3>
-            <p>
-              {t('contactPrivacyText')}
-            </p>
-          </div>
+      <div className="pa-block">
+        <div className="pa-container" style={{ maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {sections.map((section) => (
+            <section key={section.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <h2 style={{ fontSize: 20 }}>{section.title}</h2>
+              <p className="pa-subtitle" style={{ margin: 0, lineHeight: 1.8 }}>{section.body}</p>
+            </section>
+          ))}
         </div>
-      </main>
-    </div>
+      </div>
+
+      <StoreFooter />
+    </>
   )
 }

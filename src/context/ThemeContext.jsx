@@ -37,6 +37,7 @@ export function ThemeProvider({ children }) {
   // Apply theme class to body, save to localStorage, and update images
   useEffect(() => {
     document.body.className = theme
+    document.documentElement.dataset.theme = theme
     localStorage.setItem('theme', theme)
     
     // Update images based on theme

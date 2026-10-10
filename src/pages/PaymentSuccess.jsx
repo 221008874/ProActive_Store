@@ -1,25 +1,35 @@
+// src/pages/PaymentSuccess.jsx — ProActive Fashion design system refactor.
+//
+// Logic is unchanged: the payment-verification effect still writes the
+// order + mobile order in one batch, reads the order back, clears the cart and
+// drops the sessionStorage handoff keys. Only the markup changed — the
+// hand-animated full-screen styles became StepHeader / .pa-receipt /
+// .pa-callout / Summary / .pa-btn, and money goes through the design system's
+// formatEGP instead of a local `toFixed(2) EGP` helper. (The previous file
+// also carried a broken template literal in an inline style; it is gone with
+// the inline styles.)
+
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
 import { db } from '../services/firebase'
 import { COLLECTIONS } from '../config'
-import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore'
+import { doc, getDoc, writeBatch } from 'firebase/firestore'
+import { Button, StepHeader, Summary, formatEGP } from '../ui'
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { theme } = useTheme()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const { clearCart } = useCart()
-  
+
   const [loading, setLoading] = useState(true)
   const [orderData, setOrderData] = useState(null)
   const [error, setError] = useState(null)
 
   const paymentRef = searchParams.get('paymentRef')
-  
+
   useEffect(() => {
     const verifyPayment = async () => {
       try {
@@ -34,9 +44,9 @@ export default function PaymentSuccess() {
         }
 
         const orderCollection = 'orders_egp'
-        
+
         const batch = writeBatch(db)
-        
+
         const orderRef = doc(db, orderCollection, pendingFirestoreId)
         batch.update(orderRef, {
           paymentStatus: 'paid',
@@ -80,109 +90,82 @@ export default function PaymentSuccess() {
     verifyPayment()
   }, [paymentRef, clearCart])
 
-  const colors = {
-    light: {
-      primary: '#3E2723', secondary: '#D4A017', background: '#F8F4F0',
-      card: '#FCFAF8', textDark: '#2E1B1B', textLight: '#6B5E57',
-      success: '#8BC34A', border: '#E8DDD4'
-    },
-    dark: {
-      primary: '#2E1B1B', secondary: '#D4A017', background: '#1A1412',
-      card: '#2E1B1B', textDark: '#F8F4F0', textLight: '#C4B5AD',
-      success: '#8BC34A', border: '#3E2723'
-    }
-  }
-
-  const c = theme === 'light' ? colors.light : colors.dark
-
-  const formatPrice = (price) => {
-    return `${price?.toFixed(2)} EGP`
+  const ar = lang === 'ar'
+  const L = (key, en, fallback) => {
+    const v = t(key)
+    return v && v !== key ? v : (ar ? fallback : en)
   }
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh', background: c.background, display: 'flex',
-        alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '20px'
-      }}>
-        <div style={{ fontSize: '3rem', animation: 'spin 1s linear infinite' }}>⏳</div>
-        <p style={{ color: c.textLight }}>Verifying payment...</p>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div className="pa-container" style={{ paddingBlock: 64, minHeight: '60vh', display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div aria-hidden="true" style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--pa-line)', borderTopColor: 'var(--pa-ink)', animation: 'pa-spin 1s linear infinite' }} />
+          <p className="pa-subtitle" role="status">{L(null, 'Verifying payment...', 'جاري التحقق من الدفع...')}</p>
+        </div>
+        <style>{`@keyframes pa-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{
-        minHeight: '100vh', background: c.background, display: 'flex',
-        flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '2rem', textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>❌</div>
-        <h1 style={{ color: c.textDark, marginBottom: '1rem' }}>Payment Verification Failed</h1>
-        <p style={{ color: c.textLight, marginBottom: '2rem' }}>{error}</p>
-        <button onClick={() => navigate('/cart')} style={{ padding: '12px 24px', background: c.secondary, color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-          Return to Cart
-        </button>
-      </div>
+      <>
+        <StepHeader
+          title={L('paymentVerificationFailed', 'Payment Verification Failed', 'فشل التحقق من الدفع')}
+          step={3}
+          of={3}
+          backHref="/cart"
+        />
+        <div className="pa-receipt" style={{ maxWidth: 560, marginInline: 'auto', width: '100%', alignItems: 'center', textAlign: 'center' }}>
+          <div className="pa-callout pa-callout--error" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            <b aria-hidden="true" style={{ fontSize: 26 }}>✕</b>
+            <b>{error}</b>
+            <Button onClick={() => navigate('/cart')}>
+              {L('returnToCart', 'Return to Cart', 'رجوع للعربية')}
+            </Button>
+          </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', background: c.background, display: 'flex',
-      flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '2rem', textAlign: 'center'
-    }}>
-      <div style={{ fontSize: '5rem', marginBottom: '1.5rem', animation: 'bounce 2s infinite' }}>🎉</div>
-      
-      <h1 style={{ fontSize: '2.5rem', color: c.success, marginBottom: '1rem', fontWeight: '700' }}>
-        Payment Successful!
-      </h1>
-      
-      <p style={{ fontSize: '1.2rem', color: c.textLight, marginBottom: '2rem' }}>
-        Thank you for your purchase. Your order has been confirmed.
-      </p>
-      
-      <div style={{
-        background: c.card, borderRadius: '16px', padding: '2rem',
-        maxWidth: '500px', width: '100%', border: `2px solid ${c.border}`, marginBottom: '2rem'
-      }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <span style={{ color: c.textLight }}>Order ID: </span>
-          <strong style={{ color: c.textDark, fontFamily: 'monospace' }}>
-            {orderData?.orderId}
-          </strong>
-        </div>
-        
-        {paymentRef && (
-          <div style={{ marginBottom: '1rem' }}>
-            <span style={{ color: c.textLight }}>Payment Ref: </span>
-            <strong style={{ color: c.textDark, fontFamily: 'monospace', fontSize: '0.9rem' }}>
-              {paymentRef}
-            </strong>
+    <>
+      <StepHeader
+        title={L('paymentSuccessful', 'Payment Successful!', 'تم الدفع بنجاح!')}
+        step={3}
+        of={3}
+        backHref="/home"
+      />
+
+      <div className="pa-receipt" style={{ maxWidth: 560, marginInline: 'auto', width: '100%' }}>
+        <div className="pa-callout pa-ok" role="status" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <b aria-hidden="true" style={{ fontSize: 22 }}>🎉</b>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <b>{L('paymentSuccessful', 'Payment Successful!', 'تم الدفع بنجاح!')}</b>
+            <span className="pa-subtitle">
+              {L('thankYouPurchase', 'Thank you for your purchase. Your order has been confirmed.', 'شكراً لشرائك. تم تأكيد طلبك.')}
+            </span>
           </div>
-        )}
-        
-        <div style={{ padding: '1rem', background: c.background, borderRadius: '8px', marginTop: '1rem' }}>
-          <span style={{ color: c.textLight }}>Total Paid: </span>
-          <strong style={{ color: c.secondary, fontSize: '1.5rem' }}>
-            {formatPrice(orderData?.totalPrice, orderData?.currency)}
-          </strong>
+        </div>
+
+        <Summary
+          rows={[
+            { label: L('orderId', 'Order ID', 'رقم الطلب'), value: orderData?.orderId },
+            ...(paymentRef
+              ? [{ label: L('paymentRef', 'Payment Ref', 'مرجع الدفع'), value: paymentRef }]
+              : []),
+            { label: L('totalPaid', 'Total Paid', 'إجمالي المدفوع'), value: formatEGP(orderData?.totalPrice ?? 0), tone: 'total' }
+          ]}
+        />
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <Button onClick={() => navigate('/home')}>
+            🛍️ {L('continueShopping', 'Continue Shopping', 'كمل تسوق')}
+          </Button>
         </div>
       </div>
-      
-      <button onClick={() => navigate('/home')} style={{
-        padding: '14px 32px', background: `linear-gradient(135deg, ${c.secondary} 0%, #B8860B 100%)`,
-        color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700',
-        fontSize: '1.1rem', cursor: 'pointer', transition: 'transform 0.3s ease',
-        boxShadow: '0 4px 12px rgba(212, 160, 23, 0.3)'
-      }}>
-        🛍️ Continue Shopping
-      </button>
-      
-      <style>{`@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }`}</style>
-    </div>
+    </>
   )
 }

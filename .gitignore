@@ -25,3 +25,11 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Firebase service account keys and exported data - never commit these
+*serviceAccount*.json
+service-account*.json
+firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+gcp-key*.json
+firestore-export*/

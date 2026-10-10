@@ -1,0 +1,173 @@
+/* =========================================================================   ProActive Fashion — design tokens
+   Source: "ProActive Fashion — UI/UX Design (Store + Admin)", Foundations board.
+   Import this ONCE at your app entry (main.jsx), before components.css.
+   ========================================================================= */
+
+
+/* Fonts: add this <link> to index.html of BOTH apps (Store + Admin):
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+*/
+
+
+:root {
+  /* ---- Color (exact values from the Foundations board) ---- */
+  --pa-ink:        #121212;  /* text, main buttons, admin sidebar */
+  --pa-paper:      #FFFFFF;  /* page background */
+  --pa-stone:      #F4F2EE;  /* surfaces, photo wells */
+  --pa-line:       #E4E1DA;  /* borders, dividers */
+  --pa-muted:      #5B5B5B;  /* secondary text */
+  --pa-disabled:   #8A8780;  /* sold-out text, disabled button */
+  --pa-on-dark-2:  #D9D6CF;  /* secondary text on ink (sidebar, top bar) */
+
+
+  --pa-sale:       #C8102E;  /* sale price, errors, bag count */
+  --pa-instock:    #1B7F4B;  /* stock ok, coupon applied, free-shipping bar */
+  --pa-low:        #B45309;  /* "Only 3 left", pending */
+
+
+  /* Order status pills (bg / text) */
+  --pa-st-pending-bg:    #FBEBD6;  --pa-st-pending-fg:    #8A4B08;
+  --pa-st-confirmed-bg:  #DDE7F5;  --pa-st-confirmed-fg:  #1F4E8C;
+  --pa-st-shipped-bg:    #E4DDF3;  --pa-st-shipped-fg:    #4B2E8C;
+  --pa-st-delivered-bg:  #D8EEE2;  --pa-st-delivered-fg:  #14633A;
+  --pa-st-cancelled-bg:  #F5D9DD;  --pa-st-cancelled-fg:  #9B0F27;
+  --pa-st-returned-bg:   #F5D9DD;  --pa-st-returned-fg:   #9B0F27;
+
+
+  /* Low / sold-out cell backgrounds used in the admin stock grid */
+  --pa-cell-low-bg:   #FBEBD6;
+  --pa-cell-zero-bg:  #F5D9DD;
+
+
+  /* Placeholder tints for photo wells while images load */
+  --pa-tint-1: #E3D5D9; --pa-tint-2: #D9E1DA; --pa-tint-3: #D5DBE6;
+  --pa-tint-4: #EADFC9; --pa-tint-5: #DCD6E4; --pa-tint-6: #E8DCCB;
+
+
+  /* ---- Elevation ---- */
+  --pa-shadow:        0 1px 2px rgb(18 18 18 / 0.06);
+  --pa-shadow-hover:  0 12px 32px rgb(18 18 18 / 0.12);
+  --pa-overlay:       rgb(18 18 18 / 0.05);
+  --pa-overlay-strong: rgb(18 18 18 / 0.14);
+
+
+  /* ---- Type ---- */
+  --pa-font-display: 'Bricolage Grotesque', 'IBM Plex Sans Arabic', sans-serif; /* headings, prices, badges */
+  --pa-font-body:    'Manrope', 'IBM Plex Sans Arabic', system-ui, sans-serif;  /* body, buttons, forms */
+  --pa-font-arabic:  'IBM Plex Sans Arabic', 'Manrope', sans-serif;
+
+
+  /* size / line-height pairs from the board */
+  --pa-fs-display: 44px;  --pa-lh-display: 48px;
+  --pa-fs-heading: 28px;  --pa-lh-heading: 32px;
+  --pa-fs-title:   20px;  --pa-lh-title:   26px;
+  --pa-fs-body:    16px;  --pa-lh-body:    24px;
+  --pa-fs-small:   14px;  --pa-lh-small:   20px;
+  --pa-fs-caption: 12px;  --pa-lh-caption: 16px;
+
+
+  /* ---- Shape & sizing ---- */
+  --pa-radius: 2px;          /* buttons, inputs, size chips: nearly square on purpose */
+  --pa-tap: 44px;            /* minimum tap target */
+  --pa-btn-h: 48px;          /* standard button / input height */
+  --pa-btn-h-lg: 52px;       /* sticky Add to bag / Place order */
+  --pa-header-h: 56px;
+  --pa-announce-h: 36px;
+  --pa-tabbar-h: 64px;
+  --pa-sticky-h: 76px;
+  --pa-gutter: 16px;         /* phone side padding */
+  --pa-content-max: 1360px;  /* desktop content cap */
+
+
+  /* ---- Breakpoints (reference only; CSS vars can't be used in @media) ----
+     phone < 768 (2 col) · tablet 768–1023 (3 col) · laptop 1024–1439 (4 col)
+     desktop >= 1440 (5 col) · admin < 768 folds to cards + bottom bar        */
+  --pa-grid-cols: 2;
+}
+@media (min-width: 768px)  { :root { --pa-grid-cols: 3; --pa-gutter: 24px; } }
+@media (min-width: 1024px) { :root { --pa-grid-cols: 4; } }
+@media (min-width: 1440px) { :root { --pa-grid-cols: 5; } }
+
+
+/* ---- Dark theme --------------------------------------------------------
+   The design shows a Light | Dark switch but does NOT specify dark values.
+   These are a derived proposal that keeps the same roles. Review before shipping.
+   Toggle by setting  <html data-theme="dark">.                              */
+:root[data-theme="dark"] {
+  --pa-ink:       #F4F2EE;
+  --pa-paper:     #121212;
+  --pa-stone:     #1C1C1C;
+  --pa-line:      #2E2D2B;
+  --pa-muted:     #A8A59E;
+  --pa-disabled:  #6B6963;
+  --pa-on-dark-2: #D9D6CF;
+  --pa-sale:      #FF5C73;
+  --pa-instock:   #4CC38A;
+  --pa-low:       #F0A04B;
+  --pa-cell-low-bg:  #3A2A14;
+  --pa-cell-zero-bg: #3A1820;
+
+  --pa-shadow:        0 1px 2px rgb(0 0 0 / 0.4);
+  --pa-shadow-hover:  0 12px 32px rgb(0 0 0 / 0.5);
+  --pa-overlay:       rgb(244 242 238 / 0.06);
+  --pa-overlay-strong: rgb(0 0 0 / 0.7);
+}
+
+
+/* ---- Base ------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+
+html { -webkit-text-size-adjust: 100%; }
+
+
+body {
+  margin: 0;
+  background: var(--pa-paper);
+  color: var(--pa-ink);
+  font-family: var(--pa-font-body);
+  font-size: var(--pa-fs-body);
+  line-height: var(--pa-lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+
+/* Arabic: the layout mirrors with dir="rtl" on <html>. Prices, sizes, SKUs and
+   phone numbers stay left-to-right inside Arabic text — wrap them in <bdi> or
+   use the .pa-ltr helper. */
+html[dir="rtl"] { --pa-flip: scaleX(-1); }   /* flips directional icons (back arrow, chevrons) */
+html[dir="rtl"] body { font-family: var(--pa-font-arabic); line-height: 1.6; }
+html[dir="rtl"] .pa-display,
+html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3 { font-family: var(--pa-font-display); }
+.pa-ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+
+
+h1, h2, h3, .pa-display {
+  font-family: var(--pa-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+a { color: inherit; }
+a:hover { color: var(--pa-muted); }
+
+
+/* Visible keyboard focus on everything interactive */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--pa-ink);
+  outline-offset: 2px;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+/* Screen-reader-only text (labels the design hides visually) */
+.pa-sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
