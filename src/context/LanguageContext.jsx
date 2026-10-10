@@ -192,9 +192,7 @@ const translations = {
     userResponsibilities: 'مسؤوليات المستخدم',
     limitationOfLiability: 'حدود المسؤولية',
 
-    // Pi Status
-    piConnected: '✅ Pi متصل',
-    piFailed: '❌ Pi فشل',
+    // Connection Status
     connecting: '⏳ جاري الاتصال...',
 
     // Delivery
@@ -447,9 +445,7 @@ const translations = {
     userResponsibilities: 'User Responsibilities',
     limitationOfLiability: 'Limitation of Liability',
 
-    // Pi Status
-    piConnected: '✅ Pi Connected',
-    piFailed: '❌ Pi Failed',
+    // Connection Status
     connecting: '⏳ Connecting...',
 
     // Delivery

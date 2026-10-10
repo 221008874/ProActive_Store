@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState } from 'react'
+
+// The store sells in Egypt only, so the currency is fixed rather than
+// detected. `currency` stays on the context because pages still read it.
+const CURRENCY = 'EGP'
 
 const LocationContext = createContext()
 
 export function LocationProvider({ children }) {
   const [location, setLocation] = useState(null)
   const [country, setCountry] = useState(null)
-  const [currency, setCurrency] = useState('EGP') // Default
   const [loading, setLoading] = useState(true)
   const [permissionStatus, setPermissionStatus] = useState('prompt') // 'prompt', 'granted', 'denied'
 
@@ -18,18 +21,10 @@ export function LocationProvider({ children }) {
       )
       const data = await response.json()
       const detectedCountry = data.address?.country || 'Unknown'
-      const countryCode = data.address?.country_code?.toUpperCase()
-      
+
       setCountry(detectedCountry)
-      
-      // Determine currency based on country
-      if (countryCode === 'EG' || detectedCountry.toLowerCase().includes('egypt')) {
-        setCurrency('EGP')
-      } else {
-        setCurrency('USD') // Dollar for all other countries
-      }
-      
-      return { country: detectedCountry, currency: countryCode === 'EG' ? 'EGP' : 'USD' }
+
+      return { country: detectedCountry, currency: CURRENCY }
     } catch (error) {
       console.error('Reverse geocoding error:', error)
       // Fallback to IP-based detection
@@ -45,19 +40,12 @@ export function LocationProvider({ children }) {
       const data = await response.json()
       
       setCountry(data.country_name)
-      
-      if (data.country_code === 'EG') {
-        setCurrency('EGP')
-      } else {
-        setCurrency('USD')
-      }
-      
-      return { country: data.country_name, currency: data.country_code === 'EG' ? 'EGP' : 'USD' }
+
+      return { country: data.country_name, currency: CURRENCY }
     } catch (error) {
       console.error('IP detection error:', error)
-      // Ultimate fallback: default to EGP
-      setCurrency('EGP')
-      return { country: 'Egypt', currency: 'EGP' }
+      // Ultimate fallback: Egypt
+      return { country: 'Egypt', currency: CURRENCY }
     }
   }
 
@@ -97,7 +85,7 @@ export function LocationProvider({ children }) {
   const value = {
     location,
     country,
-    currency,
+    currency: CURRENCY,
     loading,
     permissionStatus,
     requestLocation,

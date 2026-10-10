@@ -2,13 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "15mb"
-      }
-    },
-    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -17,15 +10,6 @@
     }
   ],
   "routes": [
-    {
-      "src": "/api/payment/kashier",
-      "dest": "/api/payment/kashier.js",
-      "methods": ["POST", "OPTIONS"]
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
     {
       "src": "/payment/success",
       "dest": "/index.html"

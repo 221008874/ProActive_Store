@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 
 export default function LocationSplash() {
   const navigate = useNavigate()
-  const { requestLocation, setLoading, currency, country } = useLocation()
+  const { requestLocation, setLoading, country } = useLocation()
   const { getImage } = useTheme()
   const [status, setStatus] = useState('initial') // 'initial', 'requesting', 'detecting', 'complete', 'error'
   const [error, setError] = useState(null)
@@ -70,7 +70,7 @@ export default function LocationSplash() {
       case 'detecting':
         return `Detecting your location in ${country}...`
       case 'complete':
-        return `Welcome! Currency set to ${currency === 'EGP' ? 'Egyptian Pound' : 'US Dollar'}`
+        return `Welcome! Currency set to Egyptian Pound`
       case 'error':
         return error || 'Location detection failed'
       default:
@@ -87,7 +87,7 @@ export default function LocationSplash() {
       case 'detecting':
         return '🗺️'
       case 'complete':
-        return currency === 'EGP' ? '🇪🇬' : '💵'
+        return '🇪🇬'
       case 'error':
         return '⚠️'
       default:

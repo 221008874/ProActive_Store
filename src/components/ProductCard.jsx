@@ -2,7 +2,6 @@
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { useCart } from '../context/CartContext'
-import { useLocation } from '../context/LocationContext'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 
@@ -27,7 +26,6 @@ export default function ProductCard({ product }) {
   const { t, lang } = useLanguage()
   const { theme } = useTheme()
   const { addToCart } = useCart()
-  const { currency } = useLocation()  // FIX: Added missing currency context
 
   const colors = {
     light: {
@@ -60,10 +58,8 @@ export default function ProductCard({ product }) {
 
   const c = colors[theme] || colors.light
 
-  // FIX: Dynamic currency formatting instead of hardcoded 'EGP'
   const formatPrice = (price) => {
     if (price == null) return ''
-    if (currency === 'USD') return `$${price.toFixed(2)}`
     return `${price.toFixed(2)} EGP`
   }
 

@@ -7,7 +7,7 @@ export default function Splash() {
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const { getImage } = useTheme()
-  const { currency, country, setLoading } = useLocation()
+  const { country, setLoading } = useLocation()
 
   // Get detected location from navigation state
   const detectedData = routerLocation.state || {}
@@ -26,10 +26,7 @@ export default function Splash() {
   }, [navigate, detectedData])
 
   const getCurrencyDisplay = () => {
-    if (currency === 'EGP') {
-      return { flag: '🇪🇬', text: 'Egypt Store', symbol: 'EGP' }
-    }
-    return { flag: '💵', text: 'International Store', symbol: 'USD' }
+    return { flag: '🇪🇬', text: 'Egypt Store', symbol: 'EGP' }
   }
 
   const currencyInfo = getCurrencyDisplay()

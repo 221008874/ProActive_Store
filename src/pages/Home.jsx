@@ -9,6 +9,7 @@ import { useLocation } from '../context/LocationContext'
 import ProductCard from '../components/ProductCard'
 import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../services/firebase'
+import { productsCollection } from '../config'
 import { collection, getDocs } from 'firebase/firestore'
 import heroImage from '../assets/mainBG.webp'
 import facebookIcon from '../assets/facebook.png'
@@ -170,7 +171,7 @@ const setCachedProducts = (currency, data) => {
     
     try {
       setLoading(true)
-      const collectionName = currency === 'USD' ? 'products_dollar' : 'products_egp'
+      const collectionName = productsCollection(currency)
       const querySnapshot = await getDocs(collection(db, collectionName))
       const productList = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -190,9 +191,6 @@ const setCachedProducts = (currency, data) => {
 
   // Show currency badge in header
   const getCurrencyDisplay = () => {
-    if (currency === 'USD') {
-      return { flag: '💵', text: 'International Store', symbol: 'USD' }
-    }
     return { flag: '🇪🇬', text: 'Egypt Store', symbol: 'EGP' }
   }
 

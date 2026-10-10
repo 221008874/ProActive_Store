@@ -6,6 +6,26 @@ import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { useLocation } from '../context/LocationContext'
 import { db } from '../services/firebase'
+import { COLLECTIONS } from '../config'
+import { getCurrencyConfig, formatPrice as formatPriceFor } from '../config/currency'
+import { getColors } from '../config/themes'
+import { EGYPT_GOVERNORATES, defaultGovernorateCosts } from '../config/egypt'
+import {
+  computeShipping,
+  computeTotals,
+  freeShippingProgress,
+  amountToFreeShipping,
+  paymentStatusFor,
+  paymentMethodLabelFor
+} from '../utils/pricing'
+import { validateDeliveryForm } from '../utils/validation'
+import {
+  assertCouponUsable,
+  buildAppliedCoupon,
+  findCaseInsensitiveMatch,
+  normalizeCouponCode,
+  COUPON_COLLECTION
+} from '../utils/coupon'
 import { 
   collection, 
   addDoc, 
@@ -37,36 +57,6 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
-const EGYPT_GOVERNORATES = [
-  { id: 'cairo', name: 'Cairo', nameAr: 'القاهرة' },
-  { id: 'giza', name: 'Giza', nameAr: 'الجيزة' },
-  { id: 'alexandria', name: 'Alexandria', nameAr: 'الإسكندرية' },
-  { id: 'qalyubia', name: 'Qalyubia', nameAr: 'القليوبية' },
-  { id: 'monufia', name: 'Monufia', nameAr: 'المنوفية' },
-  { id: 'gharbia', name: 'Gharbia', nameAr: 'الغربية' },
-  { id: 'dakahlia', name: 'Dakahlia', nameAr: 'الدقهلية' },
-  { id: 'sharkia', name: 'Sharqia', nameAr: 'الشرقية' },
-  { id: 'beheira', name: 'Beheira', nameAr: 'البحيرة' },
-  { id: 'kafr_sheikh', name: 'Kafr El Sheikh', nameAr: 'كفر الشيخ' },
-  { id: 'damietta', name: 'Damietta', nameAr: 'دمياط' },
-  { id: 'port_said', name: 'Port Said', nameAr: 'بورسعيد' },
-  { id: 'ismailia', name: 'Ismailia', nameAr: 'الإسماعيلية' },
-  { id: 'suez', name: 'Suez', nameAr: 'السويس' },
-  { id: 'matrouh', name: 'Matrouh', nameAr: 'مطروح' },
-  { id: 'north_sinai', name: 'North Sinai', nameAr: 'شمال سيناء' },
-  { id: 'south_sinai', name: 'South Sinai', nameAr: 'جنوب سيناء' },
-  { id: 'faiyum', name: 'Faiyum', nameAr: 'الفيوم' },
-  { id: 'beni_suef', name: 'Beni Suef', nameAr: 'بني سويف' },
-  { id: 'minya', name: 'Minya', nameAr: 'المنيا' },
-  { id: 'asyut', name: 'Asyut', nameAr: 'أسيوط' },
-  { id: 'sohag', name: 'Sohag', nameAr: 'سوهاج' },
-  { id: 'qena', name: 'Qena', nameAr: 'قنا' },
-  { id: 'luxor', name: 'Luxor', nameAr: 'الأقصر' },
-  { id: 'aswan', name: 'Aswan', nameAr: 'أسوان' },
-  { id: 'red_sea', name: 'Red Sea', nameAr: 'البحر الأحمر' },
-  { id: 'new_valley', name: 'New Valley', nameAr: 'الوادي الجديد' }
-]
-
 export default function CartPage() {
   const {
     items,
@@ -89,30 +79,8 @@ export default function CartPage() {
   const navigate = useNavigate()
 
   // ============ CURRENCY CONFIGURATION ============
-  const currencyConfig = useMemo(() => {
-    if (currency === 'USD') {
-      return {
-        symbol: '$',
-        code: 'USD',
-        collection: 'products_dollar',
-        orderCollection: 'orders_dollar',
-        shippingZones: {
-          usa: { name: t('usa') || 'USA', baseCost: 15 },
-          canada: { name: t('canada') || 'Canada', baseCost: 25 },
-          europe: { name: t('europe') || 'Europe', baseCost: 35 },
-          other: { name: t('restOfWorld') || 'Rest of World', baseCost: 50 }
-        },
-        freeShippingThreshold: 150
-      }
-    }
-    return {
-      symbol: 'EGP',
-      code: 'EGP',
-      collection: 'products_egp',
-      orderCollection: 'orders_egp',
-      freeShippingThreshold: 800
-    }
-  }, [currency, t])
+  // Single EGP store - the config lives in config/currency.js.
+  const currencyConfig = getCurrencyConfig()
 
   // ============ MAIN STATES ============
   const [isProcessing, setIsProcessing] = useState(false)
@@ -209,7 +177,7 @@ export default function CartPage() {
             return
           }
           
-          const couponsRef = collection(db, 'egp_coupons')
+          const couponsRef = collection(db, COLLECTIONS.coupons)
           const q = query(couponsRef, where('code', '==', couponData.code), where('isActive', '==', true))
           const snapshot = await getDocs(q)
           
@@ -254,7 +222,7 @@ export default function CartPage() {
       
       setLoadingGovernorates(true)
       try {
-        const costsRef = collection(db, 'egp_governorate_costs')
+        const costsRef = collection(db, COLLECTIONS.governorateCosts)
         const snapshot = await getDocs(costsRef)
         const costs = {}
         snapshot.docs.forEach(doc => {
@@ -263,11 +231,7 @@ export default function CartPage() {
         setGovernorateCosts(costs)
       } catch (error) {
         console.error('Error loading governorate costs:', error)
-        const fallbackCosts = {}
-        EGYPT_GOVERNORATES.forEach(gov => {
-          fallbackCosts[gov.id] = 50
-        })
-        setGovernorateCosts(fallbackCosts)
+setGovernorateCosts(defaultGovernorateCosts())
       } finally {
         setLoadingGovernorates(false)
       }
@@ -276,38 +240,20 @@ export default function CartPage() {
     loadGovernorateCosts()
   }, [currency])
 
-  // ============ FIXED: Calculate shipping based on governorate ============
-  const calculateShipping = useCallback(() => {
-    if (currency === 'USD') {
-      const zone = currencyConfig.shippingZones.other
-      const cost = totalPrice >= currencyConfig.freeShippingThreshold ? 0 : zone.baseCost
-      return {
-        cost,
-        zone: zone.name,
-        isFree: cost === 0
-      }
-    }
-
-    if (!selectedGovernorate) {
-      return { cost: 0, zone: t('selectGovernorate') || 'Select Governorate', isFree: false }
-    }
-
-    const governorateCost = governorateCosts[selectedGovernorate] || 50
-    const isFree = totalPrice >= currencyConfig.freeShippingThreshold
-    const cost = isFree ? 0 : governorateCost
-    
-    const govName = lang === 'ar' 
-      ? (EGYPT_GOVERNORATES.find(g => g.id === selectedGovernorate)?.nameAr || selectedGovernorate)
-      : (EGYPT_GOVERNORATES.find(g => g.id === selectedGovernorate)?.name || selectedGovernorate)
-
-    return {
-      cost,
-      zone: govName,
-      isFree
-    }
-  }, [currency, selectedGovernorate, governorateCosts, totalPrice, currencyConfig, t, lang])
-
-  const shippingDetails = calculateShipping()
+// ============ FIXED: Calculate shipping based on governorate ============
+  const shippingDetails = useMemo(
+    () =>
+      computeShipping({
+        currency,
+        currencyConfig,
+        totalPrice,
+        selectedGovernorate,
+        governorateCosts,
+        lang,
+        t
+      }),
+    [currency, currencyConfig, totalPrice, selectedGovernorate, governorateCosts, lang, t]
+  )
 
   // ============ SCROLL ANIMATIONS ============
   useEffect(() => {
@@ -330,10 +276,7 @@ export default function CartPage() {
     setMapLoading(true)
     if (!navigator.geolocation) {
       setMapError(true)
-      setMapCenter(currency === 'USD' 
-        ? { lat: 40.7128, lng: -74.0060 }
-        : { lat: 30.0444, lng: 31.2357 }
-      )
+      setMapCenter({ lat: 30.0444, lng: 31.2357 })
       setMapLoading(false)
       return
     }
@@ -353,10 +296,7 @@ export default function CartPage() {
       (error) => {
         console.warn('Geolocation error:', error)
         setMapError(true)
-        setMapCenter(currency === 'USD' 
-          ? { lat: 40.7128, lng: -74.0060 }
-          : { lat: 30.0444, lng: 31.2357 }
-        )
+setMapCenter({ lat: 30.0444, lng: 31.2357 })
         setMapLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -370,7 +310,7 @@ export default function CartPage() {
       
       setLoadingMinOrder(true)
       try {
-        const settingsRef = doc(db, 'egp_settings', 'general')
+        const settingsRef = doc(db, COLLECTIONS.settings, 'general')
         const settingsSnap = await getDoc(settingsRef)
         const minAmount = settingsSnap.exists() ? settingsSnap.data().minimumOrderAmount || 0 : 0
         setMinimumOrderAmount(minAmount)
@@ -470,34 +410,12 @@ export default function CartPage() {
     }
   }
 
-  // ============ FORM VALIDATION ============
+// ============ FORM VALIDATION ============
   const validateForm = useCallback(() => {
-    const errors = {}
-    const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-    if (!formData.name.trim()) errors.name = t('nameRequired')
-    if (!formData.phone.trim() || !phoneRegex.test(formData.phone)) {
-      errors.phone = t('validPhoneRequired')
-    }
-    if (!formData.email?.trim() || !emailRegex.test(formData.email)) {
-      errors.email = t('validEmailRequired') || 'Valid email required'
-    }
-    if (!formData.address.trim() || formData.address.trim().length < 10) {
-      errors.address = t('addressTooShort') || 'Address must be at least 10 characters'
-    }
-    
-    if (currency === 'EGP' && !formData.governorate) {
-      errors.governorate = t('selectGovernorate') || 'Please select your governorate'
-    }
-    
-    if (!formData.latitude || !formData.longitude) {
-      errors.location = t('locationRequired')
-    }
-
+    const { errors, isValid } = validateDeliveryForm(formData, { t })
     setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }, [formData, t, currency])
+    return isValid
+  }, [formData, t])
 
   const handleSaveDelivery = (e) => {
     e.preventDefault()
@@ -513,9 +431,8 @@ export default function CartPage() {
     
     setIsSearching(true)
     try {
-      const countryCodes = currency === 'USD' ? '' : '&countrycodes=eg'
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}${countryCodes}&limit=5`
+const response = await fetch(
+           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=eg&limit=5`
       )
       const data = await response.json()
       setSearchResults(data.map(item => ({
@@ -529,7 +446,7 @@ export default function CartPage() {
     } finally {
       setIsSearching(false)
     }
-  }, [searchQuery, currency])
+  }, [searchQuery])
 
   const handleSelectResult = (result) => {
     const newLocation = { lat: result.lat, lng: result.lon }
@@ -557,9 +474,7 @@ export default function CartPage() {
         markerRef.current = null
       }
       
-      const initialCenter = mapEditorCenter || (currency === 'USD' 
-        ? { lat: 40.7128, lng: -74.0060 }
-        : { lat: 30.0444, lng: 31.2357 })
+const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
       
       mapRef.current = L.map(mapContainerRef.current).setView(
         [initialCenter.lat, initialCenter.lng],
@@ -615,9 +530,7 @@ export default function CartPage() {
     
     const initialCenter = deliveryInfo?.latitude 
       ? { lat: deliveryInfo.latitude, lng: deliveryInfo.longitude }
-      : mapCenter || (currency === 'USD' 
-        ? { lat: 40.7128, lng: -74.0060 }
-        : { lat: 30.0444, lng: 31.2357 })
+: mapCenter || { lat: 30.0444, lng: 31.2357 }
       
     setMapEditorCenter(initialCenter)
     setTempLocation(initialCenter)
@@ -626,7 +539,7 @@ export default function CartPage() {
     setShowMapEditor(true)
     
     document.body.style.overflow = 'hidden'
-  }, [deliveryInfo, mapCenter, currency])
+  }, [deliveryInfo, mapCenter])
 
   const handleCloseMapEditor = useCallback(() => {
     setShowMapEditor(false)
@@ -655,8 +568,8 @@ export default function CartPage() {
   const [couponError, setCouponError] = useState(null)
 
   const handleApplyCoupon = useCallback(async () => {
-    const rawInput = couponInput.trim()
-    if (!rawInput) return
+const rawInput = normalizeCouponCode(couponInput)
+      if (!rawInput) return
     
     console.log('🔍 Attempting to apply coupon:', rawInput)
     
@@ -664,7 +577,7 @@ export default function CartPage() {
     setCouponError(null)
     
     try {
-      const couponsRef = collection(db, 'egp_coupons')
+      const couponsRef = collection(db, COLLECTIONS.coupons)
       
       let q = query(
         couponsRef, 
@@ -696,17 +609,12 @@ export default function CartPage() {
       if (snapshot.empty) {
         console.log('❌ Lowercase failed, trying case-insensitive...')
         q = query(couponsRef, where('isActive', '==', true))
-        const allCoupons = await getDocs(q)
-        const matchingDoc = allCoupons.docs.find(doc => {
-          const code = doc.data().code
-          const match = code.toLowerCase() === rawInput.toLowerCase()
-          console.log(`Comparing: "${code}" vs "${rawInput}" -> ${match}`)
-          return match
-        })
-        
-        if (matchingDoc) {
-          snapshot = { docs: [matchingDoc], empty: false }
-        }
+const allCoupons = await getDocs(q)
+          const matchingDoc = findCaseInsensitiveMatch(allCoupons.docs, rawInput)
+
+          if (matchingDoc) {
+            snapshot = { docs: [matchingDoc], empty: false }
+          }
       }
       
       console.log('📊 Final snapshot:', {
@@ -726,40 +634,25 @@ export default function CartPage() {
       
       console.log('✅ Found coupon:', couponData)
       
-      const now = new Date()
-      const expiresAt = couponData.expiresAt?.toDate?.() || new Date(couponData.expiresAt)
-      
-      if (expiresAt < now) {
-        console.log('⏰ Coupon expired:', expiresAt)
-        setCouponError(t('couponExpired') || 'Coupon expired')
-        setCouponLoading(false)
-        return
-      }
-      
-      if (couponData.usedCount >= couponData.maxUses) {
-        console.log('🚫 Usage limit reached:', couponData.usedCount, '/', couponData.maxUses)
-        setCouponError(t('couponExhausted') || 'Coupon fully used')
-        setCouponLoading(false)
-        return
-      }
-      
-      if (couponData.currency && couponData.currency !== 'EGP') {
-        setCouponError(t('couponCurrencyMismatch') || `Coupon valid only for ${couponData.currency}`)
-        setCouponLoading(false)
-        return
-      }
-      
-      const couponToApply = {
-        id: couponDoc.id,
-        code: couponData.code,
-        amount: couponData.amount,
-        currency: couponData.currency || 'EGP',
-        label: `${currencyConfig.symbol} ${couponData.amount} ${t('off') || 'off'}`
-      }
-      
-      setAppliedCoupon(couponToApply)
-      contextSetAppliedCoupon(couponToApply)
-      setCouponInput(couponData.code)
+const now = new Date()
+
+  const rejection = assertCouponUsable(couponData, { now })
+        if (rejection) {
+          setCouponError(t(rejection.key) || rejection.fallback)
+          setCouponLoading(false)
+          return
+        }
+
+        const couponToApply = buildAppliedCoupon({
+          id: couponDoc.id,
+          couponData,
+          symbol: currencyConfig.symbol,
+          t
+        })
+
+        setAppliedCoupon(couponToApply)
+        contextSetAppliedCoupon(couponToApply)
+        setCouponInput(couponData.code)
       
       console.log('🎉 Coupon applied successfully:', couponToApply)
       
@@ -771,10 +664,11 @@ export default function CartPage() {
     }
   }, [couponInput, currencyConfig.symbol, t, appliedCoupon, contextSetAppliedCoupon])
 
-  const discountAmount = appliedCoupon ? appliedCoupon.amount : 0
-  const subtotal = Math.max(0, totalPrice - discountAmount)
-  const shippingCost = shippingDetails.cost
-  const finalPrice = subtotal + shippingCost
+  const { discountAmount, shippingCost, finalPrice } = computeTotals({
+    totalPrice,
+    couponAmount: appliedCoupon ? appliedCoupon.amount : 0,
+    shippingCost: shippingDetails.cost
+  })
 
   // ============ FIXED: Checkout with proper error handling ============
   const handleCheckout = useCallback(async () => {
@@ -827,7 +721,7 @@ export default function CartPage() {
         let couponRef = null
         
         if (appliedCoupon) {
-          couponRef = doc(db, 'egp_coupons', appliedCoupon.id)
+          couponRef = doc(db, COLLECTIONS.coupons, appliedCoupon.id)
           const couponSnap = await transaction.get(couponRef)
           
           if (!couponSnap.exists()) {
@@ -855,8 +749,8 @@ export default function CartPage() {
           shippingCost: calculatedShipping,
           totalItems: items.reduce((sum, item) => sum + (item.quantity || 1), 0),
           currency: currencyConfig.code,
-          paymentMethod: paymentMethod === 'cod' ? t('cashOnDelivery') : t('cardPayment'),
-          paymentStatus: paymentMethod === 'cod' ? 'pending' : 'awaiting_payment',
+paymentMethod: paymentMethodLabelFor(paymentMethod, t),
+            paymentStatus: paymentStatusFor(paymentMethod),
           status: 'pending',
           customerName: deliveryInfo.name,
           customerPhone: deliveryInfo.phone,
@@ -884,7 +778,7 @@ export default function CartPage() {
         const currencyOrderRef = doc(collection(db, currencyConfig.orderCollection))
         transaction.set(currencyOrderRef, orderData)
 
-        const mobileOrderRef = doc(db, 'mobile_orders', orderId)
+        const mobileOrderRef = doc(db, COLLECTIONS.mobileOrders, orderId)
         transaction.set(mobileOrderRef, {
           ...orderData,
           webOrderRef: currencyOrderRef.id,
@@ -924,9 +818,9 @@ export default function CartPage() {
             discount: discountAmount,
             shippingCost: calculatedShipping,
             currency: currencyConfig.code,
-            paymentMethod: paymentMethod === 'cod' ? t('cashOnDelivery') : t('cardPayment'),
+            paymentMethod: paymentMethodLabelFor(paymentMethod, t),
             status: 'pending',
-            paymentStatus: paymentMethod === 'cod' ? 'pending' : 'awaiting_payment',
+            paymentStatus: paymentStatusFor(paymentMethod),
             items: items.map(item => ({
               id: item.id,
               name: item.name,
@@ -1004,48 +898,10 @@ export default function CartPage() {
     }
   }, [productDetails, updateQuantity, removeFromCart, t])
 
-  // ============ COLOR SCHEME ============
-  const colors = useMemo(() => ({
-    light: {
-      primary: '#2C1810',
-      secondary: '#D4A574',
-      accent: '#E8B4A0',
-      background: '#FAFAF8',
-      surface: '#FFFFFF',
-      card: '#FCFBF9',
-      textDark: '#1A1410',
-      textMuted: '#8B7D73',
-      success: '#6B9E5F',
-      danger: '#C84B31',
-      warning: '#E8A840',
-      border: '#E8DDD4',
-      overlay: 'rgba(44, 24, 16, 0.05)'
-    },
-    dark: {
-      primary: '#E8B4A0',
-      secondary: '#D4A574',
-      accent: '#C49080',
-      background: '#0F0E0C',
-      surface: '#1A1410',
-      card: '#2C1810',
-      textDark: '#F5F3F0',
-      textMuted: '#A8968B',
-      success: '#8FC178',
-      danger: '#E67052',
-      warning: '#F0B956',
-      border: '#3E2723',
-      overlay: 'rgba(232, 180, 160, 0.05)'
-    }
-  }), [])
+// ============ COLOR SCHEME ============
+  const c = getColors(theme)
 
-  const c = colors[theme] || colors.light
-
-  const formatPrice = useCallback((price) => {
-    if (currencyConfig.code === 'USD') {
-      return `$${price.toFixed(2)}`
-    }
-    return `${price.toFixed(2)} EGP`
-  }, [currencyConfig.code])
+  const formatPrice = useCallback((price) => formatPriceFor(price), [])
 
   // ============ MAP EDITOR MODAL COMPONENT ============
   const MapEditorModal = () => {
@@ -1145,9 +1001,7 @@ export default function CartPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder={currency === 'USD' 
-                ? (t('searchAreaStreet') || "Search for area, street, or landmark...")
-                : (t('searchAreaStreetEgypt') || "Search for area, street, or landmark in Egypt...")}
+placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmark in Egypt...")}
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -1612,7 +1466,7 @@ export default function CartPage() {
           fontSize: '0.9rem',
           color: c.textMuted
         }}>
-          <span>{currency === 'USD' ? '💵' : '🇪🇬'}</span>
+          <span>{'🇪🇬'}</span>
           <span>{t('shoppingIn') || 'Shopping in'} {currencyConfig.code}</span>
         </div>
         <button
@@ -1706,7 +1560,7 @@ export default function CartPage() {
               fontWeight: '700',
               color: c.secondary
             }}>
-              <span>{currency === 'USD' ? '💵' : '🇪🇬'}</span>
+              <span>{'🇪🇬'}</span>
               <span>{currencyConfig.code}</span>
             </div>
 
@@ -2191,7 +2045,7 @@ export default function CartPage() {
                       type="tel"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      placeholder={currency === 'USD' ? '+1 (555) 123-4567' : '+20 123 456 7890'}
+                      placeholder={'+20 123 456 7890'}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -2370,7 +2224,7 @@ export default function CartPage() {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      placeholder={currency === 'USD' ? t('enterCityExample') || "Enter city (e.g., New York)" : t('enterCityAreaExample') || "Enter city or area (e.g., Nasr City)"}
+                      placeholder={t('enterCityAreaExample') || "Enter city or area (e.g., Nasr City)"}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -2902,7 +2756,7 @@ export default function CartPage() {
                   overflow: 'hidden'
                 }}>
                   <div style={{
-                    width: `${Math.min((totalPrice / currencyConfig.freeShippingThreshold) * 100, 100)}%`,
+                    width: `${freeShippingProgress({ totalPrice, threshold: currencyConfig.freeShippingThreshold })}%`,
                     background: c.secondary,
                     height: '100%',
                     transition: 'width 0.5s cubic-bezier(0.23, 1, 0.320, 1)'
@@ -2917,7 +2771,15 @@ export default function CartPage() {
                   marginBottom: '1.25rem',
                   animation: 'fadeInUp 0.6s ease-out'
                 }}>
-                  {t('addMoreForFreeShipping', { amount: formatPrice(currencyConfig.freeShippingThreshold - totalPrice) }) || `Add ${formatPrice(currencyConfig.freeShippingThreshold - totalPrice)} more for free shipping!`}
+                  {(() => {
+                    const remaining = formatPrice(
+                      amountToFreeShipping({ totalPrice, threshold: currencyConfig.freeShippingThreshold })
+                    )
+                    return (
+                      t('addMoreForFreeShipping', { amount: remaining }) ||
+                      `Add ${remaining} more for free shipping!`
+                    )
+                  })()}
                 </p>
               )}
 

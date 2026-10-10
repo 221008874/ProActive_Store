@@ -93,9 +93,9 @@ function dateShortEN(d) {
   })
 }
 
-function formatCurrency(amount, currency = 'EGP') {
+function formatCurrency(amount) {
   const num = parseFloat(amount) || 0
-  const symbol = currency === 'USD' ? '$' : 'EGP'
+  const symbol = 'EGP'
   return `${symbol} ${num.toFixed(2)}`
 }
 

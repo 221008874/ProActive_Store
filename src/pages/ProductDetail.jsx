@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext'
 import { useTheme } from '../context/ThemeContext'
 import { useLocation } from '../context/LocationContext'
 import { db } from '../services/firebase'
+import { productsCollection } from '../config'
 import { doc, getDoc } from 'firebase/firestore'
 
 export default function ProductDetail() {
@@ -77,7 +78,7 @@ export default function ProductDetail() {
     const fetchProduct = async () => {
       try {
         // Use currency-specific collection
-        const collectionName = currency === 'USD' ? 'products_dollar' : 'products_egp'
+        const collectionName = productsCollection(currency)
         const docRef = doc(db, collectionName, id)
 
         const docSnap = await getDoc(docRef)
@@ -110,7 +111,7 @@ export default function ProductDetail() {
   const reviews = product?.reviews || 245
 
   // Get currency symbol for display
-  const getCurrencySymbol = () => currency === 'USD' ? '$' : 'EGP'
+  const getCurrencySymbol = () => 'EGP'
 
   if (!product) {
     return (
@@ -550,16 +551,6 @@ export default function ProductDetail() {
                 }}>
                   {getCurrencySymbol()} {product.price.toFixed(2)}
                 </p>
-                {currency === 'USD' && product.originalPriceUSD && (
-                  <p style={{
-                    fontSize: '0.85rem',
-                    color: c.textLight,
-                    margin: '4px 0 0 0',
-                    textDecoration: 'line-through'
-                  }}>
-                    Was ${product.originalPriceUSD.toFixed(2)}
-                  </p>
-                )}
               </div>
             </div>
 

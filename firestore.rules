@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// Firestore security rules for the ProActive project (mina-terek-samir-shein).
+//
+// Both apps share ONE Firestore database:
+//   - ProActive_Store  (public storefront, NO Firebase Auth)
+//   - ProActive_Admin  (internal back-office, Firebase Auth required)
+//
+// These rules encode that split. The storefront is deliberately anonymous for
+// browsing and checkout; anything containing customer data or money is
+// admin-only.
+//
+// REVIEW BEFORE DEPLOYING. The rules that previously lived only in the Firebase
+// console are not recoverable from git, so compare against the console before
+// running:  firebase deploy --only firestore:rules --project mina-terek-samir-shein
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // An admin is any signed-in Firebase Auth user. If the app later grows
+    // per-user roles, this is the single place to tighten.
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ---------------------------------------------------------------------
+    // Catalogue: public read, admin write.
+    // ---------------------------------------------------------------------
+    match /products_egp/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // Orders: storefront creates, admin reads and confirms.
+    //
+    // `get` is public because the payment-success page fetches the single
+    // order it just created (Firestore auto-ids, so these are not guessable).
+    // `list` stays admin-only, otherwise anyone could page through every
+    // customer's name, phone, email and address.
+    // ---------------------------------------------------------------------
+    match /orders_egp/{orderId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Mirror written for the companion mobile app. No public read: it holds
+    // customer contact details and must not be browsable from the storefront.
+    match /mobile_orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // Public reference data: read by the storefront, written by Operations.
+    // ---------------------------------------------------------------------
+    match /egp_coupons/{couponId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /egp_governorate_costs/{governorateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /egp_settings/{documentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // Admin-only: confirmed/handed-over orders. Never exposed to the storefront.
+    // ---------------------------------------------------------------------
+    match /confirmedPayments_egp/{paymentId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Default deny for anything not listed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
 import { db } from '../services/firebase'
+import { COLLECTIONS } from '../config'
 import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore'
 
 export default function PaymentSuccess() {
@@ -25,15 +26,14 @@ export default function PaymentSuccess() {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId')
         const pendingFirestoreId = sessionStorage.getItem('pendingFirestoreId')
         const pendingMobileOrderId = sessionStorage.getItem('pendingMobileOrderId')
-        const pendingCurrency = sessionStorage.getItem('pendingCurrency') || 'EGP'
-        
+
         if (!pendingOrderId || !pendingFirestoreId) {
           setError('No pending order found')
           setLoading(false)
           return
         }
 
-        const orderCollection = pendingCurrency === 'USD' ? 'orders_usd' : 'orders_egp'
+        const orderCollection = 'orders_egp'
         
         const batch = writeBatch(db)
         
@@ -47,7 +47,7 @@ export default function PaymentSuccess() {
         })
 
         if (pendingMobileOrderId) {
-          const mobileOrderRef = doc(db, 'mobile_orders', pendingOrderId)
+          const mobileOrderRef = doc(db, COLLECTIONS.mobileOrders, pendingOrderId)
           batch.update(mobileOrderRef, {
             paymentStatus: 'paid',
             status: 'confirmed',
@@ -95,8 +95,7 @@ export default function PaymentSuccess() {
 
   const c = theme === 'light' ? colors.light : colors.dark
 
-  const formatPrice = (price, currency) => {
-    if (currency === 'USD') return `$${price?.toFixed(2)}`
+  const formatPrice = (price) => {
     return `${price?.toFixed(2)} EGP`
   }
 

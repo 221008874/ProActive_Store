@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../services/firebase'
+import { COLLECTIONS } from '../config'
 import { 
   collection, 
   query, 
@@ -13,13 +14,11 @@ import {
 } from 'firebase/firestore'
 import { useTheme } from '../context/ThemeContext'
 import { useCart } from '../context/CartContext'
-import { useLocation } from '../context/LocationContext'
 
 export default function CouponLanding() {
   const { code } = useParams()
   const navigate = useNavigate()
   const { theme } = useTheme()
-  const { currency } = useLocation()
   const { items, totalPrice, setAppliedCoupon } = useCart()
   
   const [coupon, setCoupon] = useState(null)
@@ -72,7 +71,7 @@ export default function CouponLanding() {
         }
 
         // Query with BOTH filters to minimize data exposure
-        const couponsRef = collection(db, 'egp_coupons')
+        const couponsRef = collection(db, COLLECTIONS.coupons)
         const q = query(
           couponsRef, 
           where('code', '==', code.toUpperCase()),
