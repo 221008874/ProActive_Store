@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Louable - Premium Chocolates & Confectionery. Fresh, handcrafted chocolates delivered to your door." />
+  <meta name="theme-color" content="#2C1810" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Louable" />
+  
+  <!-- Open Graph for social sharing -->
+  <meta property="og:title" content="Louable - Premium Chocolates" />
+  <meta property="og:description" content="Fresh, handcrafted chocolates delivered to your door." />
+  <meta property="og:type" content="website" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  
+  <!-- Preconnect to external resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <title>Louable - Premium Chocolates</title>
+   <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+  <!-- Global styles for better performance -->
+  <style>
+    :root {
+      --color-primary: #2C1810;
+      --color-secondary: #D4A574;
+      --color-accent: #E8B4A0;
+      --color-background: #FAFAF8;
+      --color-surface: #FFFFFF;
+      --color-text-dark: #1A1410;
+      --color-text-muted: #8B7D73;
+      --color-success: #6B9E5F;
+      --color-danger: #C84B31;
+      --color-warning: #E8A840;
+      --color-border: #E8DDD4;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--color-text-dark);
+      background: var(--color-background);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    #root {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Prevent layout shift on scroll */
+    html {
+      scroll-behavior: smooth;
+      scrollbar-gutter: stable;
+    }
+
+    /* Better touch targets for mobile */
+    button, a, input[type="button"], input[type="submit"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Image optimization */
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Input field styles */
+    input, textarea, select {
+      font-family: inherit;
+      font-size: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* Loading skeleton */
+    .skeleton {
+      animation: skeleton-loading 1s linear infinite alternate;
+    }
+
+    @keyframes skeleton-loading {
+      0% {
+        background-color: var(--color-border);
+      }
+      100% {
+        background-color: var(--color-surface);
+      }
+    }
+
+    /* Accessibility improvements */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* Focus visible for keyboard navigation */
+    *:focus-visible {
+      outline: 3px solid var(--color-secondary);
+      outline-offset: 2px;
+    }
+
+    /* Print styles */
+    @media print {
+      body {
+        background: white;
+      }
+      
+      button, .no-print {
+        display: none !important;
+      }
+    }
+
+    /* Responsive images in containers */
+    @media (max-width: 480px) {
+      html, body {
+        font-size: 14px;
+      }
+    }
+
+    /* Dark mode support (optional) */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background: #0F0E0C;
+        --color-surface: #1A1410;
+        --color-text-dark: #F5F3F0;
+        --color-text-muted: #A8968B;
+      }
+    }
+  </style>
+
+  <!-- Loading state for better perceived performance -->
+  <script>
+    // Prevent FOUC (Flash of Unstyled Content)
+    document.documentElement.style.opacity = '1';
+    
+    // Check if JavaScript is enabled
+    if (!window.globalThis) {
+      window.globalThis = window;
+    }
+
+    // Performance monitoring
+    if ('PerformanceObserver' in window) {
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.duration > 3000) {
+              console.warn('Long task detected:', entry.name, entry.duration);
+            }
+          }
+        });
+        observer.observe({ entryTypes: ['longtask'] });
+      } catch (e) {
+        // PerformanceObserver not supported
+      }
+    }
+
+    // Detect if app is running on mobile for analytics (optional)
+    window.isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  </script>
+</head>
+<body>
+  <!-- No-JavaScript fallback -->
+  <noscript>
+    <div style="
+      padding: 20px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      margin: 20px;
+      font-family: sans-serif;
+    ">
+      <h2 style="margin-top: 0;">JavaScript Required</h2>
+      <p>This application requires JavaScript to be enabled. Please enable JavaScript in your browser settings to continue.</p>
+    </div>
+  </noscript>
+
+  <!-- Root element for React -->
+  <div id="root"></div>
+
+  <!-- Main app script -->
+  <script type="module" src="/src/main.jsx"></script>
+
+  <!-- Service Worker for offline support (optional) -->
+  <script>
+    if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.info('Service Worker registration failed:', err);
+      });
+    }
+  </script>
+</body>
+</html>

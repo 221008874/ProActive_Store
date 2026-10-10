@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pi Test</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script>
+    Pi.init({ version: "2.0", sandbox: true });
+    
+    async function testAuth() {
+      try {
+        const auth = await Pi.authenticate(['payments'], (p) => p);
+        console.log('SUCCESS:', auth);
+        document.getElementById('result').innerText = 'Auth OK: ' + auth.user.username;
+      } catch (e) {
+        console.error('FAILED:', e);
+        document.getElementById('result').innerText = 'Error: ' + e.message;
+      }
+    }
+  </script>
+</head>
+<body>
+  <h1>Pi SDK Test</h1>
+  <button onclick="testAuth()">Test Authentication</button>
+  <p id="result">Click button to test...</p>
+</body>
+</html>
