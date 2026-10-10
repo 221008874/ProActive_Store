@@ -24,8 +24,8 @@ export default function StoreFooter() {
 
   const socials = [
     { icon: facebookIcon, name: 'Facebook', href: 'https://www.facebook.com/profile.php?id=61584722189527&mibextid=ZbWKwL' },
-    { icon: instagramIcon, name: 'Instagram', href: 'https://instagram.com/louable' },
-    { icon: twitterIcon, name: 'Twitter', href: 'https://twitter.com/louable' },
+    { icon: instagramIcon, name: 'Instagram', href: 'https://instagram.com/proactivestore' },
+    { icon: twitterIcon, name: 'Twitter', href: 'https://twitter.com/proactivestore' },
     { icon: whatsappIcon, name: 'WhatsApp', href: 'https://wa.me/201234567890' }
   ]
 
@@ -34,7 +34,7 @@ export default function StoreFooter() {
     : (ar ? 'قطع مختارة بعناية، تصلك إلى بابك.' : 'Carefully chosen pieces, delivered to your door.')
 
   const phone = t('phoneNumber') !== 'phoneNumber' ? t('phoneNumber') : (ar ? 'تواصل معنا' : 'Contact us')
-  const email = env('louablefactory@gmail.com', '')
+  const email = env('proactive.store.eg@gmail.com', '')
   const year = new Date().getFullYear()
   const rights = t('allRightsReserved') !== 'allRightsReserved' ? t('allRightsReserved') : (ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.')
   const brand = t('ProActive Store') !== 'ProActive Store' ? t('ProActive Store') : 'ProActive'

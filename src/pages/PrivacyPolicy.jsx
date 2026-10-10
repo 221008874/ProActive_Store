@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
     {
       key: 'contactUs',
       title: L('contactUs', 'Contact Us', 'تواصل معانا'),
-      body: L('contactPrivacyText', 'For any questions about this Privacy Policy, please email us at: louablefactory@gmail.com', 'لو عندك أي أسئلة عن سياسة الخصوصية، ابعتلنا على: louablefactory@gmail.com')
+      body: L('contactPrivacyText', 'For any questions about this Privacy Policy, please email us at: proactive.store.eg@gmail.com', 'لو عندك أي أسئلة عن سياسة الخصوصية، ابعتلنا على: proactive.store.eg@gmail.com')
     }
   ]
 

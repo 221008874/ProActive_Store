@@ -72,7 +72,7 @@ export default function Splash() {
         <h1 className="pa-hero__title">ProActive Store</h1>
 
         <p className="pa-hero__eyebrow" style={{ margin: 0, letterSpacing: 'normal', fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>
-          {L('premiumChocolateExperience', 'Your Premium Chocolate Experience', 'تجربة الشوكولاتة الفاخرة')}
+          {L('styleDelivered', 'Style, delivered to your door', 'ستايلات مختارة بعناية، بتوصل لبابك.')}
         </p>
 
         {country && (

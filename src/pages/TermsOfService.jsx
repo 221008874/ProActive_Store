@@ -35,7 +35,7 @@ export default function TermsOfService() {
     {
       n: 3,
       title: L('productInfo', 'Product Information', 'معلومات المنتجات'),
-      body: L(null, 'We strive to provide accurate descriptions and pricing for all our chocolate products. However, ProActive Store does not warrant that product descriptions, pricing, or other content of any ProActive Store web page is accurate, complete, reliable, current, or error-free. If a product offered by ProActive Store is not as described, your sole remedy is to return it in unused condition.', 'بنسعى نقدم أوصاف وأسعار دقيقة لكل منتجات الشوكولاتة. لكن برو أكتيف ستور مش بتضمن دقة أو اكتمال أو موثوقية أو خلو من الأخطاء لأي محتوى في الموقع. لو المنتج مش كما هو موصوف، الحل الوحيد هو إرجاعه في حالة عدم الاستخدام.')
+      body: L(null, 'We strive to provide accurate descriptions and pricing for all our products. However, ProActive Store does not warrant that product descriptions, pricing, or other content of any ProActive Store web page is accurate, complete, reliable, current, or error-free. If a product offered by ProActive Store is not as described, your sole remedy is to return it in unused condition.', 'بنسعى نقدم أوصاف وأسعار دقيقة لكل منتجاتنا. لكن برو أكتيف ستور مش بتضمن دقة أو اكتمال أو موثوقية أو خلو من الأخطاء لأي محتوى في الموقع. لو المنتج مش كما هو موصوف، الحل الوحيد هو إرجاعه في حالة عدم الاستخدام.')
     },
     {
       n: 4,
@@ -100,7 +100,7 @@ export default function TermsOfService() {
               <p className="pa-subtitle" style={{ margin: 0, lineHeight: 1.8 }}>{section.body}</p>
               {section.contact && (
                 <div className="pa-callout" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                  <span>📧 <b>{L('email', 'Email', 'البريد الإلكتروني')}:</b> <bdi>louablefactory@gmail.com</bdi></span>
+                  <span>📧 <b>{L('email', 'Email', 'البريد الإلكتروني')}:</b> <bdi>proactive.store.eg@gmail.com</bdi></span>
                   <span>📱 <b>{L('phoneNumber', 'Phone', 'الهاتف')}:</b> <bdi>+20 123 456 7890</bdi></span>
                   <span>📍 <b>{L('address', 'Address', 'العنوان')}:</b> {L(null, 'Luxor, Egypt', 'الأقصر، مصر')}</span>
                 </div>
@@ -109,7 +109,7 @@ export default function TermsOfService() {
           ))}
 
           <div className="pa-callout" style={{ textAlign: 'center', fontStyle: 'italic' }}>
-            {L(null, 'Thank you for choosing ProActive Store - Premium Chocolate Experience', 'شكراً لاختيارك برو أكتيف ستور - تجربة الشوكولاتة الفاذرة')}
+            {L(null, 'Thank you for choosing ProActive Store - Fresh Style, Delivered', 'تجربة أني؂ة')}
           </div>
         </div>
       </div>

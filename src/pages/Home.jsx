@@ -96,7 +96,7 @@ export default function Home() {
   if (loading) {
     return (
       <div className="pa-container" style={{ paddingBlock: 48, minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
-        <p className="pa-subtitle" role="status">{L('loadingPremiumChocolates', 'Loading…', 'جاري التحميل…')}</p>
+        <p className="pa-subtitle" role="status">{L('loadingProducts', 'Loading…', 'جاري التحميل…')}</p>
       </div>
     )
   }

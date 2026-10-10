@@ -28,25 +28,17 @@ const translations = {
     loading: 'جاري التحميل...',
 
     // Hero & Home
-    featuredProducts: 'المنتجات المميزة',
-    discoverPremium: 'اكتشف تشكيلتنا الفاخرة من الشوكولاتة ✨',
+    featuredProducts: 'منتجات مميزة',
     ourCollection: 'تشكيلتنا',
     noProductsAvailable: 'مفيش منتجات لسه',
-    checkBackSoon: 'ارجع تاني قريب إن شاء الله!',
-    loadingPremiumChocolates: 'جاري تحميل الشوكولاتة الفاخرة...',
+    loadingProducts: 'جاري تحميل المنتجات...',
 
     // Product Details
-    piecesPerBox: 'عدد القطع في العلبة',
-    pieces: 'قطعة',
-    flavors: 'النكهات',
-    flavorsAvailable: 'نكهات متاحة',
-    selectFlavor: 'اختر النكهة',
     description: 'الوصف',
     price: 'السعر',
     quantity: 'الكمية',
     addToCart: 'حط في العربية',
     addedToCart: 'تم الإضافة للعربية',
-    premiumQuality: 'جودة ممتازة',
     loadingProductDetails: 'جاري تحميل تفاصيل المنتج...',
     productImage: 'صورة المنتج',
     review: 'تقييم',
@@ -113,21 +105,20 @@ const translations = {
     // About Us
     aboutUsTitle: 'عنّا',
     ourMission: 'مهمتنا',
-    missionDescription: 'في لوابل، بنقدم أحلى أنواع الشوكولاتة الفاخرة المصنوعة يدوياً من أجود مكونات الكاكاو. بنجمع بين التقاليد القديمة والابتكار الحديث عشان نخلق تجارب ماتتنساش.',
+    missionDescription: 'في برو أكتيف ستور، بنختار قطع تستاهل مكان في دولابك — أسعار واضحة، جودة حقيقية، وتوصيل لكل مصر.',
     ourVision: 'رؤيتنا',
-    visionDescription: 'نوصل لكل بيت في مصر والشرق الأوسط، ونبقى العلامة التجارية الأولى للشوكولاتة الفاخرة، مع الحفاظ على أعلى معايير الجودة والاستدامة.',
+    visionDescription: 'نبقى متجر الأزياء اللي المصريين يفتحوه أول حاجة من الموبايل.',
     ourValues: 'قيمنا',
-    valuesDescription: 'الجودة، الأصالة، الابتكار، والاستدامة دي قيمنا الأساسية اللي بنبني عليها كل حاجة بنعملها.',
-    joinOurSweetJourney: 'انضم لرحلتنا الحلوة',
-    experienceFinest: 'جرب أحلى الشوكولاتة المصنوعة بحب واهتمام. كل قطعة فيها قصة جودة وشغف.',
-    exploreOurProducts: 'اكتشف منتجاتنا',
+    valuesDescription: 'جودة تحس بيها، أسعار تثق بيها، وخدمة تعتمد عليها.',
+    joinOurStory: 'انضم لحكايتنا',
+    experienceFinest: 'ستايلات مختارة بعناية، بتوصل لبابك.',
+    exploreOurProducts: 'استكشف التشكيلة',
 
     // Footer
-    footerTagline: 'بنصنع الشوكولاتة الفاخرة بشغف وتميز. كل قطعة فيها قصة جودة وطعم رائع.',
+    footerTagline: 'ستايلات مختارة لك، بتوصل لكل مصر.',
     quickLinks: 'لينكات سريعة',
     followUs: 'تابعنا',
     allRightsReserved: 'جميع الحقوق محفوظة',
-    handcraftedWith: 'مصنوع بحب',
 
     // Legal
     privacyPolicy: 'سياسة الخصوصية',
@@ -145,7 +136,7 @@ const translations = {
     securityText: 'بنستخدم أفضل ممارسات الأمان عشان نحمي بياناتك من الوصول غير المصرح بيه أو التعديل أو الإفصاح أو التدمير.',
     yourRights: 'حقوقك',
     rightsText: 'لك الحق تطلب حذف بياناتك أو تصحيحها في أي وقت عن طريق التواصل معانا.',
-    contactPrivacyText: 'لأي استفسارات عن سياسة الخصوصية، ابعتنا على: louablefactory@gmail.com',
+    contactPrivacyText: 'لأي استفسارات عن سياسة الخصوصية، ابعتنا على: proactive.store.eg@gmail.com',
 
     // Order Success
     orderConfirmed: 'تم تأكيد الطلب!',
@@ -283,24 +274,16 @@ const translations = {
 
     // Hero & Home
     featuredProducts: 'Featured Products',
-    discoverPremium: 'Discover our premium chocolate collection ✨',
     ourCollection: 'Our Collection',
     noProductsAvailable: 'No products available yet',
-    checkBackSoon: 'Check back soon for delicious chocolates!',
-    loadingPremiumChocolates: 'Loading premium chocolates...',
+    loadingProducts: 'Loading products...',
 
     // Product Details
-    piecesPerBox: 'Pieces per Box',
-    pieces: 'pieces',
-    flavors: 'Flavors',
-    flavorsAvailable: 'flavors available',
-    selectFlavor: 'Select Flavor',
     description: 'Description',
     price: 'Price',
     quantity: 'Quantity',
     addToCart: 'Add to Cart',
     addedToCart: 'Added to cart',
-    premiumQuality: 'Premium Quality',
     loadingProductDetails: 'Loading product details...',
     productImage: 'Product Image',
     review: 'review',
@@ -367,21 +350,20 @@ const translations = {
     // About Us
     aboutUsTitle: 'About Us',
     ourMission: 'Our Mission',
-    missionDescription: 'At ProActive Store, we are committed to crafting premium artisanal chocolates using the finest cocoa ingredients. We blend time-honored traditions with modern innovation to create unforgettable experiences.',
+    missionDescription: 'At ProActive Store, we choose pieces that earn their place in your wardrobe — honest prices, real quality, delivered across Egypt.',
     ourVision: 'Our Vision',
-    visionDescription: 'To become the leading luxury chocolate brand in the Middle East, while maintaining the highest standards of quality and sustainability.',
+    visionDescription: 'To be the fashion store Egyptians open first from their phones.',
     ourValues: 'Our Values',
-    valuesDescription: 'Quality, authenticity, innovation, and sustainability are our core values that guide everything we do.',
-    joinOurSweetJourney: 'Join Our Sweet Journey',
-    experienceFinest: 'Experience the finest chocolates crafted with love and dedication. Every piece tells a story of quality and passion.',
-    exploreOurProducts: 'Explore Our Products',
+    valuesDescription: 'Quality you can feel, prices you can trust, service you can count on.',
+    joinOurStory: 'Join Our Story',
+    experienceFinest: 'Fresh styles chosen with care, delivered to your door.',
+    exploreOurProducts: 'Explore the collection',
 
     // Footer
-    footerTagline: 'Crafting premium chocolates with passion and excellence. Every piece tells a story of quality and taste.',
+    footerTagline: 'Fresh styles, chosen for you and delivered across Egypt.',
     quickLinks: 'Quick Links',
     followUs: 'Follow Us',
     allRightsReserved: 'All rights reserved',
-    handcraftedWith: 'Handcrafted with',
 
     // Legal
     privacyPolicy: 'Privacy Policy',
@@ -399,7 +381,7 @@ const translations = {
     securityText: 'We follow industry best practices to protect your data from unauthorized access, alteration, disclosure, or destruction.',
     yourRights: 'Your Rights',
     rightsText: 'You have the right to request deletion or correction of your data at any time by contacting us.',
-    contactPrivacyText: 'For any questions about this Privacy Policy, please email us at: louablefactory@gmail.com',
+    contactPrivacyText: 'For any questions about this Privacy Policy, please email us at: proactive.store.eg@gmail.com',
 
     // Order Success
     orderConfirmed: 'Order Confirmed!',
