@@ -25,13 +25,13 @@ export default function AboutUs() {
 
   const intro = L(
     'experienceFinest',
-    'Experience the finest chocolates crafted with love and dedication. Every piece tells a story of quality and passion.',
-    'تجربة أشهى الشوكولاتة المصنوعة بحب وإتقان. كل قطعة تحكي قصة جودة وشغف.'
+    'Fresh styles chosen with care. Every piece earns its place in your wardrobe.',
+    'ستايلات مختارة بعناية، بتوصل لبابك.'
   )
 
   const sections = [
     {
-      icon: '🍫',
+      icon: '👗',
       title: L('ourMission', 'Our Mission', 'مهمتنا'),
       description: L('missionDescription', 'Chosen pieces, honest prices, delivered across Egypt.', 'قطع مختارة، أسعار واضحة، وبتوصل لكل مصر.')
     },
@@ -70,7 +70,7 @@ export default function AboutUs() {
 
       <div className="pa-container" style={{ paddingBlock: 20 }}>
         <div className="pa-callout" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
-          <b style={{ fontSize: 18 }}>🎉 {L('joinOurSweetJourney', 'Join Our Sweet Journey', 'انضم لرحلتنا الحلوة')}</b>
+          <b style={{ fontSize: 18 }}>🎉 {L('joinOurStory', 'Join Our Story', 'انضم لحكايتنا')}</b>
           <p className="pa-subtitle" style={{ margin: 0, maxWidth: 640 }}>{intro}</p>
           <Button onClick={() => navigate('/home')}>
             {L('exploreOurProducts', 'Explore Our Products', 'استكشف منتجاتنا')}

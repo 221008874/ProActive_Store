@@ -1,4 +1,4 @@
-﻿// Product detail page.
+// Product detail page.
 //
 // Data logic is unchanged: read the product, read its `variants` subcollection,
 // let the shopper choose a colour then a size, and add the chosen variant to the
@@ -102,7 +102,7 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <div className="pa-container" style={{ paddingBlock: 48, minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
-        <p className="pa-subtitle" role="status">{L('loadingProductDetails', 'Loadingâ€¦', 'ط¬ط§ط±ظٹ طھط­ظ…ظٹظ„ طھظپط§طµظٹظ„ ط§ظ„ظ…ظ†طھط¬â€¦')}</p>
+        <p className="pa-subtitle" role="status">{L('loadingProductDetails', 'Loading…', 'جاري تحميل تفاصيل المنتج…')}</p>
       </div>
     )
   }
@@ -141,7 +141,7 @@ export default function ProductDetail() {
       addToCart({ ...product, selectedFlavor, currency }, 1, variant)
     }
 
-    setFlash(L('addedToCart', 'Added to cart', 'طھظ… ط§ظ„ط¥ط¶ط§ظپط© ظ„ظ„ط¹ط±ط¨ظٹط©'))
+    setFlash(L('addedToCart', 'Added to cart', 'تم الإضافة للعربية'))
     setTimeout(() => setFlash(null), 2500)
   }
 
@@ -171,8 +171,8 @@ export default function ProductDetail() {
             {!hasVariants && (
               <div className={`pa-error ${isOutOfStock ? '' : 'pa-ok'}`}>
                 {isOutOfStock
-                  ? L('outOfStock', 'Sold out', 'ظ†ظپط°طھ ط§ظ„ظƒظ…ظٹط©')
-                  : L('inStock', `In stock: ${stock}`, `ظ…طھظˆظپط±: ${stock}`)}
+                  ? L('outOfStock', 'Sold out', 'نفذت الكمية')
+                  : L('inStock', `In stock: ${stock}`, `متوفر: ${stock}`)}
               </div>
             )}
           </div>
@@ -181,7 +181,7 @@ export default function ProductDetail() {
             <>
               <div className="pa-pdp__block">
                 <div className="pa-pdp__label">
-                  {L('selectColor', 'Colour', 'ط§ظ„ظ„ظˆظ†')}
+                  {L('selectColor', 'Colour', 'اللون')}
                   {' '}<span>{loc(colors.find((c) => c.id === selection.colorId)?.name, lang)}</span>
                 </div>
                 <ColorSwatches
@@ -195,8 +195,8 @@ export default function ProductDetail() {
               {selection.colorId && (
                 <div className="pa-pdp__block">
                   <div className="pa-pdp__label">
-                    {L('selectSize', 'Size', 'ط§ظ„ظ…ظ‚ط§ط³')}{' '}
-                    <span>{selection.size ?? (ar ? 'ط§ط®طھط± ظ…ظ‚ط§ط³ط§ظ‹' : 'Pick a size')}</span>
+                    {L('selectSize', 'Size', 'المقاس')}{' '}
+                    <span>{selection.size ?? (ar ? 'اختر مقاساً' : 'Pick a size')}</span>
                   </div>
                   <SizePicker
                     sizes={sizes.map((s) => s.size)}
@@ -205,7 +205,7 @@ export default function ProductDetail() {
                     onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
                   />
                   {hasVariants && !variantReady && (
-                    <div className="pa-error">{L('selectSizeFirst', 'Please choose an available size.', 'ط§ط®طھط± ظ…ظ‚ط§ط³ط§ظ‹ ظ…طھط§ط­ط§ظ‹.')}</div>
+                    <div className="pa-error">{L('selectSizeFirst', 'Please choose an available size.', 'اختر مقاساً متاحاً.')}</div>
                   )}
                 </div>
               )}
@@ -213,7 +213,7 @@ export default function ProductDetail() {
           )}
 
           <div className="pa-pdp__block">
-            <div className="pa-pdp__label">{L('quantity', 'Quantity', 'ط§ظ„ظƒظ…ظٹط©')}</div>
+            <div className="pa-pdp__label">{L('quantity', 'Quantity', 'الكمية')}</div>
             <QtyStepper value={quantity} onChange={setQuantity} min={1} max={Math.max(1, stock)} />
           </div>
 
@@ -225,23 +225,23 @@ export default function ProductDetail() {
               disabled={!canAddToCart}
               aria-disabled={!canAddToCart}
             >
-              {L('addToCart', 'Add to bag', 'ط¶ظٹظپ ظ„ظ„ط¹ط±ط¨ظٹط©')}
+              {L('addToCart', 'Add to bag', 'ضيف للعربية')}
             </button>
             <button type="button" className="pa-btn pa-btn--outline pa-btn--lg" onClick={() => navigate('/cart')}>
-              {L('goToCart', 'Bag', 'ط§ظ„ط¹ط±ط¨ظٹط©')}
+              {L('goToCart', 'Bag', 'العربية')}
             </button>
           </div>
 
           {product.description && (
             <div className="pa-acc">
               <details>
-                <summary>{L('description', 'Description', 'ط§ظ„ظˆطµظپ')}</summary>
+                <summary>{L('description', 'Description', 'الوصف')}</summary>
                 <div className="pa-acc__body">{loc(product.description, lang)}</div>
               </details>
               <details>
-                <summary>{L('shippingReturns', 'Shipping & returns', 'ط§ظ„ط´ط­ظ† ظˆط§ظ„ط¥ط±ط¬ط§ط¹')}</summary>
+                <summary>{L('shippingReturns', 'Shipping & returns', 'الشحن والإرجاع')}</summary>
                 <div className="pa-acc__body">
-                  {L('shippingHelp', 'Delivery across Egypt. Share or unsubscribe any time.', 'ط§ظ„طھظˆطµظٹظ„ ظ„ظƒظ„ ظ…ط­ط§ظپط¸ط§طھ ظ…طµط±. ظٹظ…ظƒظ†ظƒ ط§ظ„طھظˆط§طµظ„ ظ…ط¹ط§ظ†ط§ ظپظٹ ط£ظٹ ظˆظ‚طھ.')}
+                  {L('shippingHelp', 'Delivery across Egypt. Share or unsubscribe any time.', 'التوصيل لكل محافظات مصر. يمكنك التواصل معانا في أي وقت.')}
                 </div>
               </details>
             </div>

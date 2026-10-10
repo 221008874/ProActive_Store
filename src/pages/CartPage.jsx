@@ -1,4 +1,4 @@
-﻿// src/pages/CartPage.jsx — ProActive Fashion design system refactor.
+// src/pages/CartPage.jsx — ProActive Fashion design system refactor.
 //
 // Logic is untouched (cart, governorate costs, coupons, Leaflet map editor and
 // the checkout Firestore transaction all behave exactly as before). Only the
@@ -473,7 +473,7 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
       )
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'آ© OpenStreetMap contributors',
+        attribution: '© OpenStreetMap contributors',
         maxZoom: 19
       }).addTo(mapRef.current)
 
@@ -562,7 +562,7 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
 const rawInput = normalizeCouponCode(couponInput)
       if (!rawInput) return
     
-    console.log('ًں”چ Attempting to apply coupon:', rawInput)
+    console.log('🔍 Attempting to apply coupon:', rawInput)
     
     setCouponLoading(true)
     setCouponError(null)
@@ -578,7 +578,7 @@ const rawInput = normalizeCouponCode(couponInput)
       let snapshot = await getDocs(q)
       
       if (snapshot.empty) {
-        console.log('â‌Œ Exact match failed, trying uppercase...')
+        console.log('❌ Exact match failed, trying uppercase...')
         q = query(
           couponsRef,
           where('code', '==', rawInput.toUpperCase()),
@@ -588,7 +588,7 @@ const rawInput = normalizeCouponCode(couponInput)
       }
       
       if (snapshot.empty) {
-        console.log('â‌Œ Uppercase failed, trying lowercase...')
+        console.log('❌ Uppercase failed, trying lowercase...')
         q = query(
           couponsRef,
           where('code', '==', rawInput.toLowerCase()),
@@ -598,7 +598,7 @@ const rawInput = normalizeCouponCode(couponInput)
       }
       
       if (snapshot.empty) {
-        console.log('â‌Œ Lowercase failed, trying case-insensitive...')
+        console.log('❌ Lowercase failed, trying case-insensitive...')
         q = query(couponsRef, where('isActive', '==', true))
 const allCoupons = await getDocs(q)
           const matchingDoc = findCaseInsensitiveMatch(allCoupons.docs, rawInput)
@@ -608,7 +608,7 @@ const allCoupons = await getDocs(q)
           }
       }
       
-      console.log('ًں“ٹ Final snapshot:', {
+      console.log('📊 Final snapshot:', {
         empty: snapshot.empty,
         size: snapshot.size,
         docs: snapshot.docs?.map(d => ({ id: d.id, ...d.data() }))
@@ -623,7 +623,7 @@ const allCoupons = await getDocs(q)
       const couponDoc = snapshot.docs[0]
       const couponData = couponDoc.data()
       
-      console.log('âœ… Found coupon:', couponData)
+      console.log('✅ Found coupon:', couponData)
       
 const now = new Date()
 
@@ -645,10 +645,10 @@ const now = new Date()
         contextSetAppliedCoupon(couponToApply)
         setCouponInput(couponData.code)
       
-      console.log('ًںژ‰ Coupon applied successfully:', couponToApply)
+      console.log('🎉 Coupon applied successfully:', couponToApply)
       
     } catch (error) {
-      console.error('ًں’¥ Coupon validation error:', error)
+      console.error('💥 Coupon validation error:', error)
       setCouponError(t('couponError') || 'Error, please try again')
     } finally {
       setCouponLoading(false)
@@ -972,7 +972,7 @@ paymentMethod: paymentMethodLabelFor(paymentMethod, t),
               alignItems: 'center',
               gap: '12px'
             }}>
-              ًں—؛ï¸ڈ {t('selectLocation') || 'Select Location'}
+              🗺️ {t('selectLocation') || 'Select Location'}
             </h2>
             <p style={{
               margin: '4px 0 0 0',
@@ -1013,7 +1013,7 @@ paymentMethod: paymentMethodLabelFor(paymentMethod, t),
               e.currentTarget.style.transform = 'scale(1)'
             }}
           >
-            âœ•
+            ✕
           </button>
         </div>
 
@@ -1093,7 +1093,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                       e.currentTarget.style.background = 'transparent'
                     }}
                   >
-                    <span>ًں“چ</span>
+                    <span>📍</span>
                     <span style={{ flex: 1 }}>{result.display_name}</span>
                   </button>
                 ))}
@@ -1116,7 +1116,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
               minWidth: '100px'
             }}
           >
-            {isSearching ? '...' : `ًں”چ ${t('search') || 'Search'}`}
+            {isSearching ? '...' : `🔍 ${t('search') || 'Search'}`}
           </button>
         </div>
 
@@ -1142,7 +1142,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                   marginBottom: '1rem',
                   animation: 'spin 2s linear infinite'
                 }}>
-                  ًں“،
+                  📡
                 </div>
                 <p style={{ color: c.textMuted, fontWeight: '700' }}>
                   {t('loadingMap') || 'Loading map...'}
@@ -1178,7 +1178,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
             borderColor: c.border,
             pointerEvents: 'none'
           }}>
-            {t('clickMapOrDrag') || 'ًں–±ï¸ڈ Click map or drag marker to set location'}
+            {t('clickMapOrDrag') || '🖱️ Click map or drag marker to set location'}
           </div>
 
           <div style={{
@@ -1227,7 +1227,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                   color: c.textDark,
                   fontFamily: 'monospace'
                 }}>
-                  {tempLocation?.lat?.toFixed(6) || 'â€”'}
+                  {tempLocation?.lat?.toFixed(6) || '—'}
                 </div>
               </div>
               <div>
@@ -1254,7 +1254,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                   color: c.textDark,
                   fontFamily: 'monospace'
                 }}>
-                  {tempLocation?.lng?.toFixed(6) || 'â€”'}
+                  {tempLocation?.lng?.toFixed(6) || '—'}
                 </div>
               </div>
             </div>
@@ -1291,7 +1291,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                   e.currentTarget.style.transform = 'translateY(0)'
                 }}
               >
-                âœ• {t('cancel') || 'Cancel'}
+                ✕ {t('cancel') || 'Cancel'}
               </button>
               <button
                 onClick={handleSaveMapLocation}
@@ -1326,7 +1326,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                   e.currentTarget.style.boxShadow = !tempLocation ? 'none' : `0 4px 12px ${c.success}40`
                 }}
               >
-                <span>âœ“</span> {t('saveLocation') || 'Save Location'}
+                <span>✓</span> {t('saveLocation') || 'Save Location'}
               </button>
             </div>
           </div>
@@ -1614,7 +1614,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <b>{deliveryInfo?.name}</b>
                 <span className="pa-subtitle">
-                  {[deliveryInfo?.phone, deliveryInfo?.email, deliveryInfo?.address].filter(Boolean).join(' آ· ')}
+                  {[deliveryInfo?.phone, deliveryInfo?.email, deliveryInfo?.address].filter(Boolean).join(' · ')}
                 </span>
                 {currency === 'EGP' && deliveryInfo?.governorate && (
                   <span className="pa-subtitle">
@@ -1658,7 +1658,7 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
                 : []),
               {
                 label: t('shipping'),
-                value: shippingDetails.isFree ? `${t('free')} ًںژ‰` : formatPrice(shippingCost)
+                value: shippingDetails.isFree ? `${t('free')} 🎉` : formatPrice(shippingCost)
               },
               { label: t('total'), value: formatPrice(finalPrice), tone: 'total' }
             ]}

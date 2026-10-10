@@ -11,10 +11,10 @@ import logoLight from '../assets/a29dc90a-d036-4010-b33e-82cd29b6a2d5-removebg-p
 import { COLORS, getColors } from '../config/themes'
 import { Button, StepHeader, Summary, StatusPill, formatEGP } from '../ui'
 
-// â”€â”€â”€ pdfMake base font setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── pdfMake base font setup ───────────────────────────────────────────────
 pdfMake.vfs = pdfFonts.vfs
 
-// â”€â”€â”€ Arabic helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Arabic helpers ────────────────────────────────────────────────────────
 function hasArabic(str) {
   return /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str || '')
 }
@@ -42,7 +42,7 @@ async function loadCairoFont() {
   }
 }
 
-// Basic Arabic reshaper â€” joins isolated letters into their connected forms
+// Basic Arabic reshaper — joins isolated letters into their connected forms
 // This is a simplified version; for production use npm install arabic-reshaper
 function reshapeArabic(text) {
   if (!text || !hasArabic(text)) return text
@@ -72,7 +72,7 @@ function safePdfText(text) {
   return String(text)
 }
 
-// â”€â”€â”€ Utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Utilities ─────────────────────────────────────────────────────────────
 async function imageToBase64(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -98,7 +98,7 @@ function dateShortEN(d) {
   })
 }
 
-// â”€â”€â”€ PDF background watermark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PDF background watermark ──────────────────────────────────────────────
 // The PDF is always printed on white paper, so the receipt generator pins to
 // the LIGHT board palette regardless of the screen theme. pdfMake takes literal
 // hexes; CSS custom properties are not available to it.
@@ -116,7 +116,7 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
     })
   }
 
-  // Concentric circles â€” center
+  // Concentric circles — center
   ;[50, 90, 132, 178, 228, 280, 336].forEach(r => {
     shapes.push({
       type: 'ellipse', x: W / 2, y: H / 2, r1: r, r2: r,
@@ -157,7 +157,7 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
 
   // Watermark text rows
   const textRows = Array.from({ length: 28 }, (_, i) => ({
-    text: `PROACTIVE STORE آ· SECURE آ· ${securityHash} آ· NOT FOR REPRODUCTION آ· `.repeat(4),
+    text: `PROACTIVE STORE · SECURE · ${securityHash} · NOT FOR REPRODUCTION · `.repeat(4),
     fontSize: 5,
     color: gold,
     opacity: 0.042,
@@ -171,12 +171,12 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
   ]
 }
 
-// â”€â”€â”€ Security SVG overlay (screen) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Security SVG overlay (screen) ────────────────────────────────────────
 function SecurityLayer({ orderId, securityHash, isDark }) {
   const c = getColors(isDark ? 'dark' : 'light')
   const color   = c.disabled
   const opacity = 0.032
-  const secText = `PROACTIVE STORE آ· SECURE آ· ${securityHash} آ· `
+  const secText = `PROACTIVE STORE · SECURE · ${securityHash} · `
   const longText = secText.repeat(14)
 
   const diagLines = []
@@ -234,7 +234,7 @@ function SecurityLayer({ orderId, securityHash, isDark }) {
   )
 }
 
-// â”€â”€â”€ Confetti burst (one-time on mount) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Confetti burst (one-time on mount) ───────────────────────────────────
 function ConfettiBurst({ active, theme = 'light' }) {
   const canvasRef = useRef(null)
   useEffect(() => {
@@ -299,7 +299,7 @@ function ConfettiBurst({ active, theme = 'light' }) {
   )
 }
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ────────────────────────────────────────────────────────
 export default function OrderSuccess() {
   const location  = useLocation()
   const navigate  = useNavigate()
@@ -346,7 +346,7 @@ export default function OrderSuccess() {
 
   const formatPrice = useCallback((p) => formatEGP(safePrice(p)), [safePrice])
 
-  // â”€â”€ Verification effect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Verification effect ──────────────────────────────────────────────────
   useEffect(() => {
     if (!orderId || !orderData) {
       setVerificationStatus('invalid')
@@ -359,13 +359,13 @@ export default function OrderSuccess() {
     return () => clearTimeout(timer)
   }, [orderId, orderData, isPaid])
 
-  // â”€â”€ Toast helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Toast helper ─────────────────────────────────────────────────────────
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }, [])
 
-  // â”€â”€ PDF Generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── PDF Generation ───────────────────────────────────────────────────────
   const generatePDF = useCallback(async () => {
     if (!orderData || !orderId || pdfLoading) return
     setPdfLoading(true)
@@ -426,7 +426,7 @@ export default function OrderSuccess() {
         }
       }
 
-      // â”€â”€ Document definition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Document definition ──────────────────────────────────────────────
       const doc = {
         pageSize: 'A4',
         pageMargins: [44, 44, 44, 52],
@@ -440,13 +440,13 @@ export default function OrderSuccess() {
         },
 
         content: [
-          // â”€â”€ Gold topbar line â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Gold topbar line ─────────────────────────────────────────────
           {
             canvas: [{ type: 'rect', x: 0, y: 0, w: 507, h: 4, r: 0, color: PDF.textDark }],
             margin: [0, 0, 0, 20],
           },
 
-          // â”€â”€ Header row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Header row ───────────────────────────────────────────────────
           {
             columns: [
               // Brand
@@ -461,8 +461,8 @@ export default function OrderSuccess() {
                   {
                     stack: [
                       { text: 'PROACTIVE STORE', fontSize: 16, bold: true, color: PDF.textDark },
-                      { text: 'FACTORY', fontSize: 16, bold: true, color: PDF.textDark, margin: [0, -3, 0, 0] },
-                      { text: 'PREMIUM CHOCOLATES', fontSize: 5.5, color: PDF.disabled, characterSpacing: 2.2, margin: [0, 4, 0, 0] },
+                      { text: 'FASHION', fontSize: 16, bold: true, color: PDF.textDark, margin: [0, -3, 0, 0] },
+                      { text: 'DELIVERED ACROSS EGYPT', fontSize: 5.5, color: PDF.disabled, characterSpacing: 2.2, margin: [0, 4, 0, 0] },
                     ],
                   },
                 ],
@@ -481,10 +481,10 @@ export default function OrderSuccess() {
             margin: [0, 0, 0, 16],
           },
 
-          // â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Divider ──────────────────────────────────────────────────────
           { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 507, y2: 0, lineWidth: 0.55, lineColor: PDF.line }], margin: [0, 0, 0, 16] },
 
-          // â”€â”€ Status badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Status badge ─────────────────────────────────────────────────
           {
             columns: [
               {
@@ -504,7 +504,7 @@ export default function OrderSuccess() {
             margin: [0, 0, 0, 16],
           },
 
-          // â”€â”€ Billed-to / Order details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Billed-to / Order details ─────────────────────────────────────
           {
             columns: [
               // Left: customer
@@ -557,7 +557,7 @@ export default function OrderSuccess() {
             margin: [0, 0, 0, 22],
           },
 
-          // â”€â”€ Items table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Items table ───────────────────────────────────────────────────
           { text: 'ITEMS', fontSize: 7, bold: true, color: PDF.textDark, characterSpacing: 2, margin: [0, 0, 0, 8] },
           {
             table: {
@@ -597,7 +597,7 @@ export default function OrderSuccess() {
             margin: [0, 0, 0, 20],
           },
 
-          // â”€â”€ Totals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Totals ────────────────────────────────────────────────────────
           {
             columns: [
               // Notes / terms on left
@@ -605,8 +605,8 @@ export default function OrderSuccess() {
                 stack: [
                   { text: 'PAYMENT NOTES', fontSize: 7, bold: true, color: PDF.textDark, characterSpacing: 2, margin: [0, 0, 0, 8] },
                   { text: 'Thank you for choosing ProActive Store.', fontSize: 9, color: PDF.textMuted, margin: [0, 0, 0, 4] },
-                  { text: 'All chocolates are handcrafted with premium ingredients.', fontSize: 8.5, color: PDF.disabled, margin: [0, 0, 0, 3] },
-                  { text: 'For questions, contact hello@louablefactory.com', fontSize: 8.5, color: PDF.disabled, margin: [0, 0, 0, 3] },
+                  { text: 'Every piece is quality-checked before it ships.', fontSize: 8.5, color: PDF.disabled, margin: [0, 0, 0, 3] },
+                  { text: 'For questions, contact proactive.store.eg@gmail.com', fontSize: 8.5, color: PDF.disabled, margin: [0, 0, 0, 3] },
                   ...(isPaidStatus ? [
                     {
                       columns: [
@@ -642,7 +642,7 @@ export default function OrderSuccess() {
                   discount > 0 ? {
                     columns: [
                       { text: 'Discount', fontSize: 9.5, color: PDF.textMuted },
-                      { text: `âˆ’${formatPrice(discount)}`, fontSize: 9.5, alignment: 'right', color: PDF.success, bold: true },
+                      { text: `−${formatPrice(discount)}`, fontSize: 9.5, alignment: 'right', color: PDF.success, bold: true },
                     ],
                     margin: [0, 0, 0, 6],
                   } : {},
@@ -670,23 +670,23 @@ export default function OrderSuccess() {
             margin: [0, 0, 0, 24],
           },
 
-          // â”€â”€ Footer divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Footer divider ────────────────────────────────────────────────
           { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 507, y2: 0, lineWidth: 0.5, lineColor: PDF.line }], margin: [0, 0, 0, 12] },
 
-          // â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Footer ────────────────────────────────────────────────────────
           {
             columns: [
               {
                 stack: [
-                  { text: 'ProActive Store آ· Premium Chocolates', fontSize: 8, color: PDF.disabled },
-                  { text: 'hello@louablefactory.com', fontSize: 7.5, color: PDF.disabled, margin: [0, 2, 0, 0] },
+                  { text: 'ProActive Store · Fashion', fontSize: 8, color: PDF.disabled },
+                  { text: 'proactive.store.eg@gmail.com', fontSize: 7.5, color: PDF.disabled, margin: [0, 2, 0, 0] },
                 ],
               },
               {
                 stack: [
                   { text: `Hash: ${securityHash}`, fontSize: 7, color: PDF.disabled, alignment: 'right' },
                   { text: `${creationDate.iso.slice(0, 19).replace('T', ' ')} UTC`, fontSize: 6.5, color: PDF.disabled, alignment: 'right', margin: [0, 2, 0, 0] },
-                  { text: 'Computer-generated آ· No signature required', fontSize: 6.5, color: '#ccc', italics: true, alignment: 'right', margin: [0, 2, 0, 0] },
+                  { text: 'Computer-generated · No signature required', fontSize: 6.5, color: '#ccc', italics: true, alignment: 'right', margin: [0, 2, 0, 0] },
                 ],
               },
             ],
@@ -697,7 +697,7 @@ export default function OrderSuccess() {
       }
 
       pdfMake.createPdf(doc).download(`ProActive_Invoice_${invoiceNumber}_${creationDate.file}.pdf`)
-      showToast('Invoice downloaded successfully âœ“', 'success')
+      showToast('Invoice downloaded successfully ✓', 'success')
     } catch (err) {
       console.error('PDF generation error:', err)
       showToast('PDF generation failed. Try printing instead.', 'error')
@@ -708,10 +708,10 @@ export default function OrderSuccess() {
 
   const handlePrint = useCallback(() => window.print(), [])
 
-  // â”€â”€ Print: the receipt IS the document; controls, banner and toast are not â”€â”€
+  // ── Print: the receipt IS the document; controls, banner and toast are not ──
   const printCss = `@media print { .no-print { display: none !important; } }`
 
-  // â”€â”€ Invalid state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Invalid state ────────────────────────────────────────────────────────
   if (verificationStatus === 'invalid') {
     return (
       <>
@@ -719,11 +719,11 @@ export default function OrderSuccess() {
         <StepHeader title={t('orderNotFound') || 'Order Not Found'} step={3} of={3} backHref="/home" />
         <div className="pa-receipt" style={{ maxWidth: 520, marginInline: 'auto', width: '100%', alignItems: 'center', textAlign: 'center' }}>
           <div className="pa-callout pa-callout--error" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-            <b aria-hidden="true" style={{ fontSize: 26 }}>âœ•</b>
+            <b aria-hidden="true" style={{ fontSize: 26 }}>✕</b>
             <b>{t('orderNotFound') || 'Order Not Found'}</b>
             <span className="pa-subtitle">{t('orderInfoMissing') || 'No order information was found. Please return to the shop and try again.'}</span>
             <Button onClick={() => navigate('/home')}>
-              â†گ {t('returnHome') || 'Return Home'}
+              ← {t('returnHome') || 'Return Home'}
             </Button>
           </div>
         </div>
@@ -734,11 +734,11 @@ export default function OrderSuccess() {
   const discount = safePrice(orderData?.discount)
   const shipping  = safePrice(orderData?.shippingCost)
 
-  // â”€â”€ Banner config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Banner config ────────────────────────────────────────────────────────
   const bannerConfig = {
-    verified:  { icon: 'âœ“', title: t('paymentConfirmed') || 'Payment Confirmed', body: t('orderBeingPrepared') || 'Your order is confirmed and being prepared.' },
-    pending:   { icon: 'âڈ³', title: t('paymentPending')  || 'Payment Pending',   body: t('orderReceivedPending') || 'We received your order. Complete payment to proceed.' },
-    verifying: { icon: 'â—Œ', title: t('verifying')        || 'Verifyingâ€¦',        body: t('checkingOrderStatus')  || 'Checking your order statusâ€¦' },
+    verified:  { icon: '✓', title: t('paymentConfirmed') || 'Payment Confirmed', body: t('orderBeingPrepared') || 'Your order is confirmed and being prepared.' },
+    pending:   { icon: '⏳', title: t('paymentPending')  || 'Payment Pending',   body: t('orderReceivedPending') || 'We received your order. Complete payment to proceed.' },
+    verifying: { icon: '◌', title: t('verifying')        || 'Verifying…',        body: t('checkingOrderStatus')  || 'Checking your order status…' },
   }[verificationStatus] || {}
 
   const ar = lang === 'ar'
@@ -748,10 +748,10 @@ export default function OrderSuccess() {
   }
 
   const timeline = [
-    L('orderPlaced', 'Order placed', 'طھظ… ط§ظ„ط·ظ„ط¨'),
-    L('orderConfirmed', 'Confirmed', 'طھظ… ط§ظ„طھط£ظƒظٹط¯'),
-    L('orderShipped', 'Shipped', 'طھظ… ط§ظ„ط´ط­ظ†'),
-    L('orderDelivered', 'Delivered', 'طھظ… ط§ظ„طھظˆطµظٹظ„')
+    L('orderPlaced', 'Order placed', 'تم الطلب'),
+    L('orderConfirmed', 'Confirmed', 'تم التأكيد'),
+    L('orderShipped', 'Shipped', 'تم الشحن'),
+    L('orderDelivered', 'Delivered', 'تم التوصيل')
   ]
   const timelineDone = verificationStatus === 'verified' ? 2 : verificationStatus === 'pending' ? 1 : 0
 
@@ -834,7 +834,7 @@ export default function OrderSuccess() {
               {(orderData?.items || []).map((item, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto', gap: 12, alignItems: 'baseline' }}>
                   <span>{item.name}</span>
-                  <span className="pa-subtitle">أ—{item.quantity || 1}</span>
+                  <span className="pa-subtitle">×{item.quantity || 1}</span>
                   <span className="pa-subtitle">{formatPrice(item.price)}</span>
                   <bdi>{formatPrice((item.price || 0) * (item.quantity || 1))}</bdi>
                 </div>
@@ -847,7 +847,7 @@ export default function OrderSuccess() {
             rows={[
               { label: t('subtotal'), value: formatPrice(orderData?.subtotal) },
               ...(discount > 0
-                ? [{ label: t('discount'), value: `âˆ’${formatPrice(discount)}`, tone: 'discount' }]
+                ? [{ label: t('discount'), value: `−${formatPrice(discount)}`, tone: 'discount' }]
                 : []),
               {
                 label: t('shipping'),
@@ -862,8 +862,8 @@ export default function OrderSuccess() {
             <span>
               {t('thankYouOrder') || 'Thank you for your order'}, {orderData?.customerName?.split(' ')[0] || (t('valuedCustomer') || 'Customer')}.
             </span>
-            <span className="pa-subtitle">ProActive Store آ· Premium Chocolates آ· hello@louablefactory.com</span>
-            <span className="pa-subtitle">Hash: <bdi>{securityHash}</bdi> آ· <bdi>{orderId}</bdi></span>
+            <span className="pa-subtitle">ProActive Store · Fashion · proactive.store.eg@gmail.com</span>
+            <span className="pa-subtitle">Hash: <bdi>{securityHash}</bdi> · <bdi>{orderId}</bdi></span>
             <span className="pa-subtitle"><bdi>{creationDate.iso.slice(0, 19).replace('T', ' ')}</bdi> UTC</span>
           </div>
         </div>
@@ -872,17 +872,17 @@ export default function OrderSuccess() {
       {/* Action buttons */}
       <div className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px 32px' }}>
         <Button variant="outline" onClick={() => navigate('/home')}>
-          â†گ {t('backToShop') || 'Back to Shop'}
+          ← {t('backToShop') || 'Back to Shop'}
         </Button>
         <Button onClick={handlePrint}>
-          ًں–¨ {t('print') || 'Print'}
+          🖨 {t('print') || 'Print'}
         </Button>
       </div>
 
       {/* Toast notification */}
       {toast && (
         <div className={`pa-callout no-print ${toast.type === 'success' ? 'pa-ok' : 'pa-callout--error'}`} role="status" style={{ position: 'fixed', insetInline: 16, bottom: 88, zIndex: 10000 }}>
-          {toast.type === 'success' ? 'âœ“' : 'âœ•'} {toast.message}
+          {toast.type === 'success' ? '✓' : '✕'} {toast.message}
         </div>
       )}
     </>
