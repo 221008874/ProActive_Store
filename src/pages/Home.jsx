@@ -502,7 +502,7 @@ const setCachedProducts = (currency, data) => {
               }}>
                 <img 
                   src={getImage('logo')} 
-                  alt="Louable Logo" 
+                  alt="ProActive Store Logo" 
                   style={{ 
                     height: isMobile ? 'clamp(120px, 22vh, 200px)' : 'clamp(140px, 28vh, 280px)',
                     width: 'auto',
@@ -545,7 +545,7 @@ const setCachedProducts = (currency, data) => {
               backgroundClip: 'text',
               filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))'
             }}>
-              {t('Louable')}
+              {t('ProActive Store')}
             </h1>
 
             <div style={{
@@ -1131,9 +1131,9 @@ const setCachedProducts = (currency, data) => {
         }}>
           <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-              <img src={getImage('logo')} alt="Louable" style={{ height: isMobile ? '40px' : '50px' }} />
+              <img src={getImage('logo')} alt="ProActive Store" style={{ height: isMobile ? '40px' : '50px' }} />
               <h3 style={{ fontSize: isMobile ? '1.5rem' : 'clamp(1.6rem, 4vw, 2rem)', fontFamily: 'Georgia, serif', color: c.secondary, marginBottom: 0, fontWeight: 'bold' }}>
-                {t('Louable')}
+                {t('ProActive Store')}
               </h3>
             </div>
             <p style={{ fontSize: isMobile ? '0.9rem' : 'clamp(0.95rem, 2.5vw, 1.05rem)', lineHeight: '1.7', opacity: 0.9, fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
@@ -1238,7 +1238,7 @@ const setCachedProducts = (currency, data) => {
           zIndex: 1
         }}>
           <p style={{ margin: 0, fontSize: isMobile ? '0.85rem' : 'clamp(0.9rem, 2.5vw, 1rem)', opacity: 0.85 }}>
-            © {new Date().getFullYear()} {t('Louable')}. {t('allRightsReserved')}.
+            © {new Date().getFullYear()} {t('ProActive Store')}. {t('allRightsReserved')}.
           </p>
           <p style={{ margin: '8px 0 0 0', fontSize: '0.75rem', opacity: 0.6, color: c.textLight }}>
             Operating in {currencyInfo.symbol} • {currencyInfo.text}

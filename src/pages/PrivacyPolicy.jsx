@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
           color: c.textDark,
           letterSpacing: '-0.5px'
         }}>
-          {t('Louable')}
+          {t('ProActive Store')}
         </h1>
         
         <button

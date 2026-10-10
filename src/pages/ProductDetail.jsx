@@ -258,7 +258,7 @@ export default function ProductDetail() {
           }}>
             <img 
               src={getImage('logo')} 
-              alt="Louable" 
+              alt="ProActive Store" 
               style={{ 
                 height: '100%',
                 filter: theme === 'dark' ? 'brightness(1.1)' : 'none'

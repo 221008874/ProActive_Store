@@ -151,7 +151,7 @@ export default function Splash() {
         }}>
           <img 
             src={getImage('logo')} 
-            alt="Louable Logo" 
+            alt="ProActive Store Logo" 
             style={{ 
               height: 'clamp(150px, 30vh, 280px)',
               width: 'auto',
@@ -188,7 +188,7 @@ export default function Splash() {
           textAlign: 'center',
           fontFamily: 'Georgia, serif'
         }}>
-          Louable
+          ProActive Store
         </h1>
 
         {/* Decorative line */}

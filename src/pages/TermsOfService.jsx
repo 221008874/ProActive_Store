@@ -88,7 +88,7 @@ export default function TermsOfService() {
             1. {t('acceptanceOfTerms')}
           </h2>
           <p style={{ color: c.text, marginBottom: '1rem' }}>
-            By accessing and using the Louable website, you accept and agree to be bound by the terms and provision of this agreement. 
+            By accessing and using the ProActive Store website, you accept and agree to be bound by the terms and provision of this agreement. 
             If you do not agree to abide by the above, please do not use this service.
           </p>
 
@@ -105,8 +105,8 @@ export default function TermsOfService() {
           </h2>
           <p style={{ color: c.text, marginBottom: '1rem' }}>
             We strive to provide accurate descriptions and pricing for all our chocolate products. 
-            However, Louable does not warrant that product descriptions, pricing, or other content of any Louable web page is accurate, 
-            complete, reliable, current, or error-free. If a product offered by Louable is not as described, 
+            However, ProActive Store does not warrant that product descriptions, pricing, or other content of any ProActive Store web page is accurate, 
+            complete, reliable, current, or error-free. If a product offered by ProActive Store is not as described, 
             your sole remedy is to return it in unused condition.
           </p>
 
@@ -123,8 +123,8 @@ export default function TermsOfService() {
             5. {t('limitationOfLiability')}
           </h2>
           <p style={{ color: c.text, marginBottom: '1rem' }}>
-            This site is provided by Louable on an "as is" and "as available" basis. 
-            Louable makes no representations or warranties of any kind, express or implied, 
+            This site is provided by ProActive Store on an "as is" and "as available" basis. 
+            ProActive Store makes no representations or warranties of any kind, express or implied, 
             as to the operation of this site or the information, content, materials, or products included on this site. 
             You expressly agree that your use of this site is at your sole risk.
           </p>
@@ -149,7 +149,7 @@ export default function TermsOfService() {
             8. Intellectual Property
           </h2>
           <p style={{ color: c.text, marginBottom: '1rem' }}>
-            This entire website is proprietary to Louable. All rights are reserved. 
+            This entire website is proprietary to ProActive Store. All rights are reserved. 
             You may not reproduce, duplicate, copy, sell, resell or exploit any portion of this site without express written permission.
           </p>
 
@@ -157,7 +157,7 @@ export default function TermsOfService() {
             9. Modification of Terms
           </h2>
           <p style={{ color: c.text, marginBottom: '1rem' }}>
-            Louable reserves the right to modify these terms of service at any time. 
+            ProActive Store reserves the right to modify these terms of service at any time. 
             Your continued use of this site following the posting of revised terms means that you accept and agree to the changes.
           </p>
 
@@ -202,7 +202,7 @@ export default function TermsOfService() {
             textAlign: 'center'
           }}>
             <p style={{ margin: 0, color: c.text, fontStyle: 'italic' }}>
-              Thank you for choosing Louable - Premium Chocolate Experience
+              Thank you for choosing ProActive Store - Premium Chocolate Experience
             </p>
           </div>
         </div>

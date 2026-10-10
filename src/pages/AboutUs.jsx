@@ -133,7 +133,7 @@ export default function AboutUs() {
         }}>
           <img 
             src={getImage('logo')} 
-            alt="Louable" 
+            alt="ProActive Store" 
             style={{ 
               height: isMobile ? '40px' : 'clamp(45px, 10vw, 55px)',
               filter: theme === 'dark' 
@@ -163,7 +163,7 @@ export default function AboutUs() {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>
-            {t('Louable')}
+            {t('ProActive Store')}
           </h1>
         </div>
         

@@ -145,7 +145,7 @@ export default function LocationSplash() {
         }}>
           <img 
             src={getImage('logo')} 
-            alt="Louable Logo" 
+            alt="ProActive Store Logo" 
             style={{ 
               height: 'clamp(120px, 25vh, 200px)',
               width: 'auto',

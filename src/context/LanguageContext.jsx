@@ -5,8 +5,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 const translations = {
   ar: {
     // App & Brand
-    appName: 'شوب إيزي',
-    Louable: 'لوابل',
+    appName: 'برو أكتيف ستور',
+    'ProActive Store': 'برو أكتيف ستور',
 
     // Navigation & General
     home: 'الرئيسية',
@@ -261,8 +261,8 @@ const translations = {
   },
   en: {
     // App & Brand
-    appName: 'ShopEasy',
-    Louable: 'Louable',
+    appName: 'ProActive Store',
+    'ProActive Store': 'ProActive Store',
 
     // Navigation & General
     home: 'Home',
@@ -369,7 +369,7 @@ const translations = {
     // About Us
     aboutUsTitle: 'About Us',
     ourMission: 'Our Mission',
-    missionDescription: 'At Louable, we are committed to crafting premium artisanal chocolates using the finest cocoa ingredients. We blend time-honored traditions with modern innovation to create unforgettable experiences.',
+    missionDescription: 'At ProActive Store, we are committed to crafting premium artisanal chocolates using the finest cocoa ingredients. We blend time-honored traditions with modern innovation to create unforgettable experiences.',
     ourVision: 'Our Vision',
     visionDescription: 'To become the leading luxury chocolate brand in the Middle East, while maintaining the highest standards of quality and sustainability.',
     ourValues: 'Our Values',

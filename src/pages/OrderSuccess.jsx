@@ -153,7 +153,7 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
 
   // Watermark text rows
   const textRows = Array.from({ length: 28 }, (_, i) => ({
-    text: `LOUABLE FACTORY · SECURE · ${securityHash} · NOT FOR REPRODUCTION · `.repeat(4),
+    text: `PROACTIVE STORE · SECURE · ${securityHash} · NOT FOR REPRODUCTION · `.repeat(4),
     fontSize: 5,
     color: gold,
     opacity: 0.042,
@@ -171,7 +171,7 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
 function SecurityLayer({ orderId, securityHash, isDark }) {
   const color   = isDark ? '#d4a45e' : '#8b5e2a'
   const opacity = 0.032
-  const secText = `LOUABLE FACTORY · SECURE · ${securityHash} · `
+  const secText = `PROACTIVE STORE · SECURE · ${securityHash} · `
   const longText = secText.repeat(14)
 
   const diagLines = []
@@ -728,9 +728,9 @@ export default function OrderSuccess() {
         background: () => buildPdfBackground(securityHash),
         info: {
           title: `Invoice ${invoiceNumber}`,
-          author: 'Louable Factory',
+          author: 'ProActive Store',
           subject: 'Tax Invoice',
-          creator: 'Louable Secure System',
+          creator: 'ProActive Store Secure System',
           creationDate: new Date(),
         },
 
@@ -755,7 +755,7 @@ export default function OrderSuccess() {
                     : { text: '', width: 0 },
                   {
                     stack: [
-                      { text: 'LOUABLE', fontSize: 16, bold: true, color: '#c4924f' },
+                      { text: 'PROACTIVE STORE', fontSize: 16, bold: true, color: '#c4924f' },
                       { text: 'FACTORY', fontSize: 16, bold: true, color: '#2C1810', margin: [0, -3, 0, 0] },
                       { text: 'PREMIUM CHOCOLATES', fontSize: 5.5, color: '#aaa', characterSpacing: 2.2, margin: [0, 4, 0, 0] },
                     ],
@@ -899,7 +899,7 @@ export default function OrderSuccess() {
               {
                 stack: [
                   { text: 'PAYMENT NOTES', fontSize: 7, bold: true, color: '#c4924f', characterSpacing: 2, margin: [0, 0, 0, 8] },
-                  { text: 'Thank you for choosing Louable Factory.', fontSize: 9, color: '#666', margin: [0, 0, 0, 4] },
+                  { text: 'Thank you for choosing ProActive Store.', fontSize: 9, color: '#666', margin: [0, 0, 0, 4] },
                   { text: 'All chocolates are handcrafted with premium ingredients.', fontSize: 8.5, color: '#999', margin: [0, 0, 0, 3] },
                   { text: 'For questions, contact hello@louablefactory.com', fontSize: 8.5, color: '#999', margin: [0, 0, 0, 3] },
                   ...(isPaidStatus ? [
@@ -973,7 +973,7 @@ export default function OrderSuccess() {
             columns: [
               {
                 stack: [
-                  { text: 'Louable Factory · Premium Chocolates', fontSize: 8, color: '#999' },
+                  { text: 'ProActive Store · Premium Chocolates', fontSize: 8, color: '#999' },
                   { text: 'hello@louablefactory.com', fontSize: 7.5, color: '#bbb', margin: [0, 2, 0, 0] },
                 ],
               },
@@ -991,7 +991,7 @@ export default function OrderSuccess() {
         defaultStyle: { font: 'Roboto', fontSize: 10.5, color: '#2C1810', lineHeight: 1.3 },
       }
 
-      pdfMake.createPdf(doc).download(`Louable_Invoice_${invoiceNumber}_${creationDate.file}.pdf`)
+      pdfMake.createPdf(doc).download(`ProActive_Invoice_${invoiceNumber}_${creationDate.file}.pdf`)
       showToast('Invoice downloaded successfully ✓', 'success')
     } catch (err) {
       console.error('PDF generation error:', err)
@@ -1066,10 +1066,10 @@ export default function OrderSuccess() {
             {/* Header */}
             <div className="os-header">
               <div className="os-brand">
-                <img src={logoLight} alt="Louable Factory" className="os-logo" />
+                <img src={logoLight} alt="ProActive Store" className="os-logo" />
                 <div className="os-brand-sep" />
                 <div>
-                  <div className="os-brand-name">Louable Factory</div>
+                  <div className="os-brand-name">ProActive Store</div>
                   <div className="os-brand-sub">Premium Chocolates</div>
                 </div>
               </div>
@@ -1208,7 +1208,7 @@ export default function OrderSuccess() {
             <div className="os-footer">
               <div>
                 <div>{t('thankYouOrder') || 'Thank you for your order'}, {orderData?.customerName?.split(' ')[0] || (t('valuedCustomer') || 'Customer')}.</div>
-                <div>Louable Factory · Premium Chocolates · hello@louablefactory.com</div>
+                <div>ProActive Store · Premium Chocolates · hello@louablefactory.com</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div>Hash: {securityHash} · {orderId}</div>
