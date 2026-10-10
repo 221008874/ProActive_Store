@@ -8,7 +8,14 @@ import { useTheme } from '../context/ThemeContext'
 import { useLocation } from '../context/LocationContext'
 import { db } from '../services/firebase'
 import { productsCollection } from '../config'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection } from 'firebase/firestore'
+import VariantPicker from '../components/VariantPicker'
+import {
+  initialSelection,
+  selectColor as pickColor,
+  selectSize as pickSize,
+  selectionIsComplete
+} from '../utils/variantSelection'
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -21,6 +28,9 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null)
   const [quantity, setQuantity] = useState(1)
   const [selectedFlavor, setSelectedFlavor] = useState(null)
+  // Colour/size selection for the fashion model. Both stay null until the
+  // shopper picks, so a migrated product cannot be added by accident.
+  const [selection, setSelection] = useState({ colorId: null, size: null })
   const [showAddedNotification, setShowAddedNotification] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
 
@@ -84,9 +94,26 @@ export default function ProductDetail() {
         const docSnap = await getDoc(docRef)
         if (docSnap.exists()) {
           const data = docSnap.data()
-          setProduct({ id: docSnap.id, ...data })
+
+          // Migrated products carry a variants subcollection; load it so the
+          // shopper can pick a colour and size. Unmigrated products keep the
+          // old single-variant behaviour untouched.
+          let variants = []
+          try {
+            const variantSnap = await getDocs(collection(db, collectionName, id, 'variants'))
+            variants = variantSnap.docs.map((v) => ({ id: v.id, ...v.data() }))
+          } catch (variantErr) {
+            console.warn('No variants for product', id, variantErr)
+          }
+
+          const product = { id: docSnap.id, ...data, variants }
+          setProduct(product)
+
           if (data.flavors && data.flavors.length > 0) {
             setSelectedFlavor(data.flavors[0])
+          }
+          if (variants.length > 0) {
+            setSelection(initialSelection(product))
           }
         } else {
           navigate('/home')
@@ -164,11 +191,22 @@ export default function ProductDetail() {
     )
   }
 
+  const hasVariants = Boolean(product?.variants?.length)
+  const variantReady = !hasVariants || selectionIsComplete(product, selection)
+
   const handleAddToCart = () => {
     if (isOutOfStock || !canAddToCart) return
-    
+    // A migrated product must have a colour and an in-stock size chosen first.
+    if (!variantReady) return
+
+    // Pass the chosen variant so the cart line is keyed on product + variant
+    // and carries that variant's own stock and price.
+    const variant = hasVariants
+      ? (product.variants ?? []).find((v) => v.colorId === selection.colorId && v.size === selection.size)
+      : null
+
     for (let i = 0; i < quantity; i++) {
-      addToCart({ ...product, selectedFlavor, currency })
+      addToCart({ ...product, selectedFlavor, currency }, 1, variant)
     }
     
     setShowAddedNotification(true)
@@ -573,8 +611,22 @@ export default function ProductDetail() {
               </div>
             )}
 
+            {/* Colour / size picker. Only for products that have variants,
+                so unmigrated products keep the flavour chips below. */}
+            {hasVariants && (
+              <VariantPicker
+                product={product}
+                selection={selection}
+                onColorChange={(colorId) => setSelection((prev) => pickColor(product, prev, colorId))}
+                onSizeChange={(size) => setSelection((prev) => pickSize(product, prev.colorId, size))}
+                c={c}
+                t={t}
+                windowWidth={windowWidth}
+              />
+            )}
+
             {/* Flavors Selection */}
-            {product.flavors && product.flavors.length > 0 && (
+            {!hasVariants && product.flavors && product.flavors.length > 0 && (
               <div>
                 <p style={{
                   fontWeight: '700',
