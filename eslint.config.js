@@ -26,4 +26,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // src/ui/ is the vendored ProActive Fashion design system: it intentionally
+  // exports plain helpers (variantsToStock, LOW_STOCK_AT) next to components, so
+  // the fast-refresh rule does not apply. HMR for these files is not a concern
+  // because they are a stable, app-independent library.
+  {
+    files: ['src/ui/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

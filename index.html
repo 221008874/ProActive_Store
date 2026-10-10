@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="ProActive Store - Premium Chocolates & Confectionery. Fresh, handcrafted chocolates delivered to your door." />
-  <meta name="theme-color" content="#2C1810" />
+  <meta name="theme-color" content="#121212" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -22,6 +22,7 @@
   <!-- Preconnect to external resources -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <title>ProActive Store - Premium Chocolates</title>
@@ -31,143 +32,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
-  <!-- Global styles for better performance -->
-  <style>
-    :root {
-      --color-primary: #2C1810;
-      --color-secondary: #D4A574;
-      --color-accent: #E8B4A0;
-      --color-background: #FAFAF8;
-      --color-surface: #FFFFFF;
-      --color-text-dark: #1A1410;
-      --color-text-muted: #8B7D73;
-      --color-success: #6B9E5F;
-      --color-danger: #C84B31;
-      --color-warning: #E8A840;
-      --color-border: #E8DDD4;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html, body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      font-size: 16px;
-      line-height: 1.5;
-      color: var(--color-text-dark);
-      background: var(--color-background);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    body {
-      overflow-x: hidden;
-    }
-
-    #root {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    /* Prevent layout shift on scroll */
-    html {
-      scroll-behavior: smooth;
-      scrollbar-gutter: stable;
-    }
-
-    /* Better touch targets for mobile */
-    button, a, input[type="button"], input[type="submit"] {
-      min-height: 44px;
-      min-width: 44px;
-    }
-
-    /* Image optimization */
-    img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    /* Input field styles */
-    input, textarea, select {
-      font-family: inherit;
-      font-size: inherit;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    input[type="number"] {
-      -moz-appearance: textfield;
-    }
-
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-
-    /* Loading skeleton */
-    .skeleton {
-      animation: skeleton-loading 1s linear infinite alternate;
-    }
-
-    @keyframes skeleton-loading {
-      0% {
-        background-color: var(--color-border);
-      }
-      100% {
-        background-color: var(--color-surface);
-      }
-    }
-
-    /* Accessibility improvements */
-    @media (prefers-reduced-motion: reduce) {
-      * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-    }
-
-    /* Focus visible for keyboard navigation */
-    *:focus-visible {
-      outline: 3px solid var(--color-secondary);
-      outline-offset: 2px;
-    }
-
-    /* Print styles */
-    @media print {
-      body {
-        background: white;
-      }
-      
-      button, .no-print {
-        display: none !important;
-      }
-    }
-
-    /* Responsive images in containers */
-    @media (max-width: 480px) {
-      html, body {
-        font-size: 14px;
-      }
-    }
-
-    /* Dark mode support (optional) */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --color-background: #0F0E0C;
-        --color-surface: #1A1410;
-        --color-text-dark: #F5F3F0;
-        --color-text-muted: #A8968B;
-      }
-    }
-  </style>
+  <!-- Global styles live in src/tokens.css + src/index.css -->
 
   <!-- Loading state for better perceived performance -->
   <script>

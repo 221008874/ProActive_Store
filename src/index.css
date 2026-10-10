@@ -1,87 +1,76 @@
-/* Chocolate Color Palette - Premium Design System */
+/* =========================================================================
+   ProActive Store — component layer
+   Built entirely on the Foundations-board tokens in ./tokens.css.
+   Tokens own color, type, shape and dark mode; this file owns layout,
+   animation and the handful of utilities the JSX actually references.
+   ========================================================================= */
 
 :root {
-  /* Light Theme - Chocolate Palette */
-  --bg-primary: #F8F4F0;
-  --bg-secondary: #FCFAF8;
-  --bg-card: #FCFAF8;
-  --text-primary: #2E1B1B;
-  --text-secondary: #6B5E57;
-  --border-color: #E8DDD4;
-  --shadow: rgba(62, 39, 35, 0.08);
-  --shadow-hover: rgba(62, 39, 35, 0.15);
-  
-  /* Brand Colors - Chocolate Theme */
-  --primary-color: #3E2723;
-  --secondary-color: #D4A017;
-  --accent-color: #5D4037;
-  --success-color: #8BC34A;
-  --error-color: #D32F2F;
-  --divider-color: #E8DDD4;
-  
-  /* Spacing System */
+  /* Projections of the board tokens onto the legacy names the components
+     still ask for. Single source of truth stays in tokens.css. */
+  --bg-primary: var(--pa-paper);
+  --bg-secondary: var(--pa-stone);
+  --bg-card: var(--pa-paper);
+  --text-primary: var(--pa-ink);
+  --text-secondary: var(--pa-muted);
+  --border-color: var(--pa-line);
+  --divider-color: var(--pa-line);
+  --shadow: 0 1px 2px rgb(18 18 18 / 0.06);
+  --shadow-hover: 0 12px 32px rgb(18 18 18 / 0.12);
+
+  --primary-color: var(--pa-ink);
+  --secondary-color: var(--pa-ink);
+  --accent-color: var(--pa-muted);
+  --success-color: var(--pa-instock);
+  --error-color: var(--pa-sale);
+
   --spacing-xs: 4px;
   --spacing-sm: 8px;
-  --spacing-md: 16px;
+  --spacing-md: var(--pa-gutter);
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
-  
-  /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  
-  /* Container Max Widths */
+
+  --radius-sm: var(--pa-radius);
+  --radius-md: var(--pa-radius);
+  --radius-lg: var(--pa-radius);
+  --radius-xl: var(--pa-radius);
+
   --container-sm: 640px;
   --container-md: 768px;
   --container-lg: 1024px;
-  --container-xl: 1280px;
+  --container-xl: var(--pa-content-max);
 }
 
-body.dark {
-  /* Dark Theme - Chocolate Palette */
-  --bg-primary: #1A1412;
-  --bg-secondary: #2E1B1B;
-  --bg-card: #2E1B1B;
-  --text-primary: #F8F4F0;
-  --text-secondary: #C4B5AD;
-  --border-color: #3E2723;
-  --shadow: rgba(0, 0, 0, 0.3);
-  --shadow-hover: rgba(0, 0, 0, 0.5);
-  
-  --primary-color: #F8F4F0;
-  --secondary-color: #D4A017;
-  --accent-color: #5D4037;
-  --success-color: #8BC34A;
-  --error-color: #EF5350;
-  --divider-color: #3E2723;
-}
 
-* {
+/* ---- Document --------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 html {
+  /* Fixed so `rem` in components stays stable across breakpoints.
+     The board sizes type in absolute px, not a scaled root. */
   font-size: 16px;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--pa-paper);
+  color: var(--pa-ink);
+  font-family: var(--pa-font-body);
   transition: background-color 0.3s ease, color 0.3s ease;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
   overflow-x: hidden;
 }
 
 #root {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   width: 100%;
 }
@@ -98,329 +87,113 @@ img {
   display: block;
 }
 
-/* Premium Scrollbar - Chocolate Theme */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+/* ---- Surfaces --------------------------------------------------------- */
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 5px;
+  background: var(--pa-stone);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, var(--secondary-color) 0%, var(--accent-color) 100%);
-  border-radius: 5px;
-  border: 2px solid var(--bg-secondary);
+  background: var(--pa-line);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #E8A93C 0%, #6D4C41 100%);
+  background: var(--pa-disabled);
 }
+
+::selection,
+::-moz-selection {
+  background: var(--pa-stone);
+  color: var(--pa-ink);
+}
+
+
+/* ---- Animation -------------------------------------------------------- */
+
 @keyframes cartBadgePulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.1); }
 }
-/* Smooth Animations */
+
 @keyframes fadeIn {
-  from { 
-    opacity: 0; 
-  }
-  to { 
-    opacity: 1; 
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-30px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes spin {
-  from { 
-    transform: rotate(0deg); 
-  }
-  to { 
-    transform: rotate(360deg); 
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 @keyframes pulse {
-  0%, 100% { 
-    transform: scale(1); 
-    opacity: 1; 
-  }
-  50% { 
-    transform: scale(1.05); 
-    opacity: 0.85; 
-  }
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.05); opacity: 0.85; }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
+  from { background-position: -1000px 0; }
+  to   { background-position: 1000px 0; }
 }
 
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
 }
 
-/* Selection Colors - Chocolate Theme */
-::selection {
-  background: rgba(212, 160, 23, 0.3);
-  color: var(--text-primary);
-}
-
-::-moz-selection {
-  background: rgba(212, 160, 23, 0.3);
-  color: var(--text-primary);
-}
-
-/* Focus Outline - Accessibility with Chocolate Theme */
-:focus-visible {
-  outline: 2px solid var(--secondary-color);
-  outline-offset: 2px;
-}
-
-/* Link Styles */
-a {
-  color: var(--secondary-color);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: var(--accent-color);
-}
-
-/* Utility Classes */
-.text-primary {
-  color: var(--text-primary);
-}
-
-.text-secondary {
-  color: var(--text-secondary);
-}
-
-.text-accent {
-  color: var(--secondary-color);
-}
-
-.bg-primary {
-  background-color: var(--bg-primary);
-}
-
-.bg-card {
-  background-color: var(--bg-card);
-}
-
-/* Container */
-.container {
-  width: 100%;
-  max-width: var(--container-xl);
-  margin: 0 auto;
-  padding: 0 var(--spacing-md);
-}
-
-/* Loading States */
+.skeleton,
 .loading {
   animation: shimmer 2s infinite;
   background: linear-gradient(
     90deg,
-    var(--bg-card) 0%,
-    var(--bg-secondary) 50%,
-    var(--bg-card) 100%
+    var(--pa-stone) 0%,
+    var(--pa-line) 50%,
+    var(--pa-stone) 100%
   );
   background-size: 1000px 100%;
 }
 
-/* Card Hover Effect */
-.card-hover {
-  transition: all 0.3s ease;
-}
 
-.card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px var(--shadow-hover);
-}
+/* ---- Print ------------------------------------------------------------ */
 
-/* Premium Badge */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--secondary-color);
-  color: white;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);
-}
-
-/* Button Base Styles */
-.btn {
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 1rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-primary {
-  background: var(--success-color);
-  color: white;
-  box-shadow: 0 4px 12px rgba(139, 195, 74, 0.3);
-}
-
-.btn-primary:hover {
-  background: #7CB342;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(139, 195, 74, 0.4);
-}
-
-.btn-secondary {
-  background: transparent;
-  color: var(--primary-color);
-  border: 2px solid var(--primary-color);
-}
-
-.btn-secondary:hover {
-  background: var(--primary-color);
-  color: white;
-}
-
-/* Responsive Typography */
-@media (max-width: 768px) {
-  html {
-    font-size: 14px;
-  }
-  
-  h1 {
-    font-size: 1.75rem;
-  }
-  
-  h2 {
-    font-size: 1.5rem;
-  }
-  
-  h3 {
-    font-size: 1.25rem;
-  }
-  
-  .container {
-    padding: 0 var(--spacing-md);
-  }
-}
-
-@media (max-width: 480px) {
-  html {
-    font-size: 13px;
-  }
-  
-  .container {
-    padding: 0 var(--spacing-sm);
-  }
-}
-
-/* Mobile Responsive - Touch Targets */
-@media (max-width: 768px) {
-  button, a {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  .card-hover:hover {
-    transform: none;
-  }
-  
-  .card-hover:active {
-    transform: scale(0.98);
-  }
-}
-
-/* Tablet Responsive */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .container {
-    max-width: var(--container-lg);
-  }
-}
-
-/* Desktop Large */
-@media (min-width: 1441px) {
-  html {
-    font-size: 18px;
-  }
-}
-
-/* Print Styles */
 @media print {
   body {
-    background: white;
-    color: black;
+    background: #fff;
+    color: #000;
   }
-  
-  button, .btn {
-    display: none;
-  }
-}
 
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-  :root {
-    --border-color: #000;
-    --shadow: rgba(0, 0, 0, 0.5);
-  }
-  
-  body.dark {
-    --border-color: #fff;
+  button,
+  .no-print {
+    display: none !important;
   }
 }

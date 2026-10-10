@@ -1,118 +1,51 @@
+// src/pages/PaymentCancel.jsx — ProActive Fashion design system refactor.
+//
+// Logic is unchanged: the cancelled-payment message still comes from the
+// ?error query param with the same fallback, and the two handlers still go to
+// /cart and /home. The hand-animated full-screen styles became
+// StepHeader / .pa-receipt / .pa-callout / .pa-btn.
+
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useTheme } from '../context/ThemeContext'
+import { useLanguage } from '../context/LanguageContext'
+import { Button, StepHeader } from '../ui'
 
 export default function PaymentCancel() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { theme } = useTheme()
-  
+  const { t, lang } = useLanguage()
+
   const errorMessage = searchParams.get('error') || 'Payment was cancelled'
 
-  const colors = {
-    light: {
-      primary: '#3E2723',
-      secondary: '#D4A017',
-      background: '#F8F4F0',
-      card: '#FCFAF8',
-      textDark: '#2E1B1B',
-      textLight: '#6B5E57',
-      danger: '#C84B31',
-      border: '#E8DDD4'
-    },
-    dark: {
-      primary: '#2E1B1B',
-      secondary: '#D4A017',
-      background: '#1A1412',
-      card: '#2E1B1B',
-      textDark: '#F8F4F0',
-      textLight: '#C4B5AD',
-      danger: '#E67052',
-      border: '#3E2723'
-    }
+  const ar = lang === 'ar'
+  const L = (key, en, fallback) => {
+    const v = t(key)
+    return v && v !== key ? v : (ar ? fallback : en)
   }
 
-  const c = theme === 'light' ? colors.light : colors.dark
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: c.background,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2rem',
-      textAlign: 'center'
-    }}>
-      <div style={{ fontSize: '5rem', marginBottom: '1.5rem' }}>❌</div>
-      
-      <h1 style={{
-        fontSize: '2.5rem',
-        color: c.danger,
-        marginBottom: '1rem',
-        fontWeight: '700'
-      }}>
-        Payment Cancelled
-      </h1>
-      
-      <p style={{
-        fontSize: '1.2rem',
-        color: c.textLight,
-        marginBottom: '2rem'
-      }}>
-        {errorMessage}
-      </p>
-      
-      <div style={{
-        display: 'flex',
-        gap: '1rem',
-        flexWrap: 'wrap',
-        justifyContent: 'center'
-      }}>
-        <button
-          onClick={() => navigate('/cart')}
-          style={{
-            padding: '14px 32px',
-            background: c.secondary,
-            color: 'white',
-            border: 'none',
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '1.1rem',
-            cursor: 'pointer',
-            transition: 'transform 0.3s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          🛒 Try Again
-        </button>
-        
-        <button
-          onClick={() => navigate('/home')}
-          style={{
-            padding: '14px 32px',
-            background: 'transparent',
-            color: c.textDark,
-            border: `2px solid ${c.border}`,
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '1.1rem',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = c.border
-            e.currentTarget.style.transform = 'scale(1.05)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.transform = 'scale(1)'
-          }}
-        >
-          🏠 Return Home
-        </button>
+    <>
+      <StepHeader
+        title={L('paymentCancelled', 'Payment Cancelled', 'تم إلغاء الدفع')}
+        step={3}
+        of={3}
+        backHref="/cart"
+      />
+
+      <div className="pa-receipt" style={{ maxWidth: 560, marginInline: 'auto', width: '100%', alignItems: 'center', textAlign: 'center' }}>
+        <div className="pa-callout pa-callout--error" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          <b aria-hidden="true" style={{ fontSize: 26 }}>✕</b>
+          <b>{L('paymentCancelled', 'Payment Cancelled', 'تم إلغاء الدفع')}</b>
+          <p className="pa-subtitle" style={{ margin: 0 }}>{errorMessage}</p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Button onClick={() => navigate('/cart')}>
+              🛒 {L('tryAgain', 'Try Again', 'جرب تاني')}
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/home')}>
+              🏠 {L('returnHome', 'Return Home', 'رجوع للرئيسية')}
+            </Button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
