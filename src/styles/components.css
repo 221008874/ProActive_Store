@@ -100,9 +100,10 @@
 .pa-label { font-size: 13px; font-weight: 700; }
 .pa-input, .pa-select {
   height: var(--pa-btn-h); padding: 0 14px; width: 100%;
-  border: 1px solid var(--pa-ink); border-radius: var(--pa-radius);
-  background: var(--pa-paper); color: var(--pa-ink); font: 500 16px var(--pa-font-body); /* 16px stops iOS zoom */
+  border: 1px solid var(--pa-input-border, var(--pa-ink)); border-radius: var(--pa-radius);
+  background: var(--pa-input-bg, var(--pa-paper)); color: var(--pa-input-fg, var(--pa-ink)); font: 500 16px var(--pa-font-body); /* 16px stops iOS zoom */
 }
+.pa-input::placeholder, .pa-select::placeholder { color: var(--pa-input-placeholder, var(--pa-muted)); }
 .pa-input--admin { height: var(--pa-tap); border-color: var(--pa-line); font-size: 14px; }
 .pa-input[aria-invalid="true"] { border-color: var(--pa-sale); }
 .pa-input--phone { direction: ltr; text-align: start; }
@@ -150,7 +151,7 @@
 }
 
 .pa-announce {
-  height: var(--pa-announce-h); background: var(--pa-ink); color: var(--pa-paper);
+  height: var(--pa-announce-h); background: var(--pa-announce-bg, var(--pa-ink)); color: var(--pa-announce-fg, var(--pa-paper));
   display: flex; align-items: stretch; font-size: 12px; font-weight: 600;
 }
 .pa-announce__inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -174,14 +175,19 @@
 @media (min-width: 768px) {
   .pa-header__nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; }
   .pa-header__nav a { text-decoration: none; padding: 8px 0; }
-  .pa-header__search {
-    display: flex; flex: 1 1 280px; max-width: 360px; height: 44px; align-items: center;
-    padding-inline: 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
-    background: var(--pa-paper); font: 500 14px var(--pa-font-body); color: var(--pa-ink);
-  }
-  /* The field IS the search control on desktop — hiding the icon stops the two
-     affordances stacking side by side. */
-  .pa-header__search-icon { display: none; }
+.pa-header__search {
+      display: flex; flex: 1 1 280px; max-width: 360px; height: 44px; align-items: center;
+      padding-inline: 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
+      background: var(--pa-input-bg, var(--pa-paper)); font: 500 14px var(--pa-font-body); color: var(--pa-input-fg, var(--pa-ink));
+    }
+    .pa-header__search input {
+      all: unset; flex: 1; min-width: 0; color: var(--pa-input-fg, var(--pa-ink)); font: inherit;
+    }
+    .pa-header__search input::placeholder { color: var(--pa-input-placeholder, var(--pa-muted)); }
+    /* The field IS the search control on desktop — hiding the icon stops the two
+       affordances stacking side by side. */
+    .pa-header__search-icon { display: none; }
+    .pa-header__search:focus-within { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
 }
 
 .pa-tabbar {                      /* phones only */
@@ -210,13 +216,13 @@
 
 /* Hero shell: the banner on a phone, the 2fr/1fr banner+tiles grid on desktop. */
 .pa-hero-wrap { display: flex; flex-direction: column; }
-.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: #fff; }
+.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: var(--pa-ink); }
 .pa-hero__dots { display: flex; gap: 6px; margin-top: 20px; }
 .pa-hero__dots button {
-  height: 4px; padding: 0; border: 0; background: rgba(255,255,255,.4); cursor: pointer;
+  height: 4px; padding: 0; border: 0; background: var(--pa-line); cursor: pointer;
   transition: width .18s ease, background .18s ease;
 }
-.pa-hero__dots button[data-on="true"] { background: #fff; }
+.pa-hero__dots button[data-on="true"] { background: var(--pa-ink); }
 .pa-hero__side { display: none; }
 @media (min-width: 1024px) {
   .pa-hero-wrap {
@@ -227,14 +233,20 @@
   .pa-hero-wrap .pa-hero { border-radius: var(--pa-radius); }
   .pa-hero__side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
 }
-/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon). */
+/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon).
+   With image: image covers the tile, label overlays with gradient. Without: flat tint. */
 .pa-hero__tile {
   position: relative; display: flex; align-items: flex-end; justify-content: space-between;
   padding: 20px; background: var(--pa-stone); border: 1px solid var(--pa-line);
-  text-decoration: none; color: var(--pa-ink);
+  text-decoration: none; color: var(--pa-ink); min-height: 140px;
 }
 .pa-hero__tile:hover { background: var(--pa-line); }
-.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+.pa-hero__tile-img {
+  position: absolute; inset: 0; background: var(--pa-tint-1) center / cover; z-index: 0;
+  opacity: 0.6;
+}
+.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; position: relative; z-index: 1; }
+.pa-hero__tile:hover .pa-hero__tile-img { opacity: 0.8; }
 
 /* Home shelves: a rail on a phone, a grid from laptop up. Both are rendered and
    the CSS picks one, so there is no JS breakpoint and no layout shift on resize. */
@@ -423,6 +435,42 @@
 }
 .pa-filter-panel { display: flex; flex-direction: column; gap: 24px; }
 .pa-filter-panel__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pa-group-title { display: flex; justify-content: space-between; align-items: baseline; }
+.pa-price-readout { font-size: 13px; font-weight: 600; color: var(--pa-muted); }
+
+/* Dual-handle price slider: two overlaid range inputs with a filled track between them.
+   The track is drawn via ::before on the container; each thumb is styled via
+   appearance: none + custom thumb. Keyboard operable, screen-reader labelled. */
+.pa-price-slider {
+  position: relative; height: 24px; display: flex;
+}
+.pa-price-slider::before {
+  content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 4px;
+  transform: translateY(-50%); background: var(--pa-line); border-radius: 2px; pointer-events: none;
+}
+.pa-price-slider::after {
+  content: ""; position: absolute; top: 50%; height: 4px; border-radius: 2px;
+  transform: translateY(-50%); background: var(--pa-ink); pointer-events: none;
+  left: calc(var(--min) * 1%); right: calc((100 - var(--max)) * 1%);
+}
+.pa-price-slider input[type="range"] {
+  appearance: none; -webkit-appearance: none; position: absolute; top: 0; left: 0; width: 100%; height: 24px;
+  background: transparent; pointer-events: none; z-index: 1;
+}
+.pa-price-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--pa-paper); border: 2px solid var(--pa-ink); box-shadow: var(--pa-shadow-hover);
+  pointer-events: auto; cursor: pointer; margin-top: -8px;
+}
+.pa-price-slider input[type="range"]::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--pa-paper); border: 2px solid var(--pa-ink); box-shadow: var(--pa-shadow-hover);
+  pointer-events: auto; cursor: pointer;
+}
+.pa-price-slider input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-price-slider input[type="range"]:focus-visible::-moz-range-thumb { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-price-slider input[id="price-max"] { z-index: 2; }
 
 .pa-shop__more { padding: 24px 0 48px; display: flex; justify-content: center; }
 .pa-shop__results { min-width: 0; }
@@ -652,11 +700,25 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   display: flex; gap: 14px; align-items: flex-start; text-align: start; width: 100%;
   padding: 16px; background: var(--pa-paper); color: var(--pa-ink);
   border: 1px solid var(--pa-line); border-radius: var(--pa-radius); cursor: pointer;
-  font: 500 14px var(--pa-font-body);
+  font: 500 14px var(--pa-font-body); position: relative;
 }
 .pa-radio-card[aria-checked="true"] { border: 2px solid var(--pa-ink); padding: 15px; }
 .pa-radio-card[aria-disabled="true"] { color: var(--pa-muted); background: var(--pa-stone); cursor: not-allowed; }
-.pa-radio-card input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--pa-ink); }
+.pa-radio-card input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.pa-radio-card::before {
+  content: ""; flex: 0 0 22px; width: 22px; height: 22px; margin-top: 2px;
+  border: 2px solid var(--pa-ink); border-radius: 50%; background: var(--pa-paper);
+  transition: border-color .15s, background .15s;
+}
+.pa-radio-card[aria-checked="true"]::before {
+  border-color: var(--pa-ink);
+  background: var(--pa-ink);
+}
+.pa-radio-card[aria-checked="true"]::after {
+  content: ""; position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border-radius: 50%; background: var(--pa-paper);
+}
+.pa-radio-card[aria-disabled="true"]::before { border-color: var(--pa-line); background: var(--pa-stone); }
 .pa-radio-card b { display: block; font-size: 15px; font-weight: 700; }
 .pa-radio-card span { display: block; color: var(--pa-muted); font-size: 13px; }
 

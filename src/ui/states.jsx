@@ -83,11 +83,17 @@ export function ErrorState({ title, body, onRetry, retryLabel = "Try again" }) {
  * OfflineBanner — shown when the browser is offline and the page is rendering
  * from the IndexedDB catalogue cache, so the shopper knows the prices and
  * stock they see are the saved ones.
+ * Slim bar (40px), dismissible, role="status".
  */
-export function OfflineBanner({ message }) {
+export function OfflineBanner({ message, onDismiss }) {
   return (
-    <div className="pa-offline" role="status">
-      <span>{message}</span>
+    <div className="pa-offline" role="status" style={{ height: 40, padding: '0 var(--pa-gutter)' }}>
+      <span style={{ flex: 1 }}>{message}</span>
+      {onDismiss && (
+        <button type="button" className="pa-icon-btn" style={{ width: 32, height: 32 }} aria-label="Dismiss" onClick={onDismiss}>
+          ×
+        </button>
+      )}
     </div>
   );
 }

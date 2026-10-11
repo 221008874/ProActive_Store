@@ -62,7 +62,19 @@ export async function fetchActiveProducts() {
   const snap = await getDocs(
     query(collection(db, "products_egp"), where("status", "==", "active"))
   );
-  return snap.docs.map(withId);
+  if (snap.docs.length) return snap.docs.map(withId);
+
+  // TEMPORARY, until PROACTIVE_FASHION_MIGRATION.md has been run against the
+  // live database: documents written before the status field existed carry no
+  // status at all, so the "status == active" query matches nothing and the shop
+  // renders an empty grid over a full catalogue. An empty result therefore gets
+  // one second look with a missing status read as active.
+  //
+  // Bounded to 200 documents: this path only runs when nothing is published, so
+  // the cost is paid once per visit and never on a stocked catalogue. Delete it
+  // with the migration.
+  const legacy = await getDocs(query(collection(db, "products_egp")).limit(200));
+  return legacy.docs.map(withId).filter((p) => p.status == null || p.status === "active");
 }
 
 export async function fetchCategories() {
@@ -169,4 +181,32 @@ export async function fetchGovernorates() {
 export async function fetchPublicSettings() {
   const snapshot = await readSnapshot();
   return snapshot?.settings ?? {};
+}
+
+// Built-in default taxonomy for when the settings document is missing.
+const DEFAULT_TAXONOMY = {
+  sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'],
+  colors: [
+    { id: 'black', name: { en: 'Black', ar: 'أسود' }, hex: '#121212' },
+    { id: 'white', name: { en: 'White', ar: 'أبيض' }, hex: '#FFFFFF' },
+    { id: 'beige', name: { en: 'Beige', ar: 'بيج' }, hex: '#F4F2EE' },
+    { id: 'navy', name: { en: 'Navy', ar: 'كحلي' }, hex: '#1F4E8C' },
+    { id: 'olive', name: { en: 'Olive', ar: 'زيتي' }, hex: '#6B8E23' },
+    { id: 'burgundy', name: { en: 'Burgundy', ar: 'عنابي' }, hex: '#800020' },
+    { id: 'grey', name: { en: 'Grey', ar: 'رمادي' }, hex: '#8A8780' },
+    { id: 'blue', name: { en: 'Blue', ar: 'أزرق' }, hex: '#3A7BD5' }
+  ]
+}
+
+// The size and colour vocabulary the filters offer, from egp_settings/taxonomy
+// via the snapshot. It is a vocabulary, not a stock list: a size can be offered
+// before anything is cut in it, which is why the shop merges it with what the
+// catalogue actually carries rather than using either alone.
+export async function fetchTaxonomy() {
+  const snapshot = await readSnapshot();
+  const taxonomy = snapshot?.taxonomy ?? {};
+  return {
+    sizes: taxonomy.sizes?.length ? taxonomy.sizes : DEFAULT_TAXONOMY.sizes,
+    colors: taxonomy.colors?.length ? taxonomy.colors : DEFAULT_TAXONOMY.colors
+  }
 }

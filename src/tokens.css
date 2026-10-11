@@ -112,6 +112,16 @@
   --pa-shadow-hover:  0 12px 32px rgb(0 0 0 / 0.5);
   --pa-overlay:       rgb(244 242 238 / 0.06);
   --pa-overlay-strong: rgb(0 0 0 / 0.7);
+
+  /* Announcement bar in dark mode: use paper (dark) for bg, ink (light) for text */
+  --pa-announce-bg: var(--pa-paper);
+  --pa-announce-fg: var(--pa-ink);
+
+  /* Input/select/textarea in dark mode */
+  --pa-input-bg: transparent;
+  --pa-input-fg: var(--pa-ink);
+  --pa-input-border: var(--pa-line);
+  --pa-input-placeholder: var(--pa-muted);
 }
 
 

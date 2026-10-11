@@ -85,6 +85,7 @@ export function Header({
               onChange={(e) => onSearchChange?.(e.target.value)}
               placeholder={searchPlaceholder}
               aria-label={labels.search ?? "Search"}
+              style={{ all: 'unset', flex: 1, minWidth: 0, color: 'var(--pa-input-fg, var(--pa-ink))', font: '500 14px var(--pa-font-body)' }}
             />
           </form>
         ) : (

@@ -35,6 +35,12 @@ const label = (t, lang) => (key, en, ar) => {
   return lang === 'ar' ? ar : en
 }
 
+// Offline message - fully translated per language
+const OFFLINE_MESSAGES = {
+  ar: 'انت غير متصل بالإنترنت. بنعرض المنتجات المحفوظة.',
+  en: 'You are offline. Showing saved items.'
+}
+
 export default function StoreChrome({ children }) {
   const { t, lang, toggleLanguage } = useLanguage()
   const { theme, toggleTheme } = useTheme()
@@ -49,6 +55,7 @@ export default function StoreChrome({ children }) {
   const [query, setQuery] = useState('')
   const [categories, setCategories] = useState([])
   const [threshold, setThreshold] = useState(null)
+  const [offlineDismissed, setOfflineDismissed] = useState(false)
 
   const L = label(t, lang)
 
@@ -82,7 +89,19 @@ export default function StoreChrome({ children }) {
       }))
 
     const roots = categories.filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))
-    const items = roots.slice(0, 4).map((root) => ({
+    
+    // Find gender categories by common IDs/names
+    const genderOrder = ['women', 'men', 'kids']
+    const genderRoots = genderOrder
+      .map((g) => roots.find((r) => r.id === g || (r.name && (r.name.en?.toLowerCase() === g || r.name.ar?.includes(g)))))
+      .filter(Boolean)
+    
+    // If no gender categories found, use first 3 root categories
+    const middleItems = genderRoots.length === 3
+      ? genderRoots
+      : roots.slice(0, 3)
+    
+    const items = middleItems.map((root) => ({
       label: root.name ? (root.name[lang] ?? root.name.en ?? root.id) : root.id,
       href: `/shop?category=${encodeURIComponent(root.id)}`,
       children: byParent(root.id)
@@ -155,9 +174,9 @@ export default function StoreChrome({ children }) {
       />
 
       {/* Offline: the catalogue survives in IndexedDB, so say so instead of
-          showing a grid that may be stale. */}
-      {!online && (
-        <OfflineBanner message={L('offline', 'You are offline. Showing saved items.', 'انت غير متصل. بنعرض المنتجات المحفوظة.')} />
+          showing a grid that may be stale. Slim bar, dismissible. */}
+      {!online && !offlineDismissed && (
+        <OfflineBanner message={OFFLINE_MESSAGES[lang]} onDismiss={() => setOfflineDismissed(true)} />
       )}
 
       {/* pa-has-tabbar reserves the 64px the fixed bottom bar covers. */}

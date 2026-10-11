@@ -22,7 +22,7 @@ import {
 } from '../ui'
 import { useCatalog, filterProducts, findVariant, SORTERS } from '../hooks/useCatalog'
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
-import { fetchCategories } from '../services/catalog'
+import { fetchCategories, fetchTaxonomy } from '../services/catalog'
 import {
   filtersFromParams, paramsFromFilters, activeFilterChips, removeChip, SORTS
 } from '../utils/filterUrl'
@@ -37,9 +37,15 @@ const label = (t, lang) => (key, en, ar) => {
   return lang === 'ar' ? ar : en
 }
 
-// Sizes and colours are derived from the catalogue rather than hard-coded, so a
-// store that only stocks M and L does not offer XS.
+// Sizes and colours are derived from the catalogue merged with taxonomy,
+// so a store that only stocks M and L still offers the full vocabulary from taxonomy.
 function useFacets(products) {
+  const [taxonomy, setTaxonomy] = useState({ sizes: [], colors: [] })
+
+  useEffect(() => {
+    fetchTaxonomy().then(setTaxonomy).catch(() => {})
+  }, [])
+
   return useMemo(() => {
     const sizes = new Set()
     const colors = new Map()
@@ -54,16 +60,33 @@ function useFacets(products) {
       const top = Math.max(Number(p.price) || 0, Number(p.compareAtPrice) || 0)
       if (top > maxPrice) maxPrice = top
     }
+
+    // Merge with taxonomy: taxonomy provides the vocabulary, products provide availability
+    const taxonomySizes = taxonomy.sizes ?? []
+    const taxonomyColors = taxonomy.colors ?? []
+
+    // Only include taxonomy sizes that have at least some products, OR all if no products have sizes
+    const hasProductSizes = sizes.size > 0
+    const mergedSizes = hasProductSizes
+      ? [...sizes].sort((a, b) => {
+          const ia = SIZE_ORDER.indexOf(a)
+          const ib = SIZE_ORDER.indexOf(b)
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+        })
+      : taxonomySizes
+
+    // Only include taxonomy colors that have at least some products, OR all if no products have colors
+    const hasProductColors = colors.size > 0
+    const mergedColors = hasProductColors
+      ? [...colors.values()].sort((a, b) => loc(a.name, 'en').localeCompare(loc(b.name, 'en')))
+      : taxonomyColors
+
     return {
-      sizes: [...sizes].sort((a, b) => {
-        const ia = SIZE_ORDER.indexOf(a)
-        const ib = SIZE_ORDER.indexOf(b)
-        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
-      }),
-      colors: [...colors.values()].sort((a, b) => loc(a.name, 'en').localeCompare(loc(b.name, 'en'))),
+      sizes: mergedSizes,
+      colors: mergedColors,
       maxPrice
     }
-  }, [products])
+  }, [products, taxonomy])
 }
 
 export default function ShopPage() {
@@ -182,31 +205,32 @@ export default function ShopPage() {
 
   return (
     <div className="pa-shop">
-      {/* Phone-only: back, title + count, bag. The desktop heading below
-          replaces the lot of it from 1024px up. */}
-      <div className="pa-shop__head">
-        <Link to="/home" className="pa-icon-btn" aria-label={L('back', 'Back', 'رجوع')}><IconBack /></Link>
-        <div className="pa-shop__heading">
-          <h1>{title}</h1>
-          <span className="pa-subtitle">{itemCount}</span>
+      <div className="pa-container">
+        {/* Phone-only: back, title + count, bag. The desktop heading below
+            replaces the lot of it from 1024px up. */}
+        <div className="pa-shop__head">
+          <Link to="/home" className="pa-icon-btn" aria-label={L('back', 'Back', 'رجوع')}><IconBack /></Link>
+          <div className="pa-shop__heading">
+            <h1>{title}</h1>
+            <span className="pa-subtitle">{itemCount}</span>
+          </div>
+          <Link to="/cart" className="pa-icon-btn" aria-label={L('cart', 'Bag', 'العربية')}>
+            <IconBag />
+          </Link>
         </div>
-        <Link to="/cart" className="pa-icon-btn" aria-label={L('cart', 'Bag', 'العربية')}>
-          <IconBag />
-        </Link>
-      </div>
 
-      {/* Desktop: breadcrumb, then the heading and the item count together. */}
-      <div className="pa-shop__intro">
-        <nav className="pa-shop__crumbs" aria-label={L('breadcrumb', 'Breadcrumb', 'مسار التصفح')}>
-          <Link to="/home">{L('home', 'Home', 'الرئيسية')}</Link>
-          <IconChevron dir="end" width={14} height={14} />
-          <span aria-current="page">{title}</span>
-        </nav>
-        <div className="pa-shop__heading">
-          <h1>{title}</h1>
-          <span className="pa-subtitle">{itemCount}</span>
+        {/* Desktop: breadcrumb, then the heading and the item count together. */}
+        <div className="pa-shop__intro">
+          <nav className="pa-shop__crumbs" aria-label={L('breadcrumb', 'Breadcrumb', 'مسار التصفح')}>
+            <Link to="/home">{L('home', 'Home', 'الرئيسية')}</Link>
+            <IconChevron dir="end" width={14} height={14} />
+            <span aria-current="page">{title}</span>
+          </nav>
+          <div className="pa-shop__heading">
+            <h1>{title}</h1>
+            <span className="pa-subtitle">{itemCount}</span>
+          </div>
         </div>
-      </div>
 
       <div className="pa-toolbar">
         {/* Phones open the filters in a sheet; the button carries the count so
@@ -275,6 +299,8 @@ export default function ShopPage() {
             <ErrorState
               title={L('loadFailed', 'Could not load products', 'تحميل المنتجات فشل')}
               body={L('checkConnection', 'Check your connection and try again.', 'راجع الاتصال وجرب تاني.')}
+              onRetry={() => window.location.reload()}
+              retryLabel={L('retry', 'Try again', 'جرب تاني')}
             />
           )}
 
@@ -320,6 +346,7 @@ export default function ShopPage() {
           )}
         </div>
       </div>
+    </div>
 
       {/* Closed means unmounted: the sheet's controls must not sit in the page
           (and the tab order) while it is shut. */}
@@ -392,55 +419,75 @@ function FilterPanel({ filters, facets, lang, L, onPatch, onClear, resultCount, 
         </section>
       )}
 
-      <section>
-        <div className="pa-group-title">{L('size', 'Size', 'المقاس')}</div>
-        <div className="pa-sizes">
-          {facets.sizes.map((s) => (
-            <button key={s} type="button" className="pa-size"
-              aria-pressed={filters.sizes.includes(s)}
-              onClick={() => toggleIn('sizes', s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </section>
+      {facets.sizes.length > 0 && (
+        <section>
+          <div className="pa-group-title">{L('size', 'Size', 'المقاس')}</div>
+          <div className="pa-sizes">
+            {facets.sizes.map((s) => (
+              <button key={s} type="button" className="pa-size"
+                aria-pressed={filters.sizes.includes(s)}
+                onClick={() => toggleIn('sizes', s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section>
-        <div className="pa-group-title">{L('color', 'Colour', 'اللون')}</div>
-        <div className="pa-swatches">
-          {facets.colors.map((c) => (
-            <ColorDot key={c.id} color={c} lang={lang}
-              selected={filters.colors.includes(c.id)}
-              onSelect={() => toggleIn('colors', c.id)} />
-          ))}
-        </div>
-      </section>
+      {facets.colors.length > 0 && (
+        <section>
+          <div className="pa-group-title">{L('color', 'Colour', 'اللون')}</div>
+          <div className="pa-swatches">
+            {facets.colors.map((c) => (
+              <ColorDot key={c.id} color={c} lang={lang}
+                selected={filters.colors.includes(c.id)}
+                onSelect={() => toggleIn('colors', c.id)} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section>
-        <div className="pa-group-title">{L('price', 'Price', 'السعر')}</div>
-        {/* Two range inputs, not a custom slider: they are keyboard operable,
-            screen-reader labelled and need no JS to drag. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Field id="f-min" type="range" min={0} max={facets.maxPrice} step={10}
-            label={`${L('from', 'From', 'من')} · ${formatEGP(price, lang)}`}
-            value={price}
-            onChange={(e) => { setPrice(Number(e.target.value)); }}
-            onMouseUp={commitPrice}
-            onTouchEnd={commitPrice}
-            onKeyUp={commitPrice}
-            style={{ padding: 0, height: 24, border: 0 }}
-          />
-          <Field id="f-max" type="range" min={0} max={facets.maxPrice} step={10}
-            label={`${L('to', 'To', 'إلى')} · ${formatEGP(maxPrice, lang)}`}
-            value={maxPrice}
-            onChange={(e) => { setMaxPrice(Number(e.target.value)); }}
-            onMouseUp={commitPrice}
-            onTouchEnd={commitPrice}
-            onKeyUp={commitPrice}
-            style={{ padding: 0, height: 24, border: 0 }}
-          />
-        </div>
-      </section>
+      {facets.maxPrice > 0 && (
+        <section>
+          <div className="pa-group-title">
+            {L('price', 'Price', 'السعر')}
+            <span className="pa-price-readout">
+              {formatEGP(Math.min(price, maxPrice), lang)} – {formatEGP(Math.max(price, maxPrice), lang)}
+            </span>
+          </div>
+          {/* Dual-handle slider: two overlaid <input type="range"> with filled track. */}
+          <div className="pa-price-slider" role="group" aria-labelledby="price-label">
+            <input
+              id="price-min"
+              type="range"
+              min={0}
+              max={facets.maxPrice}
+              step={10}
+              value={price}
+              onChange={(e) => { setPrice(Math.min(Number(e.target.value), maxPrice)); }}
+              onMouseUp={commitPrice}
+              onTouchEnd={commitPrice}
+              onKeyUp={commitPrice}
+              aria-label={L('from', 'From', 'من')}
+              style={{ '--min': (price / facets.maxPrice) * 100, '--max': (maxPrice / facets.maxPrice) * 100 }}
+            />
+            <input
+              id="price-max"
+              type="range"
+              min={0}
+              max={facets.maxPrice}
+              step={10}
+              value={maxPrice}
+              onChange={(e) => { setMaxPrice(Math.max(Number(e.target.value), price)); }}
+              onMouseUp={commitPrice}
+              onTouchEnd={commitPrice}
+              onKeyUp={commitPrice}
+              aria-label={L('to', 'To', 'إلى')}
+              style={{ '--min': (price / facets.maxPrice) * 100, '--max': (maxPrice / facets.maxPrice) * 100 }}
+            />
+          </div>
+        </section>
+      )}
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Checkbox id="f-sale" label={L('onSaleOnly', 'On sale only', 'عليه خصم بس')}
