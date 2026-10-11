@@ -4,7 +4,9 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import { CartProvider } from './context/CartContext'
-import { LanguageProvider } from './context/LanguageContext' // new
+import { LanguageProvider } from './context/LanguageContext'
+import { WishlistProvider } from './context/WishlistContext'
+import { ToastProvider } from './ui/overlays'
 import App from './App'
 
 // Self-hosted fonts (no Google Fonts request on first load, no third-party
@@ -29,9 +31,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <LanguageProvider>
         <ThemeProvider>
-          <CartProvider>
-            <App />
-          </CartProvider>
+          {/* Toast sits outside the router and the cart so a "Added to bag"
+              confirmation works from anywhere, including the shell itself. */}
+          <ToastProvider>
+            <WishlistProvider>
+              <CartProvider>
+                <App />
+              </CartProvider>
+            </WishlistProvider>
+          </ToastProvider>
         </ThemeProvider>
       </LanguageProvider>
     </BrowserRouter>

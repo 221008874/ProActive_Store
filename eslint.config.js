@@ -47,6 +47,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // The test suite runs in Node (vitest defaults to the node environment; the
+  // render smoke tests hand-build a DOM stub rather than using jsdom). Files
+  // under src/test/ therefore need node globals even though they live in src/:
+  // several of them exercise server-side modules that use process and Buffer.
+  {
+    files: ['src/test/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
   // src/ui/ is the vendored ProActive Fashion design system: it intentionally
   // exports plain helpers (variantsToStock, LOW_STOCK_AT) next to components, so
   // the fast-refresh rule does not apply. HMR for these files is not a concern

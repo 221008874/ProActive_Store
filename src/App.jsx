@@ -3,6 +3,7 @@ import { LocationProvider } from './context/LocationContext'
 import StoreChrome from './components/StoreChrome'
 import Splash from './pages/Splash'
 import Home from './pages/Home'
+import ShopPage from './pages/ShopPage'
 import CartPage from './pages/CartPage'
 import ProductDetail from './pages/ProductDetail'
 import AboutUs from './pages/AboutUs'
@@ -12,6 +13,7 @@ import OrderSuccess from './pages/OrderSuccess'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
 import CouponLanding from './pages/CouponLanding'
+import SavedPage from './pages/SavedPage'
 
 // Dev-only gallery of the design system. Imported behind a DEV guard so the
 // route, its components and its strings are dropped from the production build.
@@ -38,6 +40,8 @@ function App() {
 
         <Route element={<StoreLayout />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/saved" element={<SavedPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />

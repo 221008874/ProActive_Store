@@ -56,13 +56,25 @@ export function ColorSwatches({ colors, value, onChange, lang = "en" }) {
  * Product card for rails and grids. Works with the products_egp shape from the migration doc:
  * { id, title:{ar,en}, price, compareAtPrice, discountPct, images[], colors[], availableColors[], totalStock, isNew }
  * Pass `as={Link}` + `to` builder for your router.
+ *
+ * `onSave` enables the wishlist heart; `quickSizes` (with `onQuickAdd`) enables
+ * the desktop hover quick-add bar, which the design hides on touch devices via
+ * `@media (hover: hover) and (min-width: 1024px)`.
  */
-export function ProductCard({ product: p, lang = "en", as: Tag = "a", href, onSave, saved, soldOutLabel = "Sold out", quickSizes, onQuickAdd }) {
+export function ProductCard({
+  product: p, lang = "en", as: Tag = "a", href, onSave, saved, soldOutLabel = "Sold out",
+  quickSizes, onQuickAdd, labels = {}
+}) {
   const pct = p.discountPct ?? calcPct(p.price, p.compareAtPrice);
   const soldOut = p.totalStock != null && p.totalStock <= 0;
   const img = pickImage(p);
   const alt = (p.images ?? []).find((i) => i !== img);
-  const dots = (p.colors ?? []).filter((c) => !p.availableColors || p.availableColors.includes(c.id)).slice(0, 4);
+  // Available colours only, capped at two with a "+N" caption: the card is a
+  // teaser, not a swatch list.
+  const available = (p.colors ?? []).filter((c) => !p.availableColors || p.availableColors.includes(c.id));
+  const dots = available.slice(0, 2);
+  const extra = available.length - dots.length;
+  const lowStock = !soldOut && p.totalStock != null && p.totalStock > 0 && p.totalStock <= LOW_STOCK_AT;
   const linkProps = Tag === "a" ? { href: href ?? `/product/${p.id}` } : { to: href ?? `/product/${p.id}` };
   return (
     <Tag className="pa-card" {...linkProps}>
@@ -70,23 +82,41 @@ export function ProductCard({ product: p, lang = "en", as: Tag = "a", href, onSa
         {img && <img src={thumb(img.url)} alt={loc(p.title, lang)} loading="lazy" />}
         {alt && <img className="pa-card__alt" src={thumb(alt.url)} alt="" loading="lazy" aria-hidden="true" />}
         {pct > 0 ? <Badge kind="sale" className="pa-card__badge">-{pct}%</Badge>
-          : p.isNew ? <Badge className="pa-card__badge">{lang === "ar" ? "جديد" : "NEW"}</Badge> : null}
+          : p.isNew ? <Badge className="pa-card__badge">{labels.new ?? (lang === "ar" ? "جديد" : "NEW")}</Badge> : null}
         {onSave && (
-          <button type="button" className="pa-card__save" aria-label="Save to wishlist" aria-pressed={!!saved}
-            onClick={(e) => { e.preventDefault(); onSave(p); }}>
+          <button type="button" className="pa-card__save" aria-label={labels.save ?? "Save to wishlist"}
+            aria-pressed={!!saved}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSave(p); }}>
             <IconHeart width={20} height={20} fill={saved ? "currentColor" : "none"} />
           </button>
         )}
         {soldOut && <div className="pa-card__soldout">{soldOutLabel}</div>}
         {quickSizes && !soldOut && (
-          <div className="pa-card__quick" onClick={(e) => e.preventDefault()}>
-            {quickSizes.map((s) => <button key={s} type="button" className="pa-size pa-size--sm" onClick={() => onQuickAdd?.(p, s)}>{s}</button>)}
+          // The whole bar is inside a link, so a size tap must not navigate.
+          <div className="pa-card__quick" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            {quickSizes.map((s) => (
+              <button key={s} type="button" className="pa-size pa-size--sm"
+                aria-label={`${labels.add ?? "Add"} ${labels.size ?? "size"} ${s}`}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onQuickAdd?.(p, s); }}>
+                {s}
+              </button>
+            ))}
           </div>
         )}
       </div>
-      {dots.length > 0 && <div className="pa-dots">{dots.map((c) => <span key={c.id} className="pa-dot" style={{ "--sw": c.hex }} />)}</div>}
+      {dots.length > 0 && (
+        <div className="pa-dots">
+          {dots.map((c) => <span key={c.id} className="pa-dot" style={{ "--sw": c.hex }} title={loc(c.name, lang)} />)}
+          {extra > 0 && <span className="pa-subtitle" style={{ fontSize: 12 }}>+{extra}</span>}
+        </div>
+      )}
       <div className="pa-card__title">{loc(p.title, lang)}</div>
       <PriceTag price={p.price} compareAtPrice={p.compareAtPrice} lang={lang} />
+      {lowStock && (
+        <div className="pa-stock-hint pa-stock-hint--sm">
+          {labels.onlyLeft ? labels.onlyLeft(p.totalStock) : `Only ${p.totalStock} left`}
+        </div>
+      )}
     </Tag>
   );
 }

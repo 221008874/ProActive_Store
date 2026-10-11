@@ -220,8 +220,86 @@
 .pa-about__card { background: var(--pa-stone); padding: 12px 14px; }
 .pa-about__card b { font-size: 14px; display: block; }
 .pa-about__card span { font-size: 13px; line-height: 1.4; color: var(--pa-muted); }
+
+/* Footer: four columns on desktop, stacked on a phone. The delivery note is
+   the last column because it is the one thing a shopper checks before the
+   bag, not after. */
 .pa-footer { margin-top: 14px; padding: 20px var(--pa-gutter) 16px; border-top: 1px solid var(--pa-line); display: flex; flex-direction: column; gap: 10px; }
 .pa-footer__links { display: flex; gap: 18px; font-size: 13px; font-weight: 600; }
+.pa-footer__brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pa-footer__col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pa-footer__title { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--pa-muted); }
+.pa-footer__col a { font-size: 13px; font-weight: 600; text-decoration: none; }
+.pa-footer__toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.pa-footer__toggle {
+  min-height: var(--pa-tap); padding: 0 14px; display: inline-flex; align-items: center; gap: 8px;
+  background: var(--pa-paper); color: var(--pa-ink); border: 1px solid var(--pa-line);
+  border-radius: var(--pa-radius); font: 600 13px var(--pa-font-body); cursor: pointer;
+}
+@media (min-width: 1024px) {
+  .pa-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
+  .pa-footer__links { flex-direction: column; gap: 8px; }
+}
+
+/* Announcement bar toggles (language + theme on desktop) */
+.pa-announce .pa-lang a, .pa-announce .pa-lang button {
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  color: var(--pa-on-dark-2); font: 600 12px var(--pa-font-body);
+}
+.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { color: #fff; font-weight: 700; }
+.pa-announce__theme { display: none; }
+@media (min-width: 1024px) { .pa-announce__theme { display: inline-flex; } }
+.pa-announce__sep { display: none; }
+@media (min-width: 1024px) { .pa-announce__sep { display: inline; color: var(--pa-on-dark-2); } }
+
+/* ---------------------------- Header + mega menu ------------------------- */
+.pa-header__nav { display: none; }
+@media (min-width: 1024px) {
+  .pa-header { height: 72px; }
+  .pa-header__nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; align-items: center; }
+}
+.pa-navlink { text-decoration: none; padding: 8px 0; position: relative; }
+.pa-navlink--sale { color: var(--pa-sale); }
+/* The mega-menu opens on hover AND on focus-within, so keyboard users reach the
+   categories without a pointer. */
+.pa-navitem { position: relative; }
+.pa-mega {
+  position: absolute; inset-inline-start: 0; top: 100%; z-index: 30; min-width: 260px;
+  background: var(--pa-paper); border: 1px solid var(--pa-line); box-shadow: var(--pa-shadow-hover);
+  padding: 8px; display: none; flex-direction: column; gap: 2px;
+}
+.pa-navitem:hover .pa-mega, .pa-navitem:focus-within .pa-mega { display: flex; }
+.pa-mega a {
+  min-height: var(--pa-tap); display: flex; align-items: center; padding: 0 12px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
+}
+.pa-mega a:hover { background: var(--pa-stone); }
+.pa-mega__empty { padding: 12px; font-size: 13px; color: var(--pa-muted); }
+
+/* ------------------------------ Menu drawer ----------------------------- */
+/* Full-height panel, inline-start edge (mirrors with dir), above everything. */
+.pa-drawer-backdrop { position: fixed; inset: 0; background: rgba(18,18,18,.5); z-index: 50; }
+.pa-drawer {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 51; width: min(320px, 86vw);
+  background: var(--pa-paper); display: flex; flex-direction: column; overflow-y: auto;
+  animation: pa-drawer-in 250ms ease-out;
+}
+@keyframes pa-drawer-in { from { transform: translateX(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+[dir="rtl"] .pa-drawer { animation-name: pa-drawer-in-rtl; }
+@keyframes pa-drawer-in-rtl { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pa-drawer__head {
+  height: var(--pa-header-h); flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px 0 16px; border-bottom: 1px solid var(--pa-line);
+}
+.pa-drawer__body { flex: 1 1 auto; padding: 16px; display: flex; flex-direction: column; gap: 24px; }
+.pa-drawer__group { display: flex; flex-direction: column; gap: 4px; }
+.pa-drawer__row {
+  min-height: var(--pa-tap); display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 600; text-decoration: none; color: var(--pa-ink);
+}
+.pa-drawer__row[aria-current="page"] { font-weight: 700; }
+.pa-drawer__sub { padding-inline-start: 22px; font-size: 14px; font-weight: 500; min-height: 40px; display: flex; align-items: center; text-decoration: none; color: var(--pa-ink); }
+.pa-drawer__foot { flex: 0 0 auto; border-top: 1px solid var(--pa-line); padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 .pa-footer__links a { text-decoration: none; }
 
 /* ------------------------ Browse (filters, chips) -------------------- */
