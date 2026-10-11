@@ -1,37 +1,49 @@
 // Delivery form validation. Pure: takes the form values and returns the errors
 // map, so the rules can be tested without mounting the checkout page.
+//
+// These rules mirror what /api/placeOrder enforces, so a form that passes here
+// is a form the server accepts. The two that matter most:
+//
+//   - the phone must be an Egyptian mobile number. The server rejects anything
+//     else with BAD_CUSTOMER, and a courier who cannot reach the shopper is a
+//     failed delivery.
+//   - email is optional. The order model stores null rather than a fake
+//     address, so an empty field is not an error and a malformed one is.
 
-const PHONE_REGEX = /^\+?[\d\s\-()]{10,}$/
+// Vodafone (010), Etisalat (011), Orange (012), WE (015) and the four-digit
+// 015x ranges the regulator has since opened.
+const PHONE_REGEX = /^01[0125]\d{8}$/
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_ADDRESS_LENGTH = 10
 
 export function validateDeliveryForm(formData, { t }) {
   const errors = {}
+  const phone = String(formData.phone ?? '').replace(/[\s-]/g, '')
 
-  if (!formData.name.trim()) {
+  if (!String(formData.name ?? '').trim()) {
     errors.name = t('nameRequired')
   }
 
-  if (!formData.phone.trim() || !PHONE_REGEX.test(formData.phone)) {
+  if (!phone || !PHONE_REGEX.test(phone)) {
     errors.phone = t('validPhoneRequired')
   }
 
-  if (!formData.email?.trim() || !EMAIL_REGEX.test(formData.email)) {
+  const email = String(formData.email ?? '').trim()
+  if (email && !EMAIL_REGEX.test(email)) {
     errors.email = t('validEmailRequired') || 'Valid email required'
   }
 
-  if (!formData.address.trim() || formData.address.trim().length < MIN_ADDRESS_LENGTH) {
+  const address = String(formData.address ?? '').trim()
+  if (!address || address.length < MIN_ADDRESS_LENGTH) {
     errors.address = t('addressTooShort') || 'Address must be at least 10 characters'
   }
 
-// Governorate is required - it prices every delivery.
-    if (!formData.governorate) {
+  // Governorate is required - it prices every delivery.
+  if (!formData.governorate) {
     errors.governorate = t('selectGovernorate') || 'Please select your governorate'
   }
 
-  if (!formData.latitude || !formData.longitude) {
-    errors.location = t('locationRequired')
-  }
-
+  // A pin is optional: a typed street address is a deliverable order, and the
+  // map is an aid rather than a requirement.
   return { errors, isValid: Object.keys(errors).length === 0 }
 }

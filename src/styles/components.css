@@ -621,3 +621,69 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
 .pa-qty--admin button { width: var(--pa-tap); height: var(--pa-tap); }
 .pa-qty--admin output { width: 56px; height: var(--pa-tap); font-size: 16px; }
 
+/* =========================================================================
+   Checkout
+   ========================================================================= */
+
+/* One layout for both: the mobile column and the desktop panel column are the
+   same markup, and CSS picks which one is visible. No JS breakpoint. */
+.pa-checkout-layout { display: flex; flex-direction: column; gap: 0; }
+.pa-checkout__steps { display: none; }
+.pa-checkout__summary { display: none; }
+@media (min-width: 1024px) {
+  .pa-checkout-layout {
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px;
+    align-items: start; max-width: var(--pa-content-max); margin-inline: auto; padding: 24px var(--pa-gutter) 64px;
+  }
+  .pa-checkout__mobile { display: none; }
+  .pa-checkout__steps { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .pa-checkout__summary {
+    display: block; position: sticky; top: calc(var(--pa-header-h) + 24px);
+    border: 1px solid var(--pa-ink); padding: 18px;
+  }
+}
+@media (min-width: 1024px) and (max-width: 1200px) {
+  /* A narrow laptop keeps the summary closer than the board's 360px column. */
+  .pa-checkout-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
+}
+
+/* Phone: the steps are full screens, so their own footers are sticky. */
+.pa-checkout { padding-bottom: 24px; }
+.pa-checkout__section { padding: 16px var(--pa-gutter); display: flex; flex-direction: column; gap: 14px; }
+.pa-checkout__row { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .pa-checkout__row { grid-template-columns: 1fr 1fr; } }
+.pa-checkout__foot {
+  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center;
+  padding: 12px var(--pa-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--pa-paper); border-top: 1px solid var(--pa-line);
+}
+.pa-checkout__foot .pa-btn { flex: 1 1 0; }
+@media (min-width: 1024px) {
+  .pa-checkout__foot { position: static; border: 0; padding: 16px 0 0; }
+  .pa-checkout { padding: 0; }
+  .pa-checkout__section { padding: 0; }
+}
+
+.pa-cod-amount { font-family: var(--pa-font-display); font-size: 26px; font-weight: 700; line-height: 1.15; }
+
+/* Desktop step panels: numbered, collapsible, current one open. */
+.pa-checkout__panel { border: 1px solid var(--pa-line); background: var(--pa-paper); }
+.pa-checkout__panel[data-state="current"] { border-color: var(--pa-ink); }
+.pa-checkout__panel-head {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; background: transparent; border: 0; cursor: pointer;
+  font: 700 15px var(--pa-font-body); color: var(--pa-ink); text-align: start;
+}
+.pa-checkout__panel[data-state="done"] .pa-checkout__panel-head { color: var(--pa-instock); }
+.pa-checkout__panel-num {
+  width: 26px; height: 26px; flex: 0 0 auto; display: grid; place-items: center;
+  border: 1.5px solid var(--pa-ink); border-radius: 50%; font-size: 13px; font-weight: 700;
+}
+.pa-checkout__panel[data-state="done"] .pa-checkout__panel-num {
+  background: var(--pa-ink); color: var(--pa-paper); border-color: var(--pa-ink);
+}
+.pa-checkout__panel-body { padding: 0 16px 16px; border-top: 1px solid var(--pa-line); }
+.pa-checkout__panel-body > * { padding-top: 8px; }
+
+.summary-card, .pa-summary-card { padding: 14px var(--pa-gutter); display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+
