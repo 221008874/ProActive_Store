@@ -9,7 +9,7 @@
 // restore stock in the same transaction, and every change appends to the
 // order's statusHistory so the timeline survives.
 
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "../../_core/firebaseAdmin.js";
 import { getDb } from "../../_core/serverDb.js";
 import { requireAdmin } from "../../_core/authz.js";
 

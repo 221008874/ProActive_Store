@@ -6,11 +6,11 @@
 // idempotent: an order that already has a ready document is a no-op, so an
 // admin can safely press retry more than once.
 
-import { getDb } from "../../_core/serverDb.js";
-import { requireAdmin } from "../../_core/authz.js";
-import { applyCors, handlePreflight } from "../../_core/cors.js";
-import { generateOrderDocument, DOC_TYPES } from "../../_core/orderDocumentCore.js";
-import { DocumentStoreNotConfiguredError } from "../../_core/githubStore.js";
+import { getDb } from "../../../_core/serverDb.js";
+import { requireAdmin } from "../../../_core/authz.js";
+import { applyCors, handlePreflight } from "../../../_core/cors.js";
+import { generateOrderDocument, DOC_TYPES } from "../../../_core/orderDocumentCore.js";
+import { DocumentStoreNotConfiguredError } from "../../../_core/githubStore.js";
 
 export default async function handler(req, res) {
   // The admin panel calls this from its own domain, so the preflight is the

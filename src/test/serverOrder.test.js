@@ -21,7 +21,7 @@ import {
   MAX_QTY_PER_LINE,
   DUP_WINDOW_MS,
   DEFAULT_RATE_LIMITS
-} from '../../api/_core/orderCore.js'
+} from '../../server/_core/orderCore.js'
 import { createFakeFirestore, seedFixture } from './fakeFirestore'
 
 let db

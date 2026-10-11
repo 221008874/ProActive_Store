@@ -4,8 +4,8 @@
 // sent to the client, and usage counters stay private. The answer is a
 // yes/no plus the discount, nothing else.
 
-import { getDb } from "./_core/serverDb.js";
-import { normalizeCode, discountForCoupon, couponRejection } from "./_core/orderCore.js";
+import { getDb } from "../_core/serverDb.js";
+import { normalizeCode, discountForCoupon, couponRejection } from "../_core/orderCore.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

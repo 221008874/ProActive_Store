@@ -8,11 +8,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { createFakeFirestore } from './fakeFirestore'
-import { isValidDocumentPath, parseDocumentPath, safeFileName, buildRepositoryPath } from '../../api/_core/documentPath.js'
-import { githubStore, DocumentStoreNotConfiguredError } from '../../api/_core/githubStore.js'
-import { applyCors, handlePreflight } from '../../api/_core/cors.js'
-import { generateOrderDocument, getOrderDocumentMeta, DOC_TYPES, documentRepositoryPath } from '../../api/_core/orderDocumentCore.js'
-import { buildInvoiceDoc, renderInvoice, securityHashFor, toMillis } from '../../api/_core/invoiceDoc.js'
+import { isValidDocumentPath, parseDocumentPath, safeFileName, buildRepositoryPath } from '../../server/_core/documentPath.js'
+import { githubStore, DocumentStoreNotConfiguredError } from '../../server/_core/githubStore.js'
+import { applyCors, handlePreflight } from '../../server/_core/cors.js'
+import { generateOrderDocument, getOrderDocumentMeta, DOC_TYPES, documentRepositoryPath } from '../../server/_core/orderDocumentCore.js'
+import { buildInvoiceDoc, renderInvoice, securityHashFor, toMillis } from '../../server/_core/invoiceDoc.js'
 
 const ORDER = {
   orderNumber: 'PA-LZ3K9X2',

@@ -41,8 +41,8 @@ scripts/           build-catalog (CLI), backfill-documents (CLI, regenerate
 
 Every order gets a tax-invoice PDF, rendered **on the server** from the
 order document in Firestore (real order number, real date, full address,
-coupon — see `api/_core/invoiceDoc.js`) and archived to a **private GitHub
-repository** (`api/_core/githubStore.js`): the bytes are free to store and
+coupon — see `server/_core/invoiceDoc.js`) and archived to a **private GitHub
+repository** (`server/_core/githubStore.js`): the bytes are free to store and
 private by construction, while `orders_egp/{orderId}/order_documents/{docType}`
 holds the index (path, sha256, bytes, status). The storefront never sees the
 bytes; the admin panel fetches them through

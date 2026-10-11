@@ -1,47 +1,15 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/payment/success",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/payment/cancel",
-      "dest": "/index.html"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/robots.txt",
-      "dest": "/api/robots"
-    },
-    {
-      "src": "/sitemap.xml",
-      "dest": "/api/sitemap"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/robots.txt", "destination": "/api/robots" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/:path((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/cron/catalog", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/catalog", "schedule": "0 4 * * *" },
     { "path": "/api/cron/rollup", "schedule": "30 22 * * *" },
-    { "path": "/api/cron/stuck-orders", "schedule": "0 * * * *" },
-    { "path": "/api/cron/notify", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/stuck-orders", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/notify", "schedule": "0 7 * * *" }
   ]
 }

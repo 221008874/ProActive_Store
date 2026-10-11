@@ -33,8 +33,8 @@ if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHU
   process.exit(1);
 }
 
-const { getDb } = await import("../api/_core/serverDb.js");
-const { generateOrderDocument, getOrderDocumentMeta } = await import("../api/_core/orderDocumentCore.js");
+const { getDb } = await import("../server/_core/serverDb.js");
+const { generateOrderDocument, getOrderDocumentMeta } = await import("../server/_core/orderDocumentCore.js");
 const { limit: firestoreLimit } = await import("firebase-admin/firestore");
 
 const db = getDb();

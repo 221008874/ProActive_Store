@@ -2,8 +2,8 @@
 // the Egypt day boundaries the nightly jobs share (api/_core/dayBounds.js).
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { findProduct, findPublicProduct } from '../../api/_core/productLookup.js'
-import { egyptPreviousDay } from '../../api/_core/dayBounds.js'
+import { findProduct, findPublicProduct } from '../../server/_core/productLookup.js'
+import { egyptPreviousDay } from '../../server/_core/dayBounds.js'
 import { createFakeFirestore, seedFixture } from './fakeFirestore'
 
 let db

@@ -3,8 +3,8 @@
 // The bag shows live prices and stock without opening the checkout: it is
 // what the cart reconciles against after a reload or a long-idle tab.
 
-import { getDb } from "./_core/serverDb.js";
-import { MAX_LINES, MAX_QTY_PER_LINE, CheckoutError } from "./_core/orderCore.js";
+import { getDb } from "../_core/serverDb.js";
+import { MAX_LINES, MAX_QTY_PER_LINE, CheckoutError } from "../_core/orderCore.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

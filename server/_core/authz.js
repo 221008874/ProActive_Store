@@ -9,7 +9,7 @@
 // to forget: an unauthenticated or claim-less caller is refused before any
 // database work.
 
-import { getAuth } from "firebase-admin/auth";
+import { getAuth } from "./firebaseAdmin.js";
 import { getDb } from "./serverDb.js";
 
 export async function requireAdmin(req) {

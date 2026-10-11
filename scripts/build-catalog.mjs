@@ -20,8 +20,8 @@ if (!fs.existsSync(keyPath)) {
 // serverDb reads the JSON from this variable; point it at the file's content.
 process.env.FIREBASE_SERVICE_ACCOUNT = fs.readFileSync(keyPath, "utf8");
 
-const { getDb } = await import("../api/_core/serverDb.js");
-const { collectCatalogData, writeSnapshot } = await import("../api/_core/catalogCore.js");
+const { getDb } = await import("../server/_core/serverDb.js");
+const { collectCatalogData, writeSnapshot } = await import("../server/_core/catalogCore.js");
 
 const db = getDb();
 const snapshot = await collectCatalogData(db);

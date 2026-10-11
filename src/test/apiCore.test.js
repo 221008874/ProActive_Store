@@ -3,9 +3,9 @@
 // verified by the request flow, and their logic is what makes them correct.
 
 import { describe, it, expect, vi } from 'vitest'
-import { captchaConfigured, verifyCaptcha } from '../../api/_core/captcha.js'
-import { isCronAuthorized } from '../../api/_core/cronAuth.js'
-import { normalizeQuery, normalizeLatLng, cacheKey } from '../../api/_core/geocode.js'
+import { captchaConfigured, verifyCaptcha } from '../../server/_core/captcha.js'
+import { isCronAuthorized } from '../../server/_core/cronAuth.js'
+import { normalizeQuery, normalizeLatLng, cacheKey } from '../../server/_core/geocode.js'
 
 describe('captcha gate', () => {
   it('is open when no secret is configured (local dev, previews)', async () => {

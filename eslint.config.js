@@ -28,12 +28,13 @@ export default defineConfig([
     },
   },
 
-  // Server-side code: Vercel functions, their _core modules and the ops
-  // scripts. These run in Node, not the browser: no JSX, no React rules
-  // (useAdminFieldValue is a function, not a hook), node globals (process,
-  // Buffer) available. Declared AFTER the general block so it overrides.
+  // Server-side code: the Vercel function in api/, the route handlers and
+  // their _core modules in server/, and the ops scripts. These run in Node,
+  // not the browser: no JSX, no React rules (useAdminFieldValue is a function,
+  // not a hook), node globals (process, Buffer) available. Declared AFTER the
+  // general block so it overrides.
   {
-    files: ['api/**/*.js', 'scripts/**/*.js', '*.js'],
+    files: ['api/**/*.js', 'server/**/*.js', 'scripts/**/*.js', '*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       globals: globals.node,

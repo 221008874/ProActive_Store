@@ -3,8 +3,8 @@
 // quotes are exactly where hand-rolled parsers break.
 
 import { describe, it, expect } from 'vitest'
-import { parseCsv } from '../../api/_core/csv.js'
-import { normalizeRow } from '../../api/admin/import.js'
+import { parseCsv } from '../../server/_core/csv.js'
+import { normalizeRow } from '../../server/admin/import.js'
 
 const HEADER = 'productSlug,titleEn,titleAr,category,price,compareAt,color,size,stock,imageUrl'
 

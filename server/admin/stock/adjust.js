@@ -4,7 +4,7 @@
 // for "why is my stock wrong": damaged, found, manual count, import... An
 // adjustment that would drive stock negative is refused rather than clamped.
 
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "../../_core/firebaseAdmin.js";
 import { getDb } from "../../_core/serverDb.js";
 import { requireAdmin } from "../../_core/authz.js";
 

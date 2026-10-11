@@ -14,7 +14,7 @@ import {
   buildSnapshotData,
   writeSnapshot,
   readSnapshot
-} from '../../api/_core/catalogCore.js'
+} from '../../server/_core/catalogCore.js'
 import { createFakeFirestore, seedFixture } from './fakeFirestore'
 
 let db

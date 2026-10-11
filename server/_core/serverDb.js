@@ -16,11 +16,21 @@
 // firebase-admin/auth - are the documented ESM path and the only ones that
 // work here.
 
-import { initializeApp, cert, getApps } from "firebase-admin";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { initializeApp, cert, getApps } from "./firebaseAdmin.js";
+import { getFirestore, FieldValue } from "./firebaseAdmin.js";
 import { fieldValue, useAdminFieldValue } from "./fieldValueHolder.js";
 
 useAdminFieldValue({ FieldValue });
+
+// This project's Firestore database is named "default", NOT the "(default)"
+// that getFirestore() assumes. Reading "(default)" against it fails with
+// NOT_FOUND - no collections, no orders, no catalogue, and the error names no
+// database so it reads like a permissions problem. Naming it explicitly is the
+// only thing that makes the data visible.
+//
+// Overridable so a future project with the conventional database can be pointed
+// at without a code change.
+const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || "default";
 
 let cachedDb = null;
 
@@ -54,8 +64,8 @@ export function getDb() {
     }
   }
 
-  cachedDb = getFirestore();
+  cachedDb = getFirestore(getApps()[0], DATABASE_ID);
   return cachedDb;
 }
 
-export { fieldValue };
+export { fieldValue, DATABASE_ID };

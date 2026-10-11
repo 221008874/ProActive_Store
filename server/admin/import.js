@@ -13,7 +13,7 @@
 // One product = one write batch, so a 500-row file cannot trip the per-batch
 // limit, and a failure names the row it died on.
 
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "../_core/firebaseAdmin.js";
 import { getDb } from "../_core/serverDb.js";
 import { requireAdmin } from "../_core/authz.js";
 import { parseCsv } from "../_core/csv.js";
