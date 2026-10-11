@@ -5,7 +5,10 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `.vercel` holds the build output of `vercel build`, which bundles a copy of
+// node_modules into .vercel/output. It is generated, gitignored, and linting it
+// reports hundreds of errors in code that is not ours.
+globalIgnores(['dist', '.vercel']),
 
   {
     files: ['**/*.{js,jsx}'],

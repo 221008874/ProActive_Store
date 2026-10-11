@@ -80,20 +80,22 @@ export function routeKey(pathParam) {
 }
 
 /**
- * The path this request is for, taken from the URL itself.
+ * The path this request is for.
  *
- * The catch-all parameter is not reliably populated across every Vercel runtime
- * and local runner - when it is missing the lookup silently resolves to "" and
- * every route 404s. req.url is always present and always the real path, so it
- * is the source of truth; the query parameter is only a fallback.
+ * A rewrite carries the real route in the `path` query parameter, so that wins.
+ * When the request was not rewritten the URL is used instead: the compiled
+ * catch-all route only matches a single path segment, so nested routes such as
+ * /api/cart/check can only arrive here through a rewrite, and their req.url is
+ * still the original request rather than the destination.
  */
 export function pathFromRequest(req) {
+  const fromRewrite = req?.query?.path;
+  if (fromRewrite) return routeKey(fromRewrite);
   const url = req?.url;
   if (typeof url === "string" && url.includes("/api/")) {
-    const withoutQuery = url.split("?")[0];
-    return routeKey(withoutQuery.replace(/^.*\/api\/?/, ""));
+    return routeKey(url.split("?")[0].replace(/^.*\/api\/?/, ""));
   }
-  return routeKey(req?.query?.path);
+  return "";
 }
 
 /** The handler for a path after /api, or null when nothing is mounted there. */

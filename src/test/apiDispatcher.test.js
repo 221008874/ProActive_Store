@@ -79,6 +79,13 @@ describe("pathFromRequest", () => {
     expect(pathFromRequest({ url: "/api/admin/order/status" })).toBe("admin/order/status")
   })
 
+  it("prefers the rewrite's path over the request URL", () => {
+    // Nested routes only reach the function through a rewrite, and req.url is
+    // still the original request. Reading the URL here would send
+    // /api/cart/check to the "cart/check" key as "" and 404 every nested route.
+    expect(pathFromRequest({ url: "/api/cart/check", query: { path: "cart/check" } })).toBe("cart/check")
+  })
+
   it("falls back to the catch-all parameter when there is no URL", () => {
     expect(pathFromRequest({ query: { path: ["catalog"] } })).toBe("catalog")
     expect(pathFromRequest({ query: { path: ["cart", "check"] } })).toBe("cart/check")
