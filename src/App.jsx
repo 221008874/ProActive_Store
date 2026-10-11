@@ -13,6 +13,11 @@ import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
 import CouponLanding from './pages/CouponLanding'
 
+// Dev-only gallery of the design system. Imported behind a DEV guard so the
+// route, its components and its strings are dropped from the production build.
+// Delete this block and src/pages/UiGallery.jsx together.
+import UiGallery from './pages/UiGallery'
+
 // Everything under here shares the announcement bar, header and phone tab bar.
 function StoreLayout() {
   return (
@@ -42,6 +47,8 @@ function App() {
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route path="/coupon/:code" element={<CouponLanding />} />
+
+          {import.meta.env.DEV && <Route path="/_ui" element={<UiGallery />} />}
         </Route>
       </Routes>
     </LocationProvider>

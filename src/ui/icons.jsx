@@ -41,3 +41,26 @@ export const IconBack = (p) => (
 
 export const IconClose = (p) => <svg {...base} {...p}><path d="M6 6l12 12M18 6L6 18" /></svg>;
 export const IconTrash = (p) => <svg {...base} {...p}><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" /></svg>;
+
+// --- icons added for the fashion UI pass -------------------------------------
+
+export const IconShare = (p) => (
+  <svg {...base} {...p}><path d="M12 15V4m0 0L8.5 7.5M12 4l3.5 3.5" /><path d="M6 11v8h12v-8" /></svg>
+);
+
+export const IconFilter = (p) => <svg {...base} {...p}><path d="M4 6h16M7 12h10M10 18h4" /></svg>;
+
+export const IconCheck = (p) => <svg {...base} {...p}><path d="M5 12.5l4.5 4.5L19 7" /></svg>;
+
+// Plus/minus are drawn on a 24 box but read small: keep the stroke weight so
+// they stay legible at 14px, and let the caller size the box.
+export const IconPlus = (p) => <svg {...base} {...p}><path d="M12 6v12M6 12h12" /></svg>;
+export const IconMinus = (p) => <svg {...base} {...p}><path d="M6 12h12" /></svg>;
+
+export const IconPhone = (p) => (
+  <svg {...base} {...p}><path d="M7 4h3l1.5 4-2 1.5a10 10 0 0 0 5 5L16 12.5l4 1.5v3a2 2 0 0 1-2.2 2A15 15 0 0 1 5 6.2 2 2 0 0 1 7 4z" /></svg>
+);
+
+export const IconUser = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
+);

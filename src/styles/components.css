@@ -53,6 +53,8 @@
 .pa-status--confirmed { background: var(--pa-st-confirmed-bg); color: var(--pa-st-confirmed-fg); }
 .pa-status--shipped   { background: var(--pa-st-shipped-bg);   color: var(--pa-st-shipped-fg); }
 .pa-status--delivered { background: var(--pa-st-delivered-bg); color: var(--pa-st-delivered-fg); }
+/* Unknown / neutral: a status the table has no opinion about yet. */
+.pa-status--neutral   { background: var(--pa-st-neutral-bg);   color: var(--pa-st-neutral-fg); }
 .pa-status--cancelled,
 .pa-status--returned  { background: var(--pa-st-cancelled-bg); color: var(--pa-st-cancelled-fg); }
 /* product status (admin) reuses the same pills: active=delivered, draft=pending, archived=cancelled */
@@ -382,3 +384,109 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   }
   .pa-card__quick { transform: none; }
 }
+
+/* =========================================================================
+   Controls added for the fashion UI pass
+   ========================================================================= */
+
+/* Button variants. `danger` is an outline in the sale colour so it never
+   competes with the solid primary on the same screen; the disabled state
+   keeps muted-on-stone, which clears 4.5:1 (the --disabled token on stone
+   does not, so it is reserved for struck-through sold-out text). */
+.pa-btn--danger { background: var(--pa-paper); color: var(--pa-sale); border-color: var(--pa-sale); }
+.pa-btn--danger:hover { color: #fff; background: var(--pa-sale); opacity: 1; }
+.pa-btn--compact { height: var(--pa-tap); padding: 0 16px; font-size: 14px; }
+.pa-btn[disabled], .pa-btn[aria-disabled="true"] {
+  background: var(--pa-stone); border-color: var(--pa-stone); color: var(--pa-muted);
+  cursor: not-allowed; opacity: 1;
+}
+
+/* Native select with the board's 48px box. `appearance: none` so the control
+   is drawn the same everywhere; the caret is a data-uri so it inherits nothing
+   and cannot 404. It points down, so it needs no RTL mirroring -- only the
+   horizontal position flips. */
+.pa-select {
+  appearance: none; -webkit-appearance: none; padding-inline-end: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235B5B5B' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+[dir="rtl"] .pa-select { background-position: left 14px center; }
+
+/* Checkbox row: the box is a real input, the text is its <label>. */
+.pa-check { display: flex; align-items: center; gap: 12px; min-height: var(--pa-tap); font-size: 14px; font-weight: 600; cursor: pointer; }
+.pa-check input {
+  width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--pa-ink); margin: 0; cursor: pointer;
+}
+.pa-check--plain { font-weight: 500; }
+
+/* Radio card (the country gate, the single payment option). */
+.pa-radio-card {
+  display: flex; gap: 14px; align-items: flex-start; text-align: start; width: 100%;
+  padding: 16px; background: var(--pa-paper); color: var(--pa-ink);
+  border: 1px solid var(--pa-line); border-radius: var(--pa-radius); cursor: pointer;
+  font: 500 14px var(--pa-font-body);
+}
+.pa-radio-card[aria-checked="true"] { border: 2px solid var(--pa-ink); padding: 15px; }
+.pa-radio-card[aria-disabled="true"] { color: var(--pa-muted); background: var(--pa-stone); cursor: not-allowed; }
+.pa-radio-card input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--pa-ink); }
+.pa-radio-card b { display: block; font-size: 15px; font-weight: 700; }
+.pa-radio-card span { display: block; color: var(--pa-muted); font-size: 13px; }
+
+/* Colour selector. The painted circle is 38px inside a 44px hit area; the
+   1px ring is drawn inside so light colours still read against paper. */
+.pa-swatch--sm { width: 28px; height: 28px; padding: 2px; }
+.pa-swatch--sm::before { inset: 2px; }
+.pa-swatch[aria-pressed="true"] { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-swatch[disabled] { cursor: not-allowed; opacity: .55; }
+
+/* Bottom sheet: slides up, top corners only, dimmed backdrop, sticky footer.
+   The grip is the 40x4 drag handle from the board. */
+.pa-sheet__grip { width: 40px; height: 4px; background: var(--pa-line); margin: 0 auto 12px; flex: 0 0 auto; }
+.pa-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; }
+.pa-sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.pa-sheet__foot {
+  flex: 0 0 auto; margin: 0 calc(-1 * var(--pa-gutter)) calc(-16px - env(safe-area-inset-bottom));
+  padding: 14px var(--pa-gutter) calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--pa-line); background: var(--pa-paper);
+  position: sticky; bottom: 0;
+}
+.pa-sheet__foot > .pa-btn { width: 100%; }
+.pa-sheet--open { animation: pa-sheet-up 250ms ease-out; }
+@keyframes pa-sheet-up { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Toast: bottom, 48px, ink. Stacked so two toasts never overlap. */
+.pa-toast-stack {
+  position: fixed; inset-inline: 0; bottom: calc(var(--pa-tabbar-h) + 16px); z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding-inline: var(--pa-gutter);
+  pointer-events: none;
+}
+.pa-toast {
+  min-height: 48px; max-width: 420px; display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 16px; background: var(--pa-ink); color: var(--pa-paper);
+  font-size: 14px; font-weight: 600; box-shadow: var(--pa-shadow-hover); pointer-events: auto;
+}
+.pa-toast__action {
+  background: transparent; border: 1.5px solid var(--pa-paper); color: var(--pa-paper);
+  min-height: var(--pa-tap); padding: 0 14px; font: 700 13px var(--pa-font-body); cursor: pointer;
+}
+
+/* Loading / empty / error states. The skeleton matches the card ratios so the
+   grid does not jump when the real content lands. */
+.pa-skel { background: var(--pa-stone); display: block; }
+.pa-skel--card { aspect-ratio: 3 / 4; }
+.pa-skel--line { height: 12px; }
+.pa-empty { padding: 48px var(--pa-gutter); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pa-empty__title { font-family: var(--pa-font-display); font-size: var(--pa-fs-title); font-weight: 700; }
+.pa-empty__body { color: var(--pa-muted); font-size: 14px; max-width: 40ch; margin: 0; }
+
+/* Offline banner: the catalogue survives in IndexedDB, so say so rather than
+   showing an empty grid. */
+.pa-offline {
+  padding: 10px var(--pa-gutter); background: var(--pa-low); color: #fff;
+  font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+}
+
+/* Admin stepper (quick stock edit): 44x44 buttons around a 56px readout. */
+.pa-qty--admin button { width: var(--pa-tap); height: var(--pa-tap); }
+.pa-qty--admin output { width: 56px; height: var(--pa-tap); font-size: 16px; }
+

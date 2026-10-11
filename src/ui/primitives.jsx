@@ -1,8 +1,15 @@
 import { createElement } from "react";
 
-/** Button. `as` lets you pass your router's <Link> (e.g. as={Link} to="/cart"). */
+/**
+ * Button. `as` lets you pass your router's <Link> (e.g. as={Link} to="/cart").
+ * variant: "solid" (primary) | "outline" (secondary) | "danger".
+ * size: "lg" (52px sticky bars) | "compact" (44px) | "sm" (40px admin rows).
+ */
 export function Button({ as: Tag = "button", variant = "solid", size, block, className = "", ...rest }) {
-  const cls = ["pa-btn", variant === "outline" && "pa-btn--outline", size && `pa-btn--${size}`, block && "pa-btn--block", className]
+  const cls = ["pa-btn",
+    variant === "outline" && "pa-btn--outline",
+    variant === "danger" && "pa-btn--danger",
+    size && `pa-btn--${size}`, block && "pa-btn--block", className]
     .filter(Boolean).join(" ");
   return createElement(Tag, { className: cls, ...(Tag === "button" ? { type: "button" } : {}), ...rest });
 }
@@ -29,13 +36,13 @@ export function Count({ n, tone = "sale", large, className = "" }) {
 /** Order / product status pill. status: pending|confirmed|shipped|delivered|cancelled|returned. */
 const PRODUCT_STATUS_TONE = { active: "delivered", draft: "pending", archived: "cancelled" };
 const KNOWN_TONES = new Set([
-  "pending", "confirmed", "shipped", "delivered", "cancelled", "returned"
+  "pending", "confirmed", "shipped", "delivered", "cancelled", "returned", "neutral"
 ]);
 export function StatusPill({ status, label }) {
   const tone = PRODUCT_STATUS_TONE[status] ?? status;
   // Unknown status falls back to the neutral tone rather than emitting a class
   // with no CSS rule (which renders a transparent, unstyled pill).
-  const cls = KNOWN_TONES.has(tone) ? `pa-status--${tone}` : "pa-status--default";
+  const cls = KNOWN_TONES.has(tone) ? `pa-status--${tone}` : "pa-status--neutral";
   return <span className={`pa-status ${cls}`}>{label ?? status}</span>;
 }
 
@@ -50,3 +57,24 @@ export function Field({ id, label, hint, error, admin, className = "", ...input 
     </div>
   );
 }
+
+/**
+ * Accordion row. A real <details> so it works without JS and is keyboard
+ * operable for free; `open` only sets the initial state.
+ *
+ * items: [{ id, title, body }] — body is rendered verbatim, so it can carry
+ * the styled content a product page needs (lists, <bdi>, links).
+ */
+export function Accordion({ items, openId, className = "" }) {
+  return (
+    <div className={`pa-acc ${className}`}>
+      {items.map((item) => (
+        <details key={item.id} open={item.id === openId || item.open}>
+          <summary>{item.title}</summary>
+          <div className="pa-acc__body">{item.body}</div>
+        </details>
+      ))}
+    </div>
+  );
+}
+

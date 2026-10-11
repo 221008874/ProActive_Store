@@ -32,6 +32,7 @@
   --pa-st-delivered-bg:  #D8EEE2;  --pa-st-delivered-fg:  #14633A;
   --pa-st-cancelled-bg:  #F5D9DD;  --pa-st-cancelled-fg:  #9B0F27;
   --pa-st-returned-bg:   #F5D9DD;  --pa-st-returned-fg:   #9B0F27;
+  --pa-st-neutral-bg:    #E4E1DA;  --pa-st-neutral-fg:    #3F3F3F;
 
 
   /* Low / sold-out cell backgrounds used in the admin stock grid */
