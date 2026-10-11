@@ -18,6 +18,7 @@ import { fetchCategories } from '../services/catalog'
 import { getFreeShippingThreshold } from '../services/settings'
 import { formatPriceFor } from '../config/currency'
 import { OfflineBanner } from '../ui/states'
+import { useOnline } from '../hooks/useOnline'
 import StoreFooter from './StoreFooter'
 import {
   AnnouncementBar, Header, TabBar, IconClose, IconSearch, IconHome, IconShop, IconHeart, IconBag, IconMenu
@@ -42,6 +43,7 @@ export default function StoreChrome({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
 
+  const online = useOnline();
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -154,7 +156,9 @@ export default function StoreChrome({ children }) {
 
       {/* Offline: the catalogue survives in IndexedDB, so say so instead of
           showing a grid that may be stale. */}
-      <OfflineBanner message={L('offline', 'You are offline. Showing saved items.', 'انت offline. بنعرض المنتجات المحفوظة.')} />
+      {!online && (
+        <OfflineBanner message={L('offline', 'You are offline. Showing saved items.', 'انت غير متصل. بنعرض المنتجات المحفوظة.')} />
+      )}
 
       {/* pa-has-tabbar reserves the 64px the fixed bottom bar covers. */}
       <div className="pa-has-tabbar">{children}</div>

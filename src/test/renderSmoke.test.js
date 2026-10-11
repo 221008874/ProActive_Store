@@ -1,4 +1,5 @@
 import { it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 // Runtime smoke test: renders each route and asserts real .pa-* markup comes
 // out. Catches what the bundler cannot (missing props, undefined components, a
@@ -116,5 +117,23 @@ it('every route renders design-system markup', () => {
     }
   }
   expect(failures).toEqual([])
+})
+
+it('does not claim the shopper is offline when the browser is online', () => {
+  // The banner used to render unconditionally, so every page announced "you are
+  // offline" while sitting on a live connection. navigator.onLine is true in the
+  // test environment and the hook starts optimistic, so the banner must be
+  // absent here.
+  const html = shell('/home')
+  expect(html).not.toContain('pa-offline')
+  expect(html).not.toContain('offline')
+})
+
+it('the offline message is fully Arabic, with no English word inside it', () => {
+  // The Arabic copy had the literal English word "offline" spliced into the
+  // middle of the sentence: "انت offline. بنعرض...".
+  const source = readFileSync(new URL('../components/StoreChrome.jsx', import.meta.url), 'utf8')
+  expect(source).not.toMatch(/انت\s+offline/)
+  expect(source).toContain('انت غير متصل')
 })
 

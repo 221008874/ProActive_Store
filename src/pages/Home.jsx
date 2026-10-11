@@ -121,34 +121,37 @@ export default function Home() {
         </nav>
       )}
 
-      <section className="pa-section" aria-labelledby="home-new">
-        <div id="home-new">
-          <SectionHead
-            title={L('newIn', 'New in', 'وصل حديثاً')}
-            moreHref="/shop?sort=newest"
-            moreLabel={L('seeAll', 'See all', 'شوف الكل')}
-            as={Link}
-          />
-        </div>
-        {/* Phone/tablet: a rail. Desktop: a grid, switched in CSS by the same
-            breakpoints the shop uses, so the page reflows without JS. */}
-        <div className="pa-home__shelf">
-          {newIn.length > 0 && (
+      {/* With nothing new in, this section rendered its heading and an empty
+          grid: a "New in" shelf with no products reads as a broken carousel
+          rather than as a shop that has not stocked anything yet. */}
+      {newIn.length > 0 && (
+        <section className="pa-section" aria-labelledby="home-new">
+          <div id="home-new">
+            <SectionHead
+              title={L('newIn', 'New in', 'وصل حديثاً')}
+              moreHref="/shop?sort=newest"
+              moreLabel={L('seeAll', 'See all', 'شوف الكل')}
+              as={Link}
+            />
+          </div>
+          {/* Phone/tablet: a rail. Desktop: a grid, switched in CSS by the same
+              breakpoints the shop uses, so the page reflows without JS. */}
+          <div className="pa-home__shelf">
             <ProductRail>
               {newIn.map((p) => (
                 <ProductCard key={p.id} product={p} lang={lang} as={Link} href={`/product/${p.id}`}
                   saved={has(p.id)} onSave={() => toggleSave(p.id)} labels={cardLabels} />
               ))}
             </ProductRail>
-          )}
-          <ProductGrid className="pa-home__grid">
-            {newIn.map((p) => (
-              <ProductCard key={p.id} product={p} lang={lang} as={Link} href={`/product/${p.id}`}
-                saved={has(p.id)} onSave={() => toggleSave(p.id)} labels={cardLabels} />
-            ))}
-          </ProductGrid>
-        </div>
-      </section>
+            <ProductGrid className="pa-home__grid">
+              {newIn.map((p) => (
+                <ProductCard key={p.id} product={p} lang={lang} as={Link} href={`/product/${p.id}`}
+                  saved={has(p.id)} onSave={() => toggleSave(p.id)} labels={cardLabels} />
+              ))}
+            </ProductGrid>
+          </div>
+        </section>
+      )}
 
       {sale.length > 0 && (
         <section className="pa-section" aria-labelledby="home-sale">
