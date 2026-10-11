@@ -31,7 +31,7 @@ const getCachedProducts = (currency) => {
     const { data, timestamp } = JSON.parse(cached)
     if (Date.now() - timestamp > PRODUCT_CACHE_TTL) return null
     return data
-  } catch (e) {
+  } catch {
     return null
   }
 }

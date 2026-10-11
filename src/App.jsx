@@ -1,7 +1,6 @@
 import { Routes, Route, Outlet } from 'react-router-dom'
 import { LocationProvider } from './context/LocationContext'
 import StoreChrome from './components/StoreChrome'
-import LocationSplash from './pages/LocationSplash'
 import Splash from './pages/Splash'
 import Home from './pages/Home'
 import CartPage from './pages/CartPage'
@@ -27,9 +26,10 @@ function App() {
   return (
     <LocationProvider>
       <Routes>
-        {/* Splash / intro routes own the whole viewport: no header, no tab bar. */}
-        <Route path="/" element={<LocationSplash />} />
-        <Route path="/splash" element={<Splash />} />
+        {/* Splash owns the whole viewport: no header, no tab bar. The old
+            LocationSplash that used to sit here asked for geolocation before
+            the shopper had done anything; that request now lives in the cart. */}
+        <Route path="/" element={<Splash />} />
 
         <Route element={<StoreLayout />}>
           <Route path="/home" element={<Home />} />

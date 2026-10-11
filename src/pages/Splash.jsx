@@ -1,24 +1,20 @@
 // src/pages/Splash.jsx — ProActive Fashion design system refactor.
 //
-// Logic is unchanged: the same 3-second forward to /home, the same read of the
-// location state handed over by LocationSplash, and the same currency badge
-// copy. The full-screen layout is kept, but the decorative layers (sparkles,
-// glow, drifting blobs, shimmer bars) are gone; the surface is the design
-// system's .pa-hero pinned to the ink token — a permanent dark brand screen, so
-// it does not follow the light/dark switch.
+// Now the entry screen: the former LocationSplash that used to precede it asked
+// for geolocation, which has been removed from the entry flow. What is left is
+// the brand screen and the same 3-second forward to /home. The surface is the
+// design system's .pa-hero pinned to the ink token — a permanent dark brand
+// screen, so it does not follow the light/dark switch.
 
 import { useEffect } from 'react'
-import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
-import { useLocation } from '../context/LocationContext'
 
 export default function Splash() {
   const navigate = useNavigate()
-  const routerLocation = useRouterLocation()
   const { t, lang } = useLanguage()
   const { getImage } = useTheme()
-  const { country, setLoading } = useLocation()
 
   const ar = lang === 'ar'
   const L = (key, en, fallback) => {
@@ -26,21 +22,13 @@ export default function Splash() {
     return v && v !== key ? v : (ar ? fallback : en)
   }
 
-  // Get detected location from navigation state
-  const detectedData = routerLocation.state || {}
-
   useEffect(() => {
-    // Update context with detected data if passed
-    if (detectedData.detectedCurrency) {
-      // Currency is already set in context from LocationSplash
-    }
-
     const timer = setTimeout(() => {
       navigate('/home')
     }, 3000)
 
     return () => clearTimeout(timer)
-  }, [navigate, detectedData])
+  }, [navigate])
 
   const getCurrencyDisplay = () => {
     return { flag: '🇪🇬', text: 'Egypt Store', symbol: 'EGP' }
@@ -74,12 +62,6 @@ export default function Splash() {
         <p className="pa-hero__eyebrow" style={{ margin: 0, letterSpacing: 'normal', fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>
           {L('styleDelivered', 'Style, delivered to your door', 'ستايلات مختارة بعناية، بتوصل لبابك.')}
         </p>
-
-        {country && (
-          <div className="pa-callout" style={{ background: 'rgba(255,255,255,.08)' }}>
-            📍 {L('detected', 'Detected', 'تم التعرف على')}: {country}
-          </div>
-        )}
 
         <div
           aria-hidden="true"
