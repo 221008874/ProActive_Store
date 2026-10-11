@@ -351,7 +351,7 @@ export function useCheckout() {
       return { ok: false, rejection }
     }
   }, [
-    canPlaceOrder, items, address, governorateDocs, appliedCoupon, t, totalPrice, shipping.cost,
+    canPlaceOrder, items, address, governorateDocs, appliedCoupon, t, lang, totalPrice, shipping.cost,
     clearCart, clearDeliveryInfo, navigate
   ])
 
