@@ -7,7 +7,7 @@ import {
   resolveGovernorateName,
   GOVERNORATE_FALLBACK_COST
 } from '../config/egypt'
-import { getCurrencyConfig, formatPrice, localizeCurrencyConfig, DEFAULT_CURRENCY } from '../config/currency'
+import { getCurrencyConfig, formatPrice, formatPriceFor, localizeCurrencyConfig, DEFAULT_CURRENCY } from '../config/currency'
 import { getColors, COLORS } from '../config/themes'
 import {
   computeShipping,
@@ -86,8 +86,22 @@ describe('config/currency', () => {
   })
 
   it('formats prices as EGP', () => {
-    expect(formatPrice(25)).toBe('25.00 EGP')
-    expect(formatPrice('25')).toBe('25.00 EGP')
+    // Whole numbers stay whole: a price of 450 reads "450 EGP", not "450.00 EGP".
+    expect(formatPrice(25)).toBe('25 EGP')
+    expect(formatPrice('25')).toBe('25 EGP')
+    expect(formatPrice(0)).toBe('0 EGP')
+    // A non-round amount keeps its decimals rather than being rounded away.
+    expect(formatPrice(25.5)).toBe('25.50 EGP')
+    expect(formatPrice(25.499)).toBe('25.50 EGP')
+    expect(formatPrice(null)).toBe('0 EGP')
+  })
+
+  it('spells the unit per language but keeps the digits Latin', () => {
+    expect(formatPriceFor(360)).toBe('360 EGP')
+    expect(formatPriceFor(360, 'ar')).toBe('360 جنيه')
+    // Arabic-Indic digits are NOT used: the number must match the totals and
+    // stock figures printed everywhere else, and must isolate as LTR.
+    expect(formatPriceFor(360, 'ar')).toMatch(/^\d/)
   })
 })
 

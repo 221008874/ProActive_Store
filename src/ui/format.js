@@ -15,16 +15,16 @@
 //
 // NOTE this file must keep exporting the SAME names the DS components import.
 
-import { formatPrice } from '../config/currency.js';
+import { formatPriceFor } from '../config/currency.js';
 
 export { loc, isLocalized } from '../utils/i18n.js';
 
-// "360.00 EGP". `lang` is accepted because every design-system call site passes
-// it, and intentionally ignored: the single supported currency has one spelling
-// in both languages.
-// eslint-disable-next-line no-unused-vars
+// "360 EGP" in English, "360 جنيه" in Arabic — whole numbers by default, two
+// decimals only when the amount is not round. `lang` is honoured rather than
+// ignored: the unit differs between the two languages even though the number
+// does not (Latin digits in both, per the store's price policy).
 export function formatEGP(amount, lang = 'en') {
-  return formatPrice(amount)
+  return formatPriceFor(amount, lang)
 }
 
 /** discountPct from price + compareAtPrice (same formula as the migration plan). */
