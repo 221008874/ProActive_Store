@@ -7,7 +7,21 @@
 // Everything that decides money or stock happens inside one transaction, and
 // every price is read from the database. The client only states intent:
 // "I want 2 of this variant".
+//
+// Abuse controls live here too, because none of them work in the browser:
+//   - idempotency     a browser-generated clientOrderId claims the order; a
+//                     repeat (double tap, flaky network) gets the same order
+//   - rate limits     per IP (hour + day) and per phone (day)
+//   - duplicates      the same phone ordering the same items minutes apart
+//   - blocklist       phones/IPs that refused or faked orders
+//   - ordersOpen      the owner's kill switch (egp_settings/general)
+//
+// Firestore transactions cannot run queries, so the duplicate check does not
+// scan orders: each order writes a small pointer document keyed by a hash of
+// the phone number (recent_customers/<hash>). The pointer is read inside the
+// transaction, which keeps the check atomic and race-free for the common case.
 
+import { createHash } from "node:crypto";
 import { fieldValue as FieldValue } from "./fieldValueHolder.js";
 
 export const MAX_LINES = 30;
@@ -15,10 +29,49 @@ export const MAX_QTY_PER_LINE = 20;
 export const FREE_SHIPPING_FALLBACK = 800;
 export const MAX_NAME = 80;
 
+// Same phone, same items, inside this window -> treated as one order.
+export const DUP_WINDOW_MS = 10 * 60 * 1000;
+
+export const DEFAULT_RATE_LIMITS = {
+  perIpHour: 5,
+  perIpDay: 25,
+  perPhoneDay: 3
+};
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+// An order at or above this total is flagged for manual confirmation.
+export const HIGH_VALUE_FLAG_DEFAULT = 3000;
+
 const PHONE_RE = /^01[0125]\d{8}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function sha256Hex(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
+}
+
+// Personal data is never stored in the shared anti-abuse collections under a
+// raw identifier: the blocklist, rate limits and recent-order pointers are all
+// keyed by hashes, so a leak of those collections does not leak customer data.
+export function hashPhone(phone) {
+  return sha256Hex(`phone:${phone}`);
+}
+
+export function hashIp(ip) {
+  return sha256Hex(`ip:${String(ip).trim()}`);
+}
+
+// Stable, order-independent fingerprint of what is being bought: the same
+// lines in a different order are the same order.
+export function itemsFingerprint(lines) {
+  return [...lines]
+    .map((l) => `${l.productId}:${l.variantId}:${l.qty}`)
+    .sort()
+    .join("|");
+}
 
 export function randomSuffix(length = 6, random = Math.random) {
   let out = "";
@@ -75,6 +128,14 @@ export function validateRequest(body = {}) {
   };
 }
 
+// The idempotency claim is a browser-generated id, kept short enough that it
+// can never be a Firestore path or a query injection.
+export function normalizeClientOrderId(value) {
+  if (!value) return null;
+  const id = String(value).trim().slice(0, 64);
+  return /^[A-Za-z0-9_-]+$/.test(id) ? id : null;
+}
+
 export function discountForCoupon(coupon, subtotal) {
   if (!coupon) return 0;
   if (coupon.type === "percent") {
@@ -119,17 +180,55 @@ export function computeTotals({ lines, coupon, governorate, settings = {} }) {
   return { subtotal, discount, shippingCost, total: discounted + shippingCost };
 }
 
+// Fixed-window counters. A window that already elapsed starts a fresh one at
+// count 1, which is written as an absolute value (no read-modify-write race:
+// the whole state is recomputed from the snapshot read in this transaction).
+export function nextWindow(prev, limit, now, span) {
+  if (!prev || !(prev.reset > now)) return { count: 1, reset: now + span };
+  if ((prev.count ?? 0) >= limit) return prev;
+  return { count: (prev.count ?? 0) + 1, reset: prev.reset };
+}
+
+// How suspicious is this order? Not a fraud engine - a cheap, explainable set
+// of flags so a human reviews the right orders before shipping.
+export function riskFor({ total, lineCount, isFirstTime, settings = {} }) {
+  const highValueAt = Number(settings.highValueThreshold ?? HIGH_VALUE_FLAG_DEFAULT);
+  const flags = [];
+  if (total >= highValueAt) flags.push("high_value");
+  if (lineCount >= 5) flags.push("many_lines");
+  if (isFirstTime) flags.push("first_time");
+
+  return { score: Math.min(100, flags.length * 25), flags };
+}
+
 // The whole order, in one transaction.
-export async function placeOrderTransaction(db, body, { now = Date.now(), random = Math.random } = {}) {
+export async function placeOrderTransaction(db, body, { now = Date.now(), random = Math.random, context = {} } = {}) {
   const { cart, customer, address } = validateRequest(body);
   const code = normalizeCode(body.couponCode);
+  const clientOrderId = normalizeClientOrderId(body.clientOrderId);
+
+  const phoneHash = hashPhone(customer.phone);
+  const ipHash = context.ip ? hashIp(context.ip) : null;
+  const userAgentHash = context.userAgent ? sha256Hex(`ua:${context.userAgent}`) : null;
+  const source = context.source ? String(context.source).slice(0, 20) : "web";
+  const fingerprint = itemsFingerprint(cart);
 
   return db.runTransaction(async (tx) => {
     // ---------------- READS (all before the first write) ----------------
     const settingsSnap = await tx.get(db.doc("egp_settings/general"));
+    const settings = settingsSnap.exists ? settingsSnap.data : {};
+    const limits = { ...DEFAULT_RATE_LIMITS, ...(settings.rateLimits ?? {}) };
+
     const governorateSnap = await tx.get(db.doc(`egp_governorate_costs/${address.governorateId}`));
     const couponRef = code ? db.doc(`egp_coupons/${code}`) : null;
     const couponSnap = couponRef ? await tx.get(couponRef) : null;
+
+    // Idempotency: a claim written by an earlier attempt with the same
+    // browser-generated id means this is a retry, so replay that order
+    // instead of placing a second one.
+    const claimRef = clientOrderId ? db.doc(`client_orders/${clientOrderId}`) : null;
+    const claimSnap = claimRef ? await tx.get(claimRef) : null;
+    if (claimSnap?.exists) return claimSnap.data.result;
 
     const lines = [];
     for (const item of cart) {
@@ -161,6 +260,56 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       });
     }
 
+    // ---------------- ABUSE READS ----------------
+    const blockRefs = [db.doc(`blocklist/${phoneHash}`)];
+    if (ipHash) blockRefs.push(db.doc(`blocklist/ip_${ipHash}`));
+    const [blockPhoneSnap, blockIpSnap] = await Promise.all(blockRefs.map((ref) => tx.get(ref)));
+
+    const rateIpRef = ipHash ? db.doc(`rate_limits/ip_${ipHash}`) : null;
+    const rateIpSnap = rateIpRef ? await tx.get(rateIpRef) : null;
+    const ratePhoneRef = db.doc(`rate_limits/phone_${phoneHash}`);
+    const ratePhoneSnap = await tx.get(ratePhoneRef);
+
+    const recentRef = db.doc(`recent_customers/${phoneHash}`);
+    const recentSnap = await tx.get(recentRef);
+
+    // A blocked phone or IP is refused before anything is decremented.
+    for (const snap of [blockPhoneSnap, blockIpSnap]) {
+      if (snap?.exists && snap.data.active !== false) {
+        throw new CheckoutError("BLOCKED", snap.data.reason ?? "");
+      }
+    }
+
+    // The owner's kill switch (see the runbook: flip ordersOpen=false).
+    if (settings.ordersOpen === false) throw new CheckoutError("ORDERS_CLOSED");
+
+    if (rateIpSnap?.exists) {
+      const counts = rateIpSnap.data ?? {};
+      if (counts.hour?.reset > now && (counts.hour.count ?? 0) >= limits.perIpHour) {
+        throw new CheckoutError("RATE_LIMITED");
+      }
+      if (counts.day?.reset > now && (counts.day.count ?? 0) >= limits.perIpDay) {
+        throw new CheckoutError("RATE_LIMITED");
+      }
+    }
+    if (ratePhoneSnap?.exists) {
+      const day = ratePhoneSnap.data?.day;
+      if (day?.reset > now && (day.count ?? 0) >= limits.perPhoneDay) {
+        throw new CheckoutError("RATE_LIMITED");
+      }
+    }
+
+    // The same shopper re-buying the same items minutes apart is a double
+    // tap or a flaky retry far more often than it is fraud; replay the
+    // original order instead of placing a twin.
+    if (
+      recentSnap?.exists &&
+      recentSnap.data?.fingerprint === fingerprint &&
+      now - Number(recentSnap.data.at ?? 0) < DUP_WINDOW_MS
+    ) {
+      return recentSnap.data.result;
+    }
+
     // ---------------- COMPUTE ----------------
     if (!governorateSnap.exists || governorateSnap.data.active === false) {
       throw new CheckoutError("GOVERNORATE_UNAVAILABLE");
@@ -173,7 +322,14 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       lines,
       coupon,
       governorate: governorateSnap.data,
-      settings: settingsSnap.exists ? settingsSnap.data : {}
+      settings
+    });
+
+    const risk = riskFor({
+      total: totals.total,
+      lineCount: cart.length,
+      isFirstTime: !recentSnap?.exists,
+      settings
     });
 
     // ---------------- WRITES ----------------
@@ -185,6 +341,16 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       });
     }
     if (couponRef) tx.update(couponRef, { usedCount: FieldValue.increment(1) });
+
+    if (rateIpRef) {
+      tx.set(rateIpRef, {
+        hour: nextWindow(rateIpSnap.exists ? rateIpSnap.data.hour : null, limits.perIpHour, now, HOUR),
+        day: nextWindow(rateIpSnap.exists ? rateIpSnap.data.day : null, limits.perIpDay, now, DAY)
+      });
+    }
+    tx.set(ratePhoneRef, {
+      day: nextWindow(ratePhoneSnap.exists ? ratePhoneSnap.data.day : null, limits.perPhoneDay, now, DAY)
+    });
 
     const orderRef = db.collection("orders_egp").doc();
     const orderNumber = newOrderNumber(random);
@@ -211,27 +377,58 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       items,
       ...totals,
       coupon: coupon ? { code, type: coupon.type ?? "fixed", value: coupon.value } : null,
+      // Anti-abuse trail: hashes only, never raw IP or user agent.
+      phoneHash,
+      ipHash,
+      userAgentHash,
+      source,
+      clientOrderId,
+      risk,
       statusHistory: [{ status: "pending", at: now, by: "customer" }],
       createdAt: FieldValue.serverTimestamp()
     });
 
-    // Returned so the success page can render without the client reading the
-    // order back - the hardened rules do not allow public order reads.
-    return {
+    // Queued for the new-order notification worker (email now, push later).
+    tx.set(db.collection("outbox").doc(), {
+      type: "new_order",
+      status: "pending",
+      attempts: 0,
+      at: now,
+      payload: { orderId: orderRef.id, orderNumber, phone: customer.phone, total: totals.total }
+    });
+
+    // Tells the catalog builder the denormalised stock on the snapshot is now
+    // stale; the job rebuilds within its 10-15 minute cycle.
+    tx.set(db.doc("egp_settings/catalog"), { dirty: true, dirtyAt: now }, { merge: true });
+
+    const result = {
       orderId: orderRef.id,
       orderNumber,
       items,
       ...totals,
+      risk,
       customer,
       address
     };
+
+    if (claimRef) tx.set(claimRef, { result, at: now });
+    tx.set(recentRef, { fingerprint, at: now, result });
+
+    // Returned so the success page can render without the client reading the
+    // order back - the hardened rules do not allow public order reads.
+    return result;
   });
 }
 
 // HTTP status for a thrown error. Known checkout problems are the caller's
-// fault (409); anything else is ours (500) and must not leak internals.
+// fault (409); rate limiting is 429, a block is 403, and a closed store is
+// 503. Anything else is ours (500) and must not leak internals.
 export function statusForError(error) {
   const code = String(error?.code ?? error?.message ?? "");
+  if (code.startsWith("RATE_LIMITED")) return 429;
+  if (code.startsWith("BLOCKED")) return 403;
+  if (code.startsWith("ORDERS_CLOSED")) return 503;
+
   const known = [
     "OUT_OF_STOCK",
     "UNAVAILABLE",

@@ -7,7 +7,7 @@ import {
   resolveGovernorateName,
   GOVERNORATE_FALLBACK_COST
 } from '../config/egypt'
-import { getCurrencyConfig, formatPrice, localizeCurrencyConfig, DEFAULT_CURRENCY } from '../config/currency'
+import { getCurrencyConfig, formatPrice, formatPriceFor, localizeCurrencyConfig, DEFAULT_CURRENCY } from '../config/currency'
 import { getColors, COLORS } from '../config/themes'
 import {
   computeShipping,
@@ -86,8 +86,22 @@ describe('config/currency', () => {
   })
 
   it('formats prices as EGP', () => {
-    expect(formatPrice(25)).toBe('25.00 EGP')
-    expect(formatPrice('25')).toBe('25.00 EGP')
+    // Whole numbers stay whole: a price of 450 reads "450 EGP", not "450.00 EGP".
+    expect(formatPrice(25)).toBe('25 EGP')
+    expect(formatPrice('25')).toBe('25 EGP')
+    expect(formatPrice(0)).toBe('0 EGP')
+    // A non-round amount keeps its decimals rather than being rounded away.
+    expect(formatPrice(25.5)).toBe('25.50 EGP')
+    expect(formatPrice(25.499)).toBe('25.50 EGP')
+    expect(formatPrice(null)).toBe('0 EGP')
+  })
+
+  it('spells the unit per language but keeps the digits Latin', () => {
+    expect(formatPriceFor(360)).toBe('360 EGP')
+    expect(formatPriceFor(360, 'ar')).toBe('360 جنيه')
+    // Arabic-Indic digits are NOT used: the number must match the totals and
+    // stock figures printed everywhere else, and must isolate as LTR.
+    expect(formatPriceFor(360, 'ar')).toMatch(/^\d/)
   })
 })
 
@@ -201,7 +215,7 @@ describe('utils/pricing - payment status', () => {
 describe('utils/validation', () => {
   const valid = {
     name: 'Jane',
-    phone: '+20 100 000 0000',
+    phone: '01012345678',
     email: 'jane@example.com',
     address: '12 Nile Street, Cairo',
     governorate: 'cairo',
@@ -215,32 +229,46 @@ describe('utils/validation', () => {
 
   it('reports every missing field at once', () => {
     const { errors, isValid } = validateDeliveryForm(
-      { name: '', phone: '', email: '', address: '', governorate: '', latitude: null, longitude: null },
+      { name: '', phone: '', email: '', address: '', governorate: '' },
       { currency: 'EGP', t }
     )
     expect(isValid).toBe(false)
+    // Email and a map pin are optional in the order model, so an empty form
+    // reports only what actually blocks the order.
     expect(Object.keys(errors).sort()).toEqual(
-      ['address', 'email', 'governorate', 'location', 'name', 'phone'].sort()
+      ['address', 'governorate', 'name', 'phone'].sort()
     )
+  })
+
+  it('accepts an Egyptian mobile number and rejects anything else', () => {
+    for (const good of ['01012345678', '01112345678', '01212345678', '01512345678']) {
+      expect(validateDeliveryForm({ ...valid, phone: good }, { t }).errors.phone).toBeUndefined()
+    }
+    for (const bad of ['0101234567', '010123456789', '02012345678', '+201012345678', 'abc', '']) {
+      expect(validateDeliveryForm({ ...valid, phone: bad }, { t }).errors.phone).toBe('validPhoneRequired')
+    }
+  })
+
+  it('tolerates spacing in the phone number but not extra digits', () => {
+    expect(validateDeliveryForm({ ...valid, phone: '010 1234 5678' }, { t }).errors.phone).toBeUndefined()
+    expect(validateDeliveryForm({ ...valid, phone: '010 1234 567 89' }, { t }).errors.phone).toBe('validPhoneRequired')
+  })
+
+  it('treats email as optional but still checks a malformed one', () => {
+    expect(validateDeliveryForm({ ...valid, email: '' }, { t }).errors.email).toBeUndefined()
+    expect(validateDeliveryForm({ ...valid, email: 'not-an-email' }, { t }).errors.email)
+      .toBe('validEmailRequired')
+  })
+
+  it('does not require a map pin: a typed street address is deliverable', () => {
+    const noPin = { ...valid, latitude: null, longitude: null }
+    expect(validateDeliveryForm(noPin, { t }).errors.location).toBeUndefined()
+    expect(validateDeliveryForm(noPin, { t }).isValid).toBe(true)
   })
 
   it('rejects an address shorter than 10 characters', () => {
     expect(validateDeliveryForm({ ...valid, address: 'short' }, { currency: 'EGP', t }).errors.address)
       .toBe('addressTooShort')
-  })
-
-  it('rejects malformed phone and email values', () => {
-    const result = validateDeliveryForm(
-      { ...valid, phone: 'abc', email: 'not-an-email' },
-      { currency: 'EGP', t }
-    )
-    expect(result.errors.phone).toBe('validPhoneRequired')
-    expect(result.errors.email).toBe('validEmailRequired')
-  })
-
-  it('requires lat and lng together', () => {
-    expect(validateDeliveryForm({ ...valid, longitude: null }, { currency: 'EGP', t }).errors.location)
-      .toBe('locationRequired')
   })
 
   it('always requires a governorate', () => {

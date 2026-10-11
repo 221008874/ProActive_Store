@@ -8,11 +8,18 @@ import logoDark from '../assets/78a4edcc-a4c9-4027-b585-1144cfc5ff64-removebg-pr
 const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('light')
-  const [themeImages, setThemeImages] = useState({
-    logo: logoLight, // default
+  // The saved theme is the initial state, read once at mount: the first
+  // paint is already correct (the previous version ran an effect and always
+  // resolved to 'light', so a saved dark preference was never applied).
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('theme')
+      if (saved === 'dark' || saved === 'light') return saved
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    } catch {
+      return 'light'
+    }
   })
-  
 
   // Theme-specific images
   const imagePaths = {
@@ -24,24 +31,15 @@ export function ThemeProvider({ children }) {
     }
   }
 
-  // Load saved theme from localStorage on initial load
-  useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    if (saved === 'dark' || saved === 'light') {
-      setTheme('light')
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('light')
-    }
-  }, [])
+  // Derived, not state: it always mirrors the theme, so it no longer costs
+  // an extra render (and a cascading-render warning).
+  const themeImages = imagePaths[theme]
 
-  // Apply theme class to body, save to localStorage, and update images
+  // Apply theme class to body and persist it
   useEffect(() => {
     document.body.className = theme
     document.documentElement.dataset.theme = theme
     localStorage.setItem('theme', theme)
-    
-    // Update images based on theme
-    setThemeImages(imagePaths[theme])
   }, [theme])
 
   const toggleTheme = () => {

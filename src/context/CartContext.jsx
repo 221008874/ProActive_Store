@@ -7,10 +7,45 @@ import {
   setLineQuantity,
   reconcileCart,
   cartCount,
-  cartSubtotal
+  cartSubtotal,
+  CART_STORAGE_KEY
 } from '../utils/cartLogic'
+import { analytics } from '../services/analytics'
 
 const CartContext = createContext()
+
+// A persisted line stores only what survives a reload; everything else is
+// re-read from Firestore when the cart is validated. That keeps the stored
+// payload small and means a stale price can never be shown for long.
+function readCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((l) => l && l.id && l.productId)
+  } catch {
+    return []
+  }
+}
+
+function readCoupon() {
+  try {
+    const saved = localStorage.getItem('appliedCoupon')
+    return saved ? JSON.parse(saved) : null
+  } catch {
+    return null
+  }
+}
+
+function writeCart(items) {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+  } catch {
+    // Private mode or quota: the bag becomes session-only rather than failing
+    // the add, which is the lesser failure.
+  }
+}
 
 // Action Types
 const ADD_ITEM = 'ADD_ITEM'
@@ -104,26 +139,25 @@ const cartReducer = (state, action) => {
 }
 
 export function CartProvider({ children }) {
+  // Items are read from storage as the initial state so a reload starts with the
+  // bag the shopper left, not an empty one and a re-fetch. The key is versioned
+  // (`cart_v2`): a cart persisted by an older shape is dropped rather than
+  // misread, because its lines have no variant.
   const [cart, dispatch] = useReducer(cartReducer, {
-    items: [],
+    items: readCart(),
     error: null,
     deliveryInfo: null,
-    appliedCoupon: null  // ADDED: Initialize coupon in state
+    appliedCoupon: readCoupon()
   })
 
+  // Persist on every change. Writing the whole list is deliberate: it is small,
+  // and a diff-based update would leave stale lines behind on remove.
+  useEffect(() => {
+    writeCart(cart.items)
+  }, [cart.items])
+
   // FIXED: Use useEffect for localStorage operations (side effects)
-  const [appliedCoupon, setAppliedCouponState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('appliedCoupon')
-        return saved ? JSON.parse(saved) : null
-      } catch (e) {
-        console.error('Error parsing saved coupon:', e)
-        return null
-      }
-    }
-    return null
-  })
+  const [appliedCoupon, setAppliedCouponState] = useState(() => readCoupon())
 
   // Persist coupon to localStorage and sync with reducer
   useEffect(() => {
@@ -210,6 +244,8 @@ export function CartProvider({ children }) {
         quantity
       }
     })
+
+    analytics.addToCart({ id, productId: product.id, variantId, title: product.title ?? name, price: Number(variant?.priceOverride ?? product.price ?? 0), color: variant?.color, size: variant?.size }, quantity)
 
     return { success: true, message: `Added ${quantity} × ${name} to cart`, added: quantity, totalInCart: currentCartQuantity + quantity }
   }, [cart.items])

@@ -4,11 +4,9 @@
    ========================================================================= */
 
 
-/* Fonts: add this <link> to index.html of BOTH apps (Store + Admin):
-   <link rel="preconnect" href="https://fonts.googleapis.com">
-   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
-*/
+/* Fonts are self-hosted: @fontsource/bricolage-grotesque, @fontsource/manrope
+   and @fontsource/ibm-plex-sans-arabic, imported once in src/main.jsx. Keep
+   the weights there in sync with the families declared below. */
 
 
 :root {
@@ -34,6 +32,7 @@
   --pa-st-delivered-bg:  #D8EEE2;  --pa-st-delivered-fg:  #14633A;
   --pa-st-cancelled-bg:  #F5D9DD;  --pa-st-cancelled-fg:  #9B0F27;
   --pa-st-returned-bg:   #F5D9DD;  --pa-st-returned-fg:   #9B0F27;
+  --pa-st-neutral-bg:    #E4E1DA;  --pa-st-neutral-fg:    #3F3F3F;
 
 
   /* Low / sold-out cell backgrounds used in the admin stock grid */

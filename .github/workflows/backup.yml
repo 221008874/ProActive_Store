@@ -1,0 +1,29 @@
+name: backup
+
+# Daily Firestore export to a Cloud Storage bucket. Requires the secrets
+# FIREBASE_SERVICE_ACCOUNT (service account JSON) and
+# FIRESTORE_BACKUP_BUCKET (gs://... in the same project) on the repository.
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Export Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIRESTORE_BACKUP_BUCKET: ${{ secrets.FIRESTORE_BACKUP_BUCKET }}
+        run: node scripts/backup-firestore.mjs

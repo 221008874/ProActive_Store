@@ -1,111 +1,98 @@
-// Product detail page.
+// Product page.
 //
-// Data logic is unchanged: read the product, read its `variants` subcollection,
-// let the shopper choose a colour then a size, and add the chosen variant to the
-// cart. All of that lives in utils/variantSelection.js and is unit tested.
+// Phone: gallery, breadcrumb, title, price, colour, size, delivery box,
+// accordions, "you may also like", sticky Add to bag.
+// Desktop >=1024: two columns — vertical thumbnails + main image on the left,
+// the info column on the right, no sticky bar.
 //
-// Presentation moved to the design system: .pa-pdp, .pa-pdp__block, .pa-acc,
-// .pa-sticky plus PriceTag / ColorSwatches / SizePicker / StockHint / QtyStepper.
-// The 950 lines of hand-animated inline styles this replaces are gone.
+// Colour and size are the product in this model: a line in the bag is one
+// variant, so "Add to bag" stays disabled until BOTH are chosen and the size
+// pills carry their own stock. Sold-out sizes stay visible and crossed out
+// rather than disappearing, because "would have fitted" is information too.
 
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
-import { useLocation } from '../context/LocationContext'
-import { db } from '../services/firebase'
-import { productsCollection } from '../config'
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore'
+import { useWishlist } from '../context/WishlistContext'
+import { useToast } from '../ui/overlays'
 import {
-  initialSelection,
-  selectColor as pickColor,
-  selectSize as pickSize,
-  selectionIsComplete,
-  colorsOf,
-  sizesOf,
-  imagesForColor,
-  primaryImage
+  Accordion, Badge, Button, ColorDot, EmptyState, ErrorState, IconHeart, IconShare,
+  PriceTag, ProductCard, ProductRail, SizePicker, Skeleton, StockHint, thumb,
+  formatEGP, loc
+} from '../ui'
+import {
+  selectColor as pickColor, selectSize as pickSize,
+  selectionIsComplete, colorsOf, sizesOf, imagesForColor, primaryImage
 } from '../utils/variantSelection'
-import StoreFooter from '../components/StoreFooter'
-import { loc } from '../utils/i18n.js'
-import { PriceTag, StockHint, SizePicker, ColorSwatches, QtyStepper, thumb } from '../ui'
+import { fetchProduct, fetchActiveProducts } from '../services/catalog'
+import { getFreeShippingThreshold } from '../services/settings'
+import { CURRENCY } from '../config/currency'
+
+const label = (t, lang) => (key, en, ar) => {
+  if (key) {
+    const v = t(key)
+    if (v && v !== key) return v
+  }
+  return lang === 'ar' ? ar : en
+}
 
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { t, lang } = useLanguage()
   const { addToCart } = useCart()
-  const { currency } = useLocation()
+  const { has, toggle: toggleSave } = useWishlist()
+  const toast = useToast()
 
   const [product, setProduct] = useState(null)
+  const [notFound, setNotFound] = useState(false)
   const [quantity, setQuantity] = useState(1)
-  const [selectedFlavor, setSelectedFlavor] = useState(null)
-  // Colour/size selection for the fashion model. Both stay null until the
-  // shopper picks, so a migrated product cannot be added by accident.
   const [selection, setSelection] = useState({ colorId: null, size: null })
-  const [flash, setFlash] = useState(null)
+  const [slide, setSlide] = useState(0)
+  const [sheet, setSheet] = useState(false)
+  const [related, setRelated] = useState([])
+  const [threshold, setThreshold] = useState(CURRENCY.freeShippingThreshold)
 
-  const ar = lang === 'ar'
-  const L = (key, en, fallback) => {
-    const v = t(key)
-    return v && v !== key ? v : (ar ? fallback : en)
+  const L = label(t, lang)
+  const saved = product ? has(product.id) : false
+
+  // Navigating from one product to the next keeps the previous product's
+  // gallery, selection and quantity on screen until the new one arrives, so
+  // reset them. Adjusting during render (rather than in the effect below)
+  // keeps this out of the cascading-render trap and re-renders once.
+  const [loadedId, setLoadedId] = useState(id)
+  if (id !== loadedId) {
+    setLoadedId(id)
+    setProduct(null)
+    setNotFound(false)
+    setSelection({ colorId: null, size: null })
+    setSlide(0)
+    setQuantity(1)
   }
 
   useEffect(() => {
-    if (!id) {
-      navigate('/home')
-      return
-    }
-
     let alive = true
 
-    const fetchProduct = async () => {
-      try {
-        // Use currency-specific collection
-        const collectionName = productsCollection(currency)
-        const docRef = doc(db, collectionName, id)
+    fetchProduct(id)
+      .then((p) => { if (!alive) return; p ? setProduct(p) : setNotFound(true) })
+      .catch(() => { if (alive) setNotFound(true) })
 
-        const docSnap = await getDoc(docRef)
-        if (docSnap.exists()) {
-          const data = docSnap.data()
+    // "You may also like": the same category, everything else. A second read is
+    // acceptable here because the catalogue is cached locally.
+    fetchActiveProducts()
+      .then((list) => {
+        if (!alive) return
+        const current = list.find((p) => p.id === id)
+        setRelated(list
+          .filter((p) => p.id !== id && (!current?.categoryId || p.categoryId === current.categoryId))
+          .slice(0, 10))
+      })
+      .catch(() => {})
 
-          // Migrated products carry a variants subcollection; load it so the
-          // shopper can pick a colour and size. Unmigrated products keep the
-          // old single-variant behaviour untouched.
-          let variants = []
-          try {
-            const variantSnap = await getDocs(collection(db, collectionName, id, 'variants'))
-            variants = variantSnap.docs.map((v) => ({ id: v.id, ...v.data() }))
-          } catch (variantErr) {
-            console.warn('No variants for product', id, variantErr)
-          }
-
-          if (!alive) return
-          const loaded = { id: docSnap.id, ...data, variants }
-          setProduct(loaded)
-          if (variants.length > 0) setSelection(initialSelection(loaded))
-          // Legacy (pre-migration) products still carry a flat flavour list.
-          if (data.flavors?.length > 0) setSelectedFlavor(data.flavors[0])
-        } else {
-          navigate('/home')
-        }
-      } catch (err) {
-        console.error('Error fetching product:', err)
-        navigate('/home')
-      }
-    }
-
-    if (currency) fetchProduct()
+    getFreeShippingThreshold().then((v) => { if (alive) setThreshold(v) }).catch(() => {})
     return () => { alive = false }
-  }, [id, navigate, currency])
-
-  if (!product) {
-    return (
-      <div className="pa-container" style={{ paddingBlock: 48, minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
-        <p className="pa-subtitle" role="status">{L('loadingProductDetails', 'Loading…', 'جاري تحميل تفاصيل المنتج…')}</p>
-      </div>
-    )
-  }
+  }, [id])
 
   const hasVariants = Boolean(product?.variants?.length)
   const colors = hasVariants ? colorsOf(product) : []
@@ -116,147 +103,271 @@ export default function ProductDetail() {
     ? (product.variants ?? []).find((v) => v.colorId === selection.colorId && v.size === selection.size)
     : null
 
-  // Prefer the variant's own numbers; an unmigrated product keeps flat fields.
-  const price = Number(selected?.price ?? product?.price ?? 0)
+  const price = Number(selected?.priceOverride ?? product?.price ?? 0)
   const compareAt = Number(selected?.compareAtPrice ?? product?.compareAtPrice ?? 0)
   const stock = Number(selected?.stock ?? product?.stock ?? 0)
-  const isOutOfStock = stock <= 0
-  const canAddToCart = stock >= quantity && variantReady
+  const inStock = stock > 0
 
-  const gallery = hasVariants
-    ? imagesForColor(product, selection.colorId)
-    : (product.images ?? [])
-  const heroImg = primaryImage(product, selection.colorId) ?? product.imageUrl ?? null
+  const gallery = useMemo(() => (
+    hasVariants ? imagesForColor(product, selection.colorId) : (product?.images ?? [])
+  ), [hasVariants, product, selection.colorId])
+  const heroImg = primaryImage(product, selection.colorId) ?? product?.imageUrl ?? null
+  const safeSlide = gallery.length ? Math.min(slide, gallery.length - 1) : 0
 
-  const title = loc(product.title ?? product.name, lang)
+  const title = product ? loc(product.title ?? product.name, lang) : ''
+  const selectedColor = colors.find((c) => c.id === selection.colorId)
 
-  const handleAddToCart = () => {
-    if (isOutOfStock || !canAddToCart) return
-
-    // Pass the chosen variant so the cart line is keyed on product + variant
-    // and carries that variant's own stock and price.
+  const handleAdd = useCallback(() => {
+    if (!inStock || !variantReady) return
     const variant = hasVariants ? selected : null
-
-    for (let i = 0; i < quantity; i++) {
-      addToCart({ ...product, selectedFlavor, currency }, 1, variant)
+    const result = addToCart(product, quantity, variant)
+    if (result?.success === false) {
+      toast.show(result.message ?? L('addFailed', 'Could not add to bag', 'متسناش نضيف'))
+      return
     }
+    toast.show(L('addedToBag', 'Added to bag', 'تم الإضافة للعربية'), {
+      actionLabel: L('viewBag', 'View bag', 'عرض العربية'),
+      onAction: () => navigate('/cart')
+    })
+  }, [addToCart, hasVariants, inStock, L, navigate, product, quantity, selected, toast, variantReady])
 
-    setFlash(L('addedToCart', 'Added to cart', 'تم الإضافة للعربية'))
-    setTimeout(() => setFlash(null), 2500)
+  const share = useCallback(async () => {
+    const url = window.location.href
+    try {
+      if (navigator.share) { await navigator.share({ title, url }); return }
+      await navigator.clipboard.writeText(url)
+      toast.show(L('linkCopied', 'Link copied', 'تم نسخ الرابط'))
+    } catch {
+      // A cancelled share sheet is not an error worth a toast.
+    }
+  }, [title, toast, L])
+
+  if (notFound) {
+    return (
+      <div className="pa-container" style={{ paddingBlock: 64 }}>
+        <EmptyState
+          title={L('notFound', 'This product is no longer available', 'المنتج ده مش متاح')}
+          body={L('notFoundBody', 'It may have sold out or been archived.', 'يمكن يكون خلص أو اتأرشف.')}
+          actionLabel={L('backToShop', 'Back to the shop', 'رجوع للمتجر')}
+          to="/shop"
+          as={Link}
+        />
+      </div>
+    )
   }
 
+  if (!product) {
+    return (
+      <div className="pa-container" style={{ paddingBlock: 24, display: 'grid', gap: 24, gridTemplateColumns: '1fr' }}>
+        <Skeleton variant="card" height={440} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Skeleton variant="line" width="60%" height={22} />
+          <Skeleton variant="line" width="35%" />
+          <Skeleton variant="line" count={3} width="80%" />
+        </div>
+      </div>
+    )
+  }
+
+  const pct = compareAt > price ? Math.round((1 - price / compareAt) * 100) : 0
+
   return (
-    <>
-      <div className="pa-pdp pa-pdp--desktop">
-        <div>
-          <div className="pa-pdp__block">
-            <div className="pa-card__photo" style={{ aspectRatio: '3 / 4' }}>
-              {heroImg && <img src={thumb(heroImg, 800)} alt={title} />}
-            </div>
+    <div className="pa-pdp pa-pdp--desktop">
+      {/* ------------------------------- gallery ---------------------------- */}
+      <div>
+        <div className="pa-pdp__block">
+          <div className="pa-card__photo" style={{ aspectRatio: '4 / 5', maxHeight: 440 }}>
+            {heroImg && <img src={thumb(heroImg, 1000)} alt={title} width={1000} height={1250} />}
+            {pct > 0 && <Badge kind="sale" className="pa-card__badge">-{pct}%</Badge>}
+            {/* Swipe hint: the counter is the accessible equivalent of the bars. */}
+            {gallery.length > 1 && <span className="pa-pdp__count">{safeSlide + 1} / {gallery.length}</span>}
           </div>
           {gallery.length > 1 && (
-            <div className="pa-pdp__block" style={{ flexDirection: 'row', overflowX: 'auto' }}>
+            <div className="pa-pdp__thumbs">
               {gallery.map((img, i) => (
-                <img key={i} src={thumb(img.url, 200)} alt="" width={64} style={{ flex: '0 0 auto', opacity: img.url === heroImg ? 1 : .6 }} />
+                <button
+                  key={img.url ?? i}
+                  type="button"
+                  aria-pressed={i === safeSlide}
+                  aria-label={`${L('image', 'Image', 'صورة')} ${i + 1}`}
+                  onClick={() => setSlide(i)}
+                >
+                  <img src={thumb(img.url, 200)} alt="" width={72} height={90} loading="lazy" />
+                </button>
               ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="pa-pdp__block">
-            <h1 style={{ fontSize: 22 }}>{title}</h1>
-            <PriceTag price={price} compareAtPrice={compareAt} lang={lang} large />
-            <StockHint stock={stock} small />
-            {!hasVariants && (
-              <div className={`pa-error ${isOutOfStock ? '' : 'pa-ok'}`}>
-                {isOutOfStock
-                  ? L('outOfStock', 'Sold out', 'نفذت الكمية')
-                  : L('inStock', `In stock: ${stock}`, `متوفر: ${stock}`)}
-              </div>
-            )}
-          </div>
-
-          {hasVariants && (
-            <>
-              <div className="pa-pdp__block">
-                <div className="pa-pdp__label">
-                  {L('selectColor', 'Colour', 'اللون')}
-                  {' '}<span>{loc(colors.find((c) => c.id === selection.colorId)?.name, lang)}</span>
-                </div>
-                <ColorSwatches
-                  colors={colors}
-                  value={selection.colorId}
-                  onChange={(colorId) => setSelection((s) => pickColor(product, s, colorId))}
-                  lang={lang}
-                />
-              </div>
-
-              {selection.colorId && (
-                <div className="pa-pdp__block">
-                  <div className="pa-pdp__label">
-                    {L('selectSize', 'Size', 'المقاس')}{' '}
-                    <span>{selection.size ?? (ar ? 'اختر مقاساً' : 'Pick a size')}</span>
-                  </div>
-                  <SizePicker
-                    sizes={sizes.map((s) => s.size)}
-                    value={selection.size}
-                    stockBySize={Object.fromEntries(sizes.map((s) => [s.size, s.stock]))}
-                    onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
-                  />
-                  {hasVariants && !variantReady && (
-                    <div className="pa-error">{L('selectSizeFirst', 'Please choose an available size.', 'اختر مقاساً متاحاً.')}</div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="pa-pdp__block">
-            <div className="pa-pdp__label">{L('quantity', 'Quantity', 'الكمية')}</div>
-            <QtyStepper value={quantity} onChange={setQuantity} min={1} max={Math.max(1, stock)} />
-          </div>
-
-          <div className="pa-sticky">
-            <button
-              type="button"
-              className="pa-btn pa-btn--lg"
-              onClick={handleAddToCart}
-              disabled={!canAddToCart}
-              aria-disabled={!canAddToCart}
-            >
-              {L('addToCart', 'Add to bag', 'ضيف للعربية')}
-            </button>
-            <button type="button" className="pa-btn pa-btn--outline pa-btn--lg" onClick={() => navigate('/cart')}>
-              {L('goToCart', 'Bag', 'العربية')}
-            </button>
-          </div>
-
-          {product.description && (
-            <div className="pa-acc">
-              <details>
-                <summary>{L('description', 'Description', 'الوصف')}</summary>
-                <div className="pa-acc__body">{loc(product.description, lang)}</div>
-              </details>
-              <details>
-                <summary>{L('shippingReturns', 'Shipping & returns', 'الشحن والإرجاع')}</summary>
-                <div className="pa-acc__body">
-                  {L('shippingHelp', 'Delivery across Egypt. Share or unsubscribe any time.', 'التوصيل لكل محافظات مصر. يمكنك التواصل معانا في أي وقت.')}
-                </div>
-              </details>
             </div>
           )}
         </div>
       </div>
 
-      {flash && (
-        <div className="pa-callout pa-ok" role="status" style={{ position: 'fixed', insetInline: 16, bottom: 88, zIndex: 35 }}>
-          {flash}
+      {/* -------------------------------- info ------------------------------ */}
+      <div>
+        <div className="pa-pdp__block">
+          <nav className="pa-subtitle" aria-label="Breadcrumb">
+            <Link to="/shop">{L('allProducts', 'All products', 'كل المنتجات')}</Link>
+            {' / '}
+            <span>{title}</span>
+          </nav>
+          <div className="pa-pdp__head">
+            <h1>{title}</h1>
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button type="button" className="pa-icon-btn" aria-label={L('share', 'Share', 'مشاركة')} onClick={share}>
+                <IconShare width={22} height={22} />
+              </button>
+              <button type="button" className="pa-icon-btn" aria-label={L('save', 'Save', 'حفظ')}
+                aria-pressed={saved} onClick={() => toggleSave(product.id)}>
+                <IconHeart width={22} height={22} fill={saved ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+          </div>
+          <PriceTag price={price} compareAtPrice={compareAt} lang={lang} large />
+          <p className="pa-subtitle" style={{ margin: 0 }}>
+            {L('codNotice', 'Cash on delivery.', 'الدفع عند الاستلام.')} {L('freeShippingOver', 'Free shipping over', 'شحن مجاني فوق')}{' '}
+            <bdi>{formatEGP(threshold, lang)}</bdi>.
+          </p>
         </div>
-      )}
 
-      <StoreFooter />
-    </>
+        {hasVariants ? (
+          <>
+            <div className="pa-pdp__block">
+              <div className="pa-pdp__label">
+                {L('color', 'Colour', 'اللون')}
+                {selectedColor && <span>: {loc(selectedColor.name, lang)}</span>}
+              </div>
+              <div className="pa-swatches">
+                {colors.map((c) => (
+                  <ColorDot key={c.id} color={c} lang={lang}
+                    selected={selection.colorId === c.id}
+                    onSelect={() => setSelection((s) => pickColor(product, s, c.id))} />
+                ))}
+              </div>
+            </div>
+
+            <div className="pa-pdp__block">
+              <div className="pa-pdp__label">
+                {L('size', 'Size', 'المقاس')}
+                {selection.size && <span>: {selection.size}</span>}
+                <Link className="pa-pdp__guide" to="/about">{L('sizeGuide', 'Size guide', 'دليل المقاسات')}</Link>
+              </div>
+              <SizePicker
+                sizes={sizes.map((s) => s.size)}
+                value={selection.size}
+                stockBySize={Object.fromEntries(sizes.map((s) => [s.size, s.stock]))}
+                onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
+              />
+              <StockHint stock={stock} where={selectedColor ? `in ${loc(selectedColor.name, lang)}` : ''} />
+              {!variantReady && (
+                <div className="pa-error">
+                  {L('selectBoth', 'Choose a colour and a size to continue.', 'اختار اللون والمقاس عشان تكمل.')}
+                </div>
+              )}
+            </div>
+
+            <div className="pa-pdp__block">
+              <div className="pa-pdp__label">{L('quantity', 'Quantity', 'الكمية')}</div>
+              <Stepper value={quantity} onChange={setQuantity} max={Math.max(1, stock)} L={L} />
+            </div>
+          </>
+        ) : (
+          <div className="pa-pdp__block">
+            <div className={inStock ? 'pa-ok' : 'pa-error'} style={{ fontSize: 13, fontWeight: 700 }}>
+              {inStock ? L('inStock', `In stock: ${stock}`, `متوفر: ${stock}`) : L('soldOut', 'Sold out', 'نفذت الكمية')}
+            </div>
+          </div>
+        )}
+
+        {/* Delivery box: the shopper's own governorate, so the number is theirs. */}
+        <div className="pa-delivery">
+          <span>
+            <b>{L('deliverTo', 'Deliver to', 'التوصيل إلى')}</b>{' '}
+            <span className="pa-subtitle">{L('chooseAtCheckout', 'chosen at checkout', 'تختاره عند الطلب')}</span>
+          </span>
+          <Link className="pa-btn pa-btn--outline pa-btn--compact" to="/cart">
+            {L('change', 'Change', 'تغيير')}
+          </Link>
+        </div>
+
+        <Accordion
+          openId="desc"
+          items={[
+            {
+              id: 'desc',
+              title: L('description', 'Description', 'الوصف'),
+              body: product.description
+                ? <>{loc(product.description, lang)}</>
+                : <span className="pa-subtitle">{L('noDescription', 'No description for this piece yet.', 'مفيش وصف للقطعة دي لسه.')}</span>
+            },
+            {
+              id: 'material',
+              title: L('materialCare', 'Material and care', 'الخامة والعناية'),
+              body: <>{L('materialBody', 'Follow the care label. Contact us if you need details before ordering.', 'اتبع تعليمات العناية. تواصل معانا لو محتاج تفاصيل قبل الطلب.')}</>
+            },
+            {
+              id: 'shipping',
+              title: L('deliveryReturns', 'Delivery and returns', 'التوصيل والإرجاع'),
+              body: (
+                <>
+                  {L('codAll', 'Cash on delivery to all 27 governorates.', 'الدفع عند الاستلام لكل الـ 27 محافظة.')}{' '}
+                  {L('freeShippingOver', 'Free shipping over', 'شحن مجاني فوق')} <bdi>{formatEGP(threshold, lang)}</bdi>.
+                </>
+              )
+            }
+          ]}
+        />
+
+        {related.length > 0 && (
+          <section className="pa-section" aria-labelledby="related">
+            <div id="related" className="pa-section__head" style={{ paddingInline: 0 }}>
+              <h2 className="pa-section__title" style={{ fontSize: 20 }}>{L('youMayLike', 'You may also like', 'يمكن يعجبك كمان')}</h2>
+            </div>
+            <ProductRail>
+              {related.map((p) => (
+                <ProductCard key={p.id} product={p} lang={lang} as={Link} href={`/product/${p.id}`}
+                  labels={{ soldOut: L('soldOut', 'Sold out', 'نفذت الكمية'), onlyLeft: (n) => L('onlyNLeft', `Only ${n} left`, `باقي ${n} بس`) }} />
+              ))}
+            </ProductRail>
+          </section>
+        )}
+      </div>
+
+      {/* ------------------------------ sticky bar --------------------------- */}
+      <div className="pa-sticky">
+        <Button
+          variant="outline"
+          className="pa-icon-btn--box"
+          aria-label={L('save', 'Save', 'حفظ')}
+          aria-pressed={saved}
+          onClick={() => toggleSave(product.id)}
+        >
+          <IconHeart width={22} height={22} fill={saved ? 'currentColor' : 'none'} />
+        </Button>
+        <Button size="lg" onClick={handleAdd} disabled={!inStock || !variantReady}>
+          {!inStock ? L('soldOut', 'Sold out', 'نفذت الكمية')
+            : !variantReady ? L('selectASize', 'Select a size', 'اختار مقاس')
+              : `${L('addToBag', 'Add to bag', 'ضيف للعربية')} · ${formatEGP(price * quantity, lang)}`}
+        </Button>
+      </div>
+
+      {/* Phone: the desktop two-column info is long, so a Jump-to-bag affordance
+          lives in the sheet-free flow via the bag link in the shell. */}
+      {sheet && (
+        <BottomSheet title={L('sizeGuide', 'Size guide', 'دليل المقاسات')} onClose={() => setSheet(false)}>
+          <p className="pa-subtitle">{L('sizeGuideBody', 'Measurements are on each product. Contact us if you are between sizes.', 'القياسات موجودة على كل منتج. تواصل معانا لو انت بين مقاسين.')}</p>
+        </BottomSheet>
+      )}
+    </div>
   )
 }
 
+/** Local quantity stepper: 44x40 controls, capped at the variant's stock. */
+function Stepper({ value, onChange, max, L }) {
+  return (
+    <div className="pa-qty">
+      <button type="button" aria-label={L('decrease', 'Decrease quantity', 'تقليل الكمية')}
+        disabled={value <= 1} onClick={() => onChange(value - 1)}>−</button>
+      <output aria-live="polite">{value}</output>
+      <button type="button" aria-label={L('increase', 'Increase quantity', 'زيادة الكمية')}
+        disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
+    </div>
+  )
+}

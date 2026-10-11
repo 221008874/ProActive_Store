@@ -53,6 +53,8 @@
 .pa-status--confirmed { background: var(--pa-st-confirmed-bg); color: var(--pa-st-confirmed-fg); }
 .pa-status--shipped   { background: var(--pa-st-shipped-bg);   color: var(--pa-st-shipped-fg); }
 .pa-status--delivered { background: var(--pa-st-delivered-bg); color: var(--pa-st-delivered-fg); }
+/* Unknown / neutral: a status the table has no opinion about yet. */
+.pa-status--neutral   { background: var(--pa-st-neutral-bg);   color: var(--pa-st-neutral-fg); }
 .pa-status--cancelled,
 .pa-status--returned  { background: var(--pa-st-cancelled-bg); color: var(--pa-st-cancelled-fg); }
 /* product status (admin) reuses the same pills: active=delivered, draft=pending, archived=cancelled */
@@ -167,6 +169,39 @@
 .pa-hero__title { font-size: 44px; line-height: .98; margin-bottom: 16px; }
 @media (min-width: 1024px) { .pa-hero { min-height: 520px; padding: 48px 64px; } .pa-hero__title { font-size: 72px; } }
 
+/* Hero shell: the banner on a phone, the 2fr/1fr banner+tiles grid on desktop. */
+.pa-hero-wrap { display: flex; flex-direction: column; }
+.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: #fff; }
+.pa-hero__dots { display: flex; gap: 6px; margin-top: 20px; }
+.pa-hero__dots button {
+  height: 4px; padding: 0; border: 0; background: rgba(255,255,255,.4); cursor: pointer;
+  transition: width .18s ease, background .18s ease;
+}
+.pa-hero__dots button[data-on="true"] { background: #fff; }
+.pa-hero__side { display: none; }
+@media (min-width: 1024px) {
+  .pa-hero-wrap { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; max-width: var(--pa-content-max); margin-inline: auto; padding: 16px var(--pa-gutter) 0; }
+  .pa-hero-wrap .pa-hero { border-radius: var(--pa-radius); }
+  .pa-hero__side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
+}
+/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon). */
+.pa-hero__tile {
+  position: relative; display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 20px; background: var(--pa-stone); border: 1px solid var(--pa-line);
+  text-decoration: none; color: var(--pa-ink);
+}
+.pa-hero__tile:hover { background: var(--pa-line); }
+.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+
+/* Home shelves: a rail on a phone, a grid from laptop up. Both are rendered and
+   the CSS picks one, so there is no JS breakpoint and no layout shift on resize. */
+.pa-home__shelf .pa-home__grid { display: none; }
+@media (min-width: 1024px) {
+  .pa-home__shelf .pa-rail { display: none; }
+  .pa-home__shelf .pa-home__grid { display: grid; }
+}
+.pa-card--dimmed { opacity: .6; }
+
 /* Category strip (round photos) */
 .pa-cats { display: flex; gap: 14px; padding: 14px var(--pa-gutter) 0; overflow-x: auto; scrollbar-width: none; }
 .pa-cat { flex: 0 0 62px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; font-size: 12px; font-weight: 600; }
@@ -218,8 +253,86 @@
 .pa-about__card { background: var(--pa-stone); padding: 12px 14px; }
 .pa-about__card b { font-size: 14px; display: block; }
 .pa-about__card span { font-size: 13px; line-height: 1.4; color: var(--pa-muted); }
+
+/* Footer: four columns on desktop, stacked on a phone. The delivery note is
+   the last column because it is the one thing a shopper checks before the
+   bag, not after. */
 .pa-footer { margin-top: 14px; padding: 20px var(--pa-gutter) 16px; border-top: 1px solid var(--pa-line); display: flex; flex-direction: column; gap: 10px; }
 .pa-footer__links { display: flex; gap: 18px; font-size: 13px; font-weight: 600; }
+.pa-footer__brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pa-footer__col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pa-footer__title { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--pa-muted); }
+.pa-footer__col a { font-size: 13px; font-weight: 600; text-decoration: none; }
+.pa-footer__toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.pa-footer__toggle {
+  min-height: var(--pa-tap); padding: 0 14px; display: inline-flex; align-items: center; gap: 8px;
+  background: var(--pa-paper); color: var(--pa-ink); border: 1px solid var(--pa-line);
+  border-radius: var(--pa-radius); font: 600 13px var(--pa-font-body); cursor: pointer;
+}
+@media (min-width: 1024px) {
+  .pa-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
+  .pa-footer__links { flex-direction: column; gap: 8px; }
+}
+
+/* Announcement bar toggles (language + theme on desktop) */
+.pa-announce .pa-lang a, .pa-announce .pa-lang button {
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  color: var(--pa-on-dark-2); font: 600 12px var(--pa-font-body);
+}
+.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { color: #fff; font-weight: 700; }
+.pa-announce__theme { display: none; }
+@media (min-width: 1024px) { .pa-announce__theme { display: inline-flex; } }
+.pa-announce__sep { display: none; }
+@media (min-width: 1024px) { .pa-announce__sep { display: inline; color: var(--pa-on-dark-2); } }
+
+/* ---------------------------- Header + mega menu ------------------------- */
+.pa-header__nav { display: none; }
+@media (min-width: 1024px) {
+  .pa-header { height: 72px; }
+  .pa-header__nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; align-items: center; }
+}
+.pa-navlink { text-decoration: none; padding: 8px 0; position: relative; }
+.pa-navlink--sale { color: var(--pa-sale); }
+/* The mega-menu opens on hover AND on focus-within, so keyboard users reach the
+   categories without a pointer. */
+.pa-navitem { position: relative; }
+.pa-mega {
+  position: absolute; inset-inline-start: 0; top: 100%; z-index: 30; min-width: 260px;
+  background: var(--pa-paper); border: 1px solid var(--pa-line); box-shadow: var(--pa-shadow-hover);
+  padding: 8px; display: none; flex-direction: column; gap: 2px;
+}
+.pa-navitem:hover .pa-mega, .pa-navitem:focus-within .pa-mega { display: flex; }
+.pa-mega a {
+  min-height: var(--pa-tap); display: flex; align-items: center; padding: 0 12px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
+}
+.pa-mega a:hover { background: var(--pa-stone); }
+.pa-mega__empty { padding: 12px; font-size: 13px; color: var(--pa-muted); }
+
+/* ------------------------------ Menu drawer ----------------------------- */
+/* Full-height panel, inline-start edge (mirrors with dir), above everything. */
+.pa-drawer-backdrop { position: fixed; inset: 0; background: rgba(18,18,18,.5); z-index: 50; }
+.pa-drawer {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 51; width: min(320px, 86vw);
+  background: var(--pa-paper); display: flex; flex-direction: column; overflow-y: auto;
+  animation: pa-drawer-in 250ms ease-out;
+}
+@keyframes pa-drawer-in { from { transform: translateX(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+[dir="rtl"] .pa-drawer { animation-name: pa-drawer-in-rtl; }
+@keyframes pa-drawer-in-rtl { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pa-drawer__head {
+  height: var(--pa-header-h); flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px 0 16px; border-bottom: 1px solid var(--pa-line);
+}
+.pa-drawer__body { flex: 1 1 auto; padding: 16px; display: flex; flex-direction: column; gap: 24px; }
+.pa-drawer__group { display: flex; flex-direction: column; gap: 4px; }
+.pa-drawer__row {
+  min-height: var(--pa-tap); display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 600; text-decoration: none; color: var(--pa-ink);
+}
+.pa-drawer__row[aria-current="page"] { font-weight: 700; }
+.pa-drawer__sub { padding-inline-start: 22px; font-size: 14px; font-weight: 500; min-height: 40px; display: flex; align-items: center; text-decoration: none; color: var(--pa-ink); }
+.pa-drawer__foot { flex: 0 0 auto; border-top: 1px solid var(--pa-line); padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 .pa-footer__links a { text-decoration: none; }
 
 /* ------------------------ Browse (filters, chips) -------------------- */
@@ -267,6 +380,26 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   background: var(--pa-paper); border-top: 1px solid var(--pa-line);
 }
 .pa-sticky > .pa-btn { flex: 1 1 0; }
+
+/* Product page header row: title with the share/save pair on its inline end. */
+.pa-pdp__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pa-pdp__head h1 { font-size: 24px; line-height: 1.15; }
+.pa-pdp__count {
+  position: absolute; inset-block-end: 10px; inset-inline-end: 10px;
+  padding: 3px 8px; background: rgba(18,18,18,.72); color: #fff;
+  font-size: 11px; font-weight: 700; direction: ltr;
+}
+.pa-pdp__guide { font-size: 13px; font-weight: 700; margin-inline-start: auto; text-decoration: none; }
+.pa-pdp__thumbs { display: none; }
+@media (min-width: 1024px) {
+  .pa-pdp__head h1 { font-size: 34px; }
+  /* Vertical thumbnail rail beside the main image, per the desktop board. */
+  .pa-pdp__thumbs { display: grid; grid-template-columns: repeat(4, 72px); gap: 8px; margin-top: 12px; }
+  .pa-pdp__thumbs button { padding: 0; border: 1px solid var(--pa-line); background: var(--pa-stone); cursor: pointer; }
+  .pa-pdp__thumbs button[aria-pressed="true"] { border: 2px solid var(--pa-ink); }
+  .pa-pdp__thumbs img { display: block; width: 100%; height: auto; }
+  .pa-pdp .pa-card__photo { max-height: 640px; }
+}
 @media (min-width: 1024px) {
   .pa-pdp--desktop { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; max-width: var(--pa-content-max); margin-inline: auto; padding: 24px var(--pa-gutter); }
   .pa-pdp--desktop .pa-sticky { position: static; border: 0; padding: 0; height: auto; background: transparent; }
@@ -382,3 +515,188 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   }
   .pa-card__quick { transform: none; }
 }
+
+/* =========================================================================
+   Controls added for the fashion UI pass
+   ========================================================================= */
+
+/* Button variants. `danger` is an outline in the sale colour so it never
+   competes with the solid primary on the same screen; the disabled state
+   keeps muted-on-stone, which clears 4.5:1 (the --disabled token on stone
+   does not, so it is reserved for struck-through sold-out text). */
+.pa-btn--danger { background: var(--pa-paper); color: var(--pa-sale); border-color: var(--pa-sale); }
+.pa-btn--danger:hover { color: #fff; background: var(--pa-sale); opacity: 1; }
+.pa-btn--compact { height: var(--pa-tap); padding: 0 16px; font-size: 14px; }
+.pa-btn[disabled], .pa-btn[aria-disabled="true"] {
+  background: var(--pa-stone); border-color: var(--pa-stone); color: var(--pa-muted);
+  cursor: not-allowed; opacity: 1;
+}
+
+/* Native select with the board's 48px box. `appearance: none` so the control
+   is drawn the same everywhere; the caret is a data-uri so it inherits nothing
+   and cannot 404. It points down, so it needs no RTL mirroring -- only the
+   horizontal position flips. */
+.pa-select {
+  appearance: none; -webkit-appearance: none; padding-inline-end: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235B5B5B' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+[dir="rtl"] .pa-select { background-position: left 14px center; }
+
+/* Checkbox row: the box is a real input, the text is its <label>. */
+.pa-check { display: flex; align-items: center; gap: 12px; min-height: var(--pa-tap); font-size: 14px; font-weight: 600; cursor: pointer; }
+.pa-check input {
+  width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--pa-ink); margin: 0; cursor: pointer;
+}
+.pa-check--plain { font-weight: 500; }
+
+/* Radio card (the country gate, the single payment option). */
+.pa-radio-card {
+  display: flex; gap: 14px; align-items: flex-start; text-align: start; width: 100%;
+  padding: 16px; background: var(--pa-paper); color: var(--pa-ink);
+  border: 1px solid var(--pa-line); border-radius: var(--pa-radius); cursor: pointer;
+  font: 500 14px var(--pa-font-body);
+}
+.pa-radio-card[aria-checked="true"] { border: 2px solid var(--pa-ink); padding: 15px; }
+.pa-radio-card[aria-disabled="true"] { color: var(--pa-muted); background: var(--pa-stone); cursor: not-allowed; }
+.pa-radio-card input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--pa-ink); }
+.pa-radio-card b { display: block; font-size: 15px; font-weight: 700; }
+.pa-radio-card span { display: block; color: var(--pa-muted); font-size: 13px; }
+
+/* Colour selector. The painted circle is 38px inside a 44px hit area; the
+   1px ring is drawn inside so light colours still read against paper. */
+.pa-swatch--sm { width: 28px; height: 28px; padding: 2px; }
+.pa-swatch--sm::before { inset: 2px; }
+.pa-swatch[aria-pressed="true"] { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-swatch[disabled] { cursor: not-allowed; opacity: .55; }
+
+/* Bottom sheet: slides up, top corners only, dimmed backdrop, sticky footer.
+   The grip is the 40x4 drag handle from the board. */
+.pa-sheet__grip { width: 40px; height: 4px; background: var(--pa-line); margin: 0 auto 12px; flex: 0 0 auto; }
+.pa-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; }
+.pa-sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.pa-sheet__foot {
+  flex: 0 0 auto; margin: 0 calc(-1 * var(--pa-gutter)) calc(-16px - env(safe-area-inset-bottom));
+  padding: 14px var(--pa-gutter) calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--pa-line); background: var(--pa-paper);
+  position: sticky; bottom: 0;
+}
+.pa-sheet__foot > .pa-btn { width: 100%; }
+.pa-sheet--open { animation: pa-sheet-up 250ms ease-out; }
+@keyframes pa-sheet-up { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Toast: bottom, 48px, ink. Stacked so two toasts never overlap. */
+.pa-toast-stack {
+  position: fixed; inset-inline: 0; bottom: calc(var(--pa-tabbar-h) + 16px); z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding-inline: var(--pa-gutter);
+  pointer-events: none;
+}
+.pa-toast {
+  min-height: 48px; max-width: 420px; display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 16px; background: var(--pa-ink); color: var(--pa-paper);
+  font-size: 14px; font-weight: 600; box-shadow: var(--pa-shadow-hover); pointer-events: auto;
+}
+.pa-toast__action {
+  background: transparent; border: 1.5px solid var(--pa-paper); color: var(--pa-paper);
+  min-height: var(--pa-tap); padding: 0 14px; font: 700 13px var(--pa-font-body); cursor: pointer;
+}
+
+/* Loading / empty / error states. The skeleton matches the card ratios so the
+   grid does not jump when the real content lands. */
+.pa-skel { background: var(--pa-stone); display: block; }
+.pa-skel--card { aspect-ratio: 3 / 4; }
+.pa-skel--line { height: 12px; }
+.pa-empty { padding: 48px var(--pa-gutter); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pa-empty__title { font-family: var(--pa-font-display); font-size: var(--pa-fs-title); font-weight: 700; }
+.pa-empty__body { color: var(--pa-muted); font-size: 14px; max-width: 40ch; margin: 0; }
+
+/* Offline banner: the catalogue survives in IndexedDB, so say so rather than
+   showing an empty grid. */
+.pa-offline {
+  padding: 10px var(--pa-gutter); background: var(--pa-low); color: #fff;
+  font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+}
+
+/* Admin stepper (quick stock edit): 44x44 buttons around a 56px readout. */
+.pa-qty--admin button { width: var(--pa-tap); height: var(--pa-tap); }
+.pa-qty--admin output { width: 56px; height: var(--pa-tap); font-size: 16px; }
+
+/* ------------------------------ Country gate ---------------------------- */
+/* One question, then in. The options are the whole screen on a phone; the
+   layout stays a single column at every width rather than becoming a hero. */
+.pa-gate { min-height: 100vh; display: flex; flex-direction: column; max-width: 520px; margin-inline: auto; padding: 0 var(--pa-gutter); }
+.pa-gate__head { height: var(--pa-header-h); display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+.pa-gate__body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding-block: 24px; }
+.pa-gate__title { font-size: 40px; line-height: 1.05; margin: 0; }
+@media (min-width: 768px) { .pa-gate__title { font-size: 48px; } }
+.pa-gate__options { display: flex; flex-direction: column; gap: 12px; }
+.pa-gate__note { margin: 0; font-size: 13px; color: var(--pa-muted); }
+.pa-gate__foot { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.pa-gate__foot .pa-subtitle { text-decoration: none; }
+
+/* =========================================================================
+   Checkout
+   ========================================================================= */
+
+/* One layout for both: the mobile column and the desktop panel column are the
+   same markup, and CSS picks which one is visible. No JS breakpoint. */
+.pa-checkout-layout { display: flex; flex-direction: column; gap: 0; }
+.pa-checkout__steps { display: none; }
+.pa-checkout__summary { display: none; }
+@media (min-width: 1024px) {
+  .pa-checkout-layout {
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px;
+    align-items: start; max-width: var(--pa-content-max); margin-inline: auto; padding: 24px var(--pa-gutter) 64px;
+  }
+  .pa-checkout__mobile { display: none; }
+  .pa-checkout__steps { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .pa-checkout__summary {
+    display: block; position: sticky; top: calc(var(--pa-header-h) + 24px);
+    border: 1px solid var(--pa-ink); padding: 18px;
+  }
+}
+@media (min-width: 1024px) and (max-width: 1200px) {
+  /* A narrow laptop keeps the summary closer than the board's 360px column. */
+  .pa-checkout-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
+}
+
+/* Phone: the steps are full screens, so their own footers are sticky. */
+.pa-checkout { padding-bottom: 24px; }
+.pa-checkout__section { padding: 16px var(--pa-gutter); display: flex; flex-direction: column; gap: 14px; }
+.pa-checkout__row { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .pa-checkout__row { grid-template-columns: 1fr 1fr; } }
+.pa-checkout__foot {
+  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center;
+  padding: 12px var(--pa-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--pa-paper); border-top: 1px solid var(--pa-line);
+}
+.pa-checkout__foot .pa-btn { flex: 1 1 0; }
+@media (min-width: 1024px) {
+  .pa-checkout__foot { position: static; border: 0; padding: 16px 0 0; }
+  .pa-checkout { padding: 0; }
+  .pa-checkout__section { padding: 0; }
+}
+
+.pa-cod-amount { font-family: var(--pa-font-display); font-size: 26px; font-weight: 700; line-height: 1.15; }
+
+/* Desktop step panels: numbered, collapsible, current one open. */
+.pa-checkout__panel { border: 1px solid var(--pa-line); background: var(--pa-paper); }
+.pa-checkout__panel[data-state="current"] { border-color: var(--pa-ink); }
+.pa-checkout__panel-head {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; background: transparent; border: 0; cursor: pointer;
+  font: 700 15px var(--pa-font-body); color: var(--pa-ink); text-align: start;
+}
+.pa-checkout__panel[data-state="done"] .pa-checkout__panel-head { color: var(--pa-instock); }
+.pa-checkout__panel-num {
+  width: 26px; height: 26px; flex: 0 0 auto; display: grid; place-items: center;
+  border: 1.5px solid var(--pa-ink); border-radius: 50%; font-size: 13px; font-weight: 700;
+}
+.pa-checkout__panel[data-state="done"] .pa-checkout__panel-num {
+  background: var(--pa-ink); color: var(--pa-paper); border-color: var(--pa-ink);
+}
+.pa-checkout__panel-body { padding: 0 16px 16px; border-top: 1px solid var(--pa-line); }
+.pa-checkout__panel-body > * { padding-top: 8px; }
+
+.summary-card, .pa-summary-card { padding: 14px var(--pa-gutter); display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+

@@ -1,24 +1,24 @@
-// src/pages/Splash.jsx — ProActive Fashion design system refactor.
+// Splash — the brand screen between the country gate and the store.
 //
-// Logic is unchanged: the same 3-second forward to /home, the same read of the
-// location state handed over by LocationSplash, and the same currency badge
-// copy. The full-screen layout is kept, but the decorative layers (sparkles,
-// glow, drifting blobs, shimmer bars) are gone; the surface is the design
-// system's .pa-hero pinned to the ink token — a permanent dark brand screen, so
-// it does not follow the light/dark switch.
+// Short by design: it exists to cover the first paint, not to be looked at.
+// It waits at most about a second and skips instantly when the catalogue is
+// already cached locally, so a returning shopper never sees it twice.
+//
+// The surface is the design system's .pa-hero pinned to the ink token — a
+// permanent dark brand screen, so it does not follow the light/dark switch.
 
 import { useEffect } from 'react'
-import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
-import { useLocation } from '../context/LocationContext'
+import { loadCachedSnapshot } from '../services/snapshotStore'
+
+const MAX_MS = 1000
 
 export default function Splash() {
   const navigate = useNavigate()
-  const routerLocation = useRouterLocation()
   const { t, lang } = useLanguage()
   const { getImage } = useTheme()
-  const { country, setLoading } = useLocation()
 
   const ar = lang === 'ar'
   const L = (key, en, fallback) => {
@@ -26,77 +26,46 @@ export default function Splash() {
     return v && v !== key ? v : (ar ? fallback : en)
   }
 
-  // Get detected location from navigation state
-  const detectedData = routerLocation.state || {}
-
   useEffect(() => {
-    // Update context with detected data if passed
-    if (detectedData.detectedCurrency) {
-      // Currency is already set in context from LocationSplash
-    }
+    let cancelled = false
 
+    // A cached catalogue means the store is already warm: skip the reveal.
     const timer = setTimeout(() => {
-      navigate('/home')
-    }, 3000)
+      if (!cancelled) navigate('/home', { replace: true })
+    }, MAX_MS)
 
-    return () => clearTimeout(timer)
-  }, [navigate, detectedData])
+    loadCachedSnapshot()
+      .then((snap) => {
+        if (!cancelled && snap?.products?.length) {
+          clearTimeout(timer)
+          navigate('/home', { replace: true })
+        }
+      })
+      .catch(() => {})
 
-  const getCurrencyDisplay = () => {
-    return { flag: '🇪🇬', text: 'Egypt Store', symbol: 'EGP' }
-  }
-
-  const currencyInfo = getCurrencyDisplay()
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [navigate])
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <style>{`@keyframes pa-spin { to { transform: rotate(360deg); } }`}</style>
-      <section
-        className="pa-hero"
-        style={{
-          flex: '1 1 auto',
-          justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          gap: 20,
-          background: 'var(--pa-ink)',
-          color: 'var(--pa-paper)'
-        }}
-      >
-        <img
-          src={getImage('logo')}
-          alt="ProActive Store Logo"
-          style={{ height: 'clamp(150px, 30vh, 280px)', width: 'auto', maxWidth: '90vw', objectFit: 'contain' }}
-        />
-
-        <h1 className="pa-hero__title">ProActive Store</h1>
-
-        <p className="pa-hero__eyebrow" style={{ margin: 0, letterSpacing: 'normal', fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>
-          {L('styleDelivered', 'Style, delivered to your door', 'ستايلات مختارة بعناية، بتوصل لبابك.')}
-        </p>
-
-        {country && (
-          <div className="pa-callout" style={{ background: 'rgba(255,255,255,.08)' }}>
-            📍 {L('detected', 'Detected', 'تم التعرف على')}: {country}
-          </div>
-        )}
-
-        <div
-          aria-hidden="true"
-          style={{
-            width: 'clamp(56px, 14vw, 70px)',
-            height: 'clamp(56px, 14vw, 70px)',
-            borderRadius: '50%',
-            border: '5px solid rgba(255,255,255,.18)',
-            borderTopColor: 'var(--pa-paper)',
-            animation: 'pa-spin 1.2s linear infinite'
-          }}
-        />
-
-        <p className="pa-hero__eyebrow" style={{ margin: 0 }}>
-          {L('loadingStore', `Loading ${currencyInfo.symbol} Store...`, `جاري تحميل متجر ${currencyInfo.symbol}...`)}
-        </p>
-      </section>
-    </div>
+    <section className="pa-hero" style={{
+      minHeight: '100vh', justifyContent: 'center', alignItems: 'center',
+      textAlign: 'center', gap: 20, background: 'var(--pa-ink)', color: 'var(--pa-paper)'
+    }}>
+      <img
+        src={getImage('logo')}
+        alt="ProActive Store"
+        style={{ height: 'clamp(110px, 22vh, 200px)', width: 'auto', maxWidth: '80vw', objectFit: 'contain' }}
+      />
+      <p className="pa-hero__eyebrow" style={{ margin: 0, letterSpacing: 'normal' }}>
+        {L('styleDelivered', 'Style, delivered to your door', 'ستايلات مختارة بعناية، بتوصل لبابك.')}
+      </p>
+      {/* The progress bar from the board: 120x3, white on the ink surface. */}
+      <div style={{ width: 120, height: 3, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }} aria-hidden="true">
+        <div style={{ height: '100%', width: '40%', background: 'var(--pa-paper)' }} />
+      </div>
+      <p className="pa-hero__eyebrow" style={{ margin: 0, fontSize: 12 }}>
+        {L('loadingLatest', 'Loading the latest styles', 'جاري تحميل أحدث الستايلات')}
+      </p>
+    </section>
   )
 }

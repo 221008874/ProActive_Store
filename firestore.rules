@@ -1,85 +1,105 @@
 rules_version = '2';
 
-// Firestore security rules for the ProActive project (mina-terek-samir-shein).
+// =============================================================================
+// HARDENED rules for the fashion data model — NOT SAFE TO DEPLOY YET.
 //
-// Both apps share ONE Firestore database:
-//   - ProActive_Store  (public storefront, NO Firebase Auth)
-//   - ProActive_Admin  (internal back-office, Firebase Auth required)
+// Deploy order (each step depends on the one before it):
+//   1. Deploy the /api routes with FIREBASE_SERVICE_ACCOUNT set, so the
+//      server is the only writer of orders.
+//   2. node scripts/setAdmin.mjs <admin-email>      (in ProActive_Admin)
+//   3. that admin signs out and signs back in, so the claim is in their token
+//   4. firebase deploy --only firestore:rules   (this file, as firestore.rules)
 //
-// These rules encode that split. The storefront is deliberately anonymous for
-// browsing and checkout; anything containing customer data or money is
-// admin-only.
+// isAdmin() requires request.auth.token.admin == true. Until the claim
+// exists, EVERY admin write fails with permission-denied: saving products,
+// confirming orders, editing coupons, updating shipping. You cannot fix it
+// from the app - the dashboard simply stops saving.
 //
-// REVIEW BEFORE DEPLOYING. The rules that previously lived only in the Firebase
-// console are not recoverable from git, so compare against the console before
-// running:  firebase deploy --only firestore:rules --project mina-terek-samir-shein
+// firestore.rules (the current file) is the safe baseline and the rollback
+// target. To switch:
+//   copy firestore.rules.baseline -> firestore.rules
+//   firebase deploy --only firestore:rules
+// =============================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // An admin is any signed-in Firebase Auth user. If the app later grows
-    // per-user roles, this is the single place to tighten.
     function isAdmin() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    // ---------------------------------------------------------------------
-    // Catalogue: public read, admin write.
-    // ---------------------------------------------------------------------
+    // Admins bypass every per-collection rule below.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---- public reference data (read only) ----
+    match /categories/{id}            { allow read: if true; }
+    match /collections/{id}           { allow read: if true; }
+    match /egp_governorate_costs/{id} { allow read: if true; }
+    match /egp_settings/{id}          { allow read: if true; }
+    match /size_guides/{id}           { allow read: if true; }
+
+    // ---- catalog ----
+    // Public read; writes are admin-only. The old rules let an authenticated
+    // non-admin shrink stock as "part of placing an order" - that path is
+    // gone now that /api/placeOrder writes with the Admin SDK, so no client
+    // write of any kind can touch prices or stock.
     match /products_egp/{productId} {
       allow read: if true;
-      allow write: if isAdmin();
+
+      match /variants/{variantId} {
+        allow read: if true;
+      }
     }
 
-    // ---------------------------------------------------------------------
-    // Orders: storefront creates, admin reads and confirms.
-    //
-    // `get` is public because the payment-success page fetches the single
-    // order it just created (Firestore auto-ids, so these are not guessable).
-    // `list` stays admin-only, otherwise anyone could page through every
-    // customer's name, phone, email and address.
-    // ---------------------------------------------------------------------
-    match /orders_egp/{orderId} {
+    // ---- coupons ----
+    // CORRECTION 2: `type` is "percent" or "fixed"; existing docs are "fixed".
+    // Exact-code get only - listing every coupon (and its usage counts) is not
+    // public. `usedCount` is moved by the server (Admin SDK), not by clients.
+    match /egp_coupons/{code} {
       allow get: if true;
-      allow list: if isAdmin();
-      allow create: if true;
-      allow update, delete: if isAdmin();
     }
 
-    // Mirror written for the companion mobile app. No public read: it holds
-    // customer contact details and must not be browsable from the storefront.
-    match /mobile_orders/{orderId} {
+    // ---- orders ----
+    // No public read: the storefront shows the receipt from router state,
+    // not from Firestore. Create is OFF for clients - /api/placeOrder writes
+    // with the Admin SDK after validating prices, stock and the coupon in
+    // one transaction. Do not flip create back on without moving that
+    // validation server-side.
+    match /orders_egp/{orderId} {
+      allow create: if false;
+    }
+
+    // Generated bills (tax invoices). The bytes live in a private GitHub
+    // repository (see api/_core/githubStore.js); these rows are the index,
+    // written by the server with the Admin SDK. Admin-only, like every
+    // server-owned collection: they carry the customer's name, phone and
+    // address. Covered by the admin bypass above; listed explicitly so the
+    // contract is readable without hunting.
+    match /orders_egp/{orderId}/order_documents/{docId} {
       allow read, write: if isAdmin();
     }
 
-    // ---------------------------------------------------------------------
-    // Public reference data: read by the storefront, written by Operations.
-    // ---------------------------------------------------------------------
-    match /egp_coupons/{couponId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    // ---- server-owned collections ----
+    // All written by the /api routes with the Admin SDK (which bypasses
+    // rules) and readable only by admins. They hold anti-abuse state
+    // (rate limits, blocklists, idempotency claims), the catalogue cache and
+    // the audit trail, so nothing here is ever public.
+    match /client_orders/{id}       { allow read, write: if isAdmin(); }
+    match /recent_customers/{id}    { allow read, write: if isAdmin(); }
+    match /rate_limits/{id}         { allow read, write: if isAdmin(); }
+    match /blocklist/{id}           { allow read, write: if isAdmin(); }
+    match /outbox/{id}              { allow read, write: if isAdmin(); }
+    match /catalog_snapshots/{id}   { allow read, write: if isAdmin(); }
+    match /stock_movements/{id}     { allow read, write: if isAdmin(); }
+    match /stats_daily/{id}         { allow read, write: if isAdmin(); }
+    match /geocode_cache/{id}       { allow read, write: if isAdmin(); }
+    match /admin_logs/{id}          { allow read, write: if isAdmin(); }
 
-    match /egp_governorate_costs/{governorateId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /egp_settings/{documentId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // ---------------------------------------------------------------------
-    // Admin-only: confirmed/handed-over orders. Never exposed to the storefront.
-    // ---------------------------------------------------------------------
-    match /confirmedPayments_egp/{paymentId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Default deny for anything not listed above.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // ---- legacy, admin only ----
+    match /mobile_orders/{id}         { allow read, write: if isAdmin(); }
+    match /confirmedPayments_egp/{id} { allow read, write: if isAdmin(); }
+    match /order_notifier/{id}        { allow read, write: if isAdmin(); }
   }
 }

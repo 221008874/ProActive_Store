@@ -51,8 +51,12 @@ const { default: App } = await import('../App.jsx')
 const { LanguageProvider } = await import('../context/LanguageContext.jsx')
 const { ThemeProvider } = await import('../context/ThemeContext.jsx')
 const { CartProvider } = await import('../context/CartContext.jsx')
+const { WishlistProvider } = await import('../context/WishlistContext.jsx')
+const { ToastProvider } = await import('../ui/overlays.jsx')
 
 const routes = [
+  '/',
+  '/splash',
   '/home',
   '/cart',
   '/product/nope',
@@ -60,25 +64,49 @@ const routes = [
   '/privacy',
   '/terms-of-service',
   '/coupon/EGP-TEST',
-  '/order-success'
+  '/order-success',
+  '/payment/success',
+  '/payment/cancel',
+  // Added with the shell pass: the browse grid, with filters in the URL, and
+  // the wishlist page. Both must render through the same chrome as /home.
+  '/shop',
+  '/shop?category=dresses&sizes=M&colors=red&sale=1&sort=priceAsc&min=100&max=900',
+  '/saved'
 ]
 
-it('every route renders design-system markup', () => {
-  const failures = []
-  for (const r of routes) {
-    try {
-      const tree = React.createElement(
+// The shell reads settings and categories from Firestore, which is mocked away
+// above, so those reads reject. That must not stop a route from rendering: the
+// chrome falls back to the store's default threshold and an empty mega-menu.
+const shell = (r) =>
+  renderToString(
+    React.createElement(
+      MemoryRouter,
+      { initialEntries: [r] },
+      React.createElement(
         LanguageProvider,
         null,
         React.createElement(
           ThemeProvider,
           null,
-          React.createElement(CartProvider, null, React.createElement(App))
+          React.createElement(
+            ToastProvider,
+            null,
+            React.createElement(
+              WishlistProvider,
+              null,
+              React.createElement(CartProvider, null, React.createElement(App))
+            )
+          )
         )
       )
-      const html = renderToString(
-        React.createElement(MemoryRouter, { initialEntries: [r] }, tree)
-      )
+    )
+  )
+
+it('every route renders design-system markup', () => {
+  const failures = []
+  for (const r of routes) {
+    try {
+      const html = shell(r)
       const pa = (html.match(/class="[^"]*pa-/g) || []).length
       console.log(`${pa > 0 ? 'OK  ' : 'FAIL'} ${r}  (${html.length} bytes, ${pa} .pa-* nodes)`)
       if (pa === 0) failures.push(r)

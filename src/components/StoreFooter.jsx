@@ -1,71 +1,96 @@
-// Store footer. Uses the design system's `.pa-footer` block; the social icons
-// stay as the app's own PNG assets because the design system has no social set.
+// Store footer.
+//
+// Four columns on desktop (brand · shop · help · delivery note), stacked on a
+// phone with the language and theme buttons as real 44px controls so they are
+// reachable without the announcement bar (which is desktop-only for the theme).
 
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
-import facebookIcon from '../assets/facebook.png'
-import instagramIcon from '../assets/instagram.png'
-import twitterIcon from '../assets/twitter.png'
-import whatsappIcon from '../assets/whatsapp.png'
+import { useCart } from '../context/CartContext'
+import { useWishlist } from '../context/WishlistContext'
+import { formatPriceFor } from '../config/currency'
+import { CURRENCY } from '../config/currency'
+
+const label = (t, lang) => (key, en, ar) => {
+  if (key) {
+    const v = t(key)
+    if (v && v !== key) return v
+  }
+  return lang === 'ar' ? ar : en
+}
 
 export default function StoreFooter() {
-  const { t, lang } = useLanguage()
-  const { getImage } = useTheme()
+  const { t, lang, toggleLanguage } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
+  const { totalItems } = useCart()
+  const { count: savedCount } = useWishlist()
   const ar = lang === 'ar'
+  const L = label(t, lang)
 
-  const env = (v, fb) => (v && v !== undefined ? v : fb)
-
-  const links = [
-    { label: t('aboutUs') !== 'aboutUs' ? t('aboutUs') : (ar ? 'عنّا' : 'About'), href: '/about' },
-    { label: t('termsOfService') !== 'termsOfService' ? t('termsOfService') : (ar ? 'شروط الخدمة' : 'Terms of service'), href: '/terms-of-service' },
-    { label: t('privacy') !== 'privacy' ? t('privacy') : (ar ? 'الخصوصية' : 'Privacy'), href: '/privacy' }
+  const shopLinks = [
+    { label: L('products', 'All products', 'كل المنتجات'), href: '/shop' },
+    { label: L('newIn', 'New in', 'وصل حديثاً'), href: '/shop?sort=newest' },
+    { label: L('sale', 'Sale', 'تخفيضات'), href: '/shop?sale=1' },
+    { label: L('saved', 'Saved', 'المفضلة'), href: '/saved' }
+  ]
+  const helpLinks = [
+    { label: L('aboutUs', 'About', 'عنّا'), href: '/about' },
+    { label: L('termsOfService', 'Terms of service', 'شروط الخدمة'), href: '/terms-of-service' },
+    { label: L('privacy', 'Privacy', 'الخصوصية'), href: '/privacy' },
+    { label: L('cart', 'Bag', 'العربية'), href: '/cart' }
   ]
 
-  const socials = [
-    { icon: facebookIcon, name: 'Facebook', href: 'https://www.facebook.com/profile.php?id=61584722189527&mibextid=ZbWKwL' },
-    { icon: instagramIcon, name: 'Instagram', href: 'https://instagram.com/proactivestore' },
-    { icon: twitterIcon, name: 'Twitter', href: 'https://twitter.com/proactivestore' },
-    { icon: whatsappIcon, name: 'WhatsApp', href: 'https://wa.me/201234567890' }
-  ]
-
-  const tagline = t('footerTagline') !== 'footerTagline'
-    ? t('footerTagline')
-    : (ar ? 'قطع مختارة بعناية، تصلك إلى بابك.' : 'Carefully chosen pieces, delivered to your door.')
-
-  const phone = t('phoneNumber') !== 'phoneNumber' ? t('phoneNumber') : (ar ? 'تواصل معنا' : 'Contact us')
-  const email = env('proactive.store.eg@gmail.com', '')
-  const year = new Date().getFullYear()
-  const rights = t('allRightsReserved') !== 'allRightsReserved' ? t('allRightsReserved') : (ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.')
-  const brand = t('ProActive Store') !== 'ProActive Store' ? t('ProActive Store') : 'ProActive'
+  const totalGovernorates = 27
 
   return (
     <footer className="pa-footer">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <img src={getImage('logo')} alt={brand} style={{ height: 40, width: 'auto' }} />
-        <b style={{ fontSize: 18, letterSpacing: '.04em' }}>{brand}</b>
-      </div>
-      <p className="pa-subtitle" style={{ maxWidth: 520 }}>{tagline}</p>
-
-      <nav className="pa-footer__links" aria-label="Footer">
-        {links.map((l) => (
-          <Link key={l.href} to={l.href}>{l.label}</Link>
-        ))}
-      </nav>
-
-      {email && (
-        <a className="pa-subtitle" href={`mailto:${email}`} style={{ textDecoration: 'none' }}>{email}</a>
-      )}
-      <div className="pa-subtitle" style={{ direction: 'ltr', unicodeBidi: 'embed' }}>{phone}</div>
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-        {socials.map((s) => (
-          <a key={s.name} href={s.href} aria-label={s.name} target="_blank" rel="noreferrer noopener">
-            <img src={s.icon} alt={s.name} width={32} height={32} />
-          </a>
-        ))}
+      <div className="pa-footer__col">
+        <div className="pa-footer__brand">
+          <b style={{ fontSize: 18, letterSpacing: '.04em' }}>PROACTIVE</b>
+        </div>
+        <p className="pa-subtitle" style={{ margin: 0, maxWidth: '34ch' }}>
+          {L('footerTagline', 'Carefully chosen pieces, delivered to your door.', 'قطع مختارة بعناية، بتوصل لبابك.')}
+        </p>
+        <div className="pa-footer__toggles">
+          <button type="button" className="pa-footer__toggle" onClick={() => toggleLanguage()} aria-label={L('language', 'Language', 'اللغة')}>
+            {ar ? 'English' : 'العربية'}
+          </button>
+          <button type="button" className="pa-footer__toggle" onClick={() => toggleTheme()}
+            aria-label={theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}>
+            {theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}
+          </button>
+        </div>
       </div>
 
-      <p className="pa-subtitle">© {year} {brand}. {rights}</p>
+      <div className="pa-footer__col">
+        <div className="pa-footer__title">{L('shop', 'Shop', 'تسوّق')}</div>
+        {shopLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
+      </div>
+
+      <div className="pa-footer__col">
+        <div className="pa-footer__title">{L('help', 'Help', 'مساعدة')}</div>
+        {helpLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
+      </div>
+
+      <div className="pa-footer__col">
+        <div className="pa-footer__title">{L('delivery', 'Delivery', 'التوصيل')}</div>
+        {/* The delivery promise is a fact about the store, so it is stated
+            plainly: cash on delivery, all 27 governorates, free above the
+            threshold the setting document carries. */}
+        <span className="pa-subtitle">
+          {L('codAllGovernorates', 'Cash on delivery', 'الدفع عند الاستلام')} ·{' '}
+          {ar ? `لكل الـ ${totalGovernorates} محافظة` : `all ${totalGovernorates} governorates`}
+        </span>
+        <span className="pa-subtitle">
+          {L('freeShippingOver', 'Free shipping over', 'شحن مجاني للطلبات فوق')}{' '}
+          <bdi>{formatPriceFor(CURRENCY.freeShippingThreshold, lang)}</bdi>
+        </span>
+        <span className="pa-subtitle">
+          {ar ? `${totalItems} في العربية` : `${totalItems} in bag`}
+          {savedCount > 0 && (ar ? ` · ${savedCount} مفضلة` : ` · ${savedCount} saved`)}
+        </span>
+      </div>
     </footer>
   )
 }
