@@ -9,7 +9,8 @@ import pdfMake from 'pdfmake/build/pdfmake'
 import pdfFonts from 'pdfmake/build/vfs_fonts'
 import logoLight from '../assets/a29dc90a-d036-4010-b33e-82cd29b6a2d5-removebg-preview.png'
 import { COLORS, getColors } from '../config/themes'
-import { Button, StepHeader, Summary, StatusPill, formatEGP } from '../ui'
+import { loc,  Button, StepHeader, Summary, StatusPill, formatEGP } from '../ui'
+import { useToast } from '../ui/overlays'
 
 // ─── pdfMake base font setup ───────────────────────────────────────────────
 pdfMake.vfs = pdfFonts.vfs
@@ -283,10 +284,24 @@ export default function OrderSuccess() {
 
   const [verificationStatus, setVerificationStatus] = useState('verifying')
   const [pdfLoading, setPdfLoading] = useState(false)
-  const [toast, setToast] = useState(null)
   const [confetti, setConfetti] = useState(false)
 
-  const { orderId, orderData } = location.state || {}
+  // Router state is the happy path; sessionStorage covers a reload, a bookmarked
+  // receipt, or the back button after the state has been dropped. The rules do
+  // not let a customer read their own order, so the copy the server returned at
+  // placement time is the only one the shopper will ever get.
+  const [restored] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('lastOrder')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
+
+  const live = location.state || {}
+  const orderId = live.orderId ?? restored?.orderId
+  const orderData = live.orderData ?? restored
 
   const isPaid = useMemo(() => {
     const os = orderData?.status || ''
@@ -296,8 +311,11 @@ export default function OrderSuccess() {
 
   const invoiceNumber = useMemo(() => {
     if (!orderId) return 'N/A'
-    return `INV-${(orderId.split('_')[1] || orderId).toUpperCase()}`
-  }, [orderId])
+    // The order number the server issued (PA-XXXXXX) is what the shopper is
+    // told on the phone and what the admin sees; a stripped document id is
+    // meaningless to them.
+    return orderData?.orderNumber || `INV-${String(orderId).toUpperCase().slice(-8)}`
+  }, [orderId, orderData])
 
   const securityHash = useMemo(() => {
     if (!orderId || !orderData) return 'INVALID'
@@ -335,10 +353,12 @@ export default function OrderSuccess() {
   }, [orderId, orderData, isPaid])
 
   // ── Toast helper ─────────────────────────────────────────────────────────
+  // The app-wide toast provider, not a local one: a PDF failure is worth
+  // announcing the same way an "added to bag" is.
+  const toast = useToast()
   const showToast = useCallback((message, type = 'success') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3500)
-  }, [])
+    toast.show(message, type === 'error' ? { duration: 6000 } : undefined)
+  }, [toast])
 
   // ── PDF Generation ───────────────────────────────────────────────────────
   const generatePDF = useCallback(async () => {
@@ -685,8 +705,6 @@ export default function OrderSuccess() {
     }
   }, [orderData, orderId, invoiceNumber, securityHash, creationDate, formatPrice, safePrice, isPaid, showToast, pdfLoading])
 
-  const handlePrint = useCallback(() => window.print(), [])
-
   // ── Print: the receipt IS the document; controls, banner and toast are not ──
   const printCss = `@media print { .no-print { display: none !important; } }`
 
@@ -709,9 +727,6 @@ export default function OrderSuccess() {
       </>
     )
   }
-
-  const discount = safePrice(orderData?.discount)
-  const shipping  = safePrice(orderData?.shippingCost)
 
   // ── Banner config ────────────────────────────────────────────────────────
   const bannerConfig = {
@@ -806,67 +821,92 @@ export default function OrderSuccess() {
             </div>
           </div>
 
-          {/* Items */}
+          {/* Order placed headline + the amount the courier will ask for,
+              the two things a shopper looks for first. */}
+          <div className="pa-block" style={{ textAlign: 'center' }}>
+            <div style={{
+              width: 56, height: 56, margin: '0 auto 12px', borderRadius: '50%',
+              background: 'var(--pa-ink)', color: 'var(--pa-paper)',
+              display: 'grid', placeItems: 'center', fontSize: 26, fontWeight: 700
+            }}>
+              <span aria-hidden="true">✓</span>
+              <span className="pa-sr">{L('orderPlaced', 'Order placed', 'تم إرسال الطلب')}</span>
+            </div>
+            <h2 className="pa-display" style={{ fontSize: 30, lineHeight: 1.1 }}>
+              {L('orderPlaced', 'Order placed', 'تم إرسال الطلب')}
+            </h2>
+            <div className="pa-subtitle">
+              {L('orderNumber', 'Order', 'طلب')} <bdi className="pa-ltr">{orderData?.orderNumber ?? invoiceNumber}</bdi>
+            </div>
+            <div style={{
+              marginTop: 12, padding: '12px 14px', background: 'var(--pa-stone)',
+              display: 'flex', flexDirection: 'column', gap: 4
+            }}>
+              <span className="pa-subtitle">{L('payTheCourier', 'Pay the courier', 'ادفع للمندوب')}</span>
+              <bdi className="pa-display" style={{ fontSize: 28, lineHeight: 1.15 }}>
+                {formatPrice(orderData?.totalPrice)}
+              </bdi>
+            </div>
+            <p className="pa-subtitle" style={{ margin: '10px 0 0' }}>
+              {L('codExplain', 'Cash on delivery — pay when your order arrives. We will call to confirm.',
+                'الدفع عند الاستلام — ادفع لما يوصل طلبك. هنكلّمك للتأكيد.')}
+            </p>
+          </div>
+
+          {/* Items, with the colour and size that were actually bought. */}
           <div className="pa-block">
             <div className="pa-group-title">{t('items') || 'Items'}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(orderData?.items || []).map((item, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto', gap: 12, alignItems: 'baseline' }}>
-                  <span>{item.name}</span>
-                  <span className="pa-subtitle">×{item.quantity || 1}</span>
-                  <span className="pa-subtitle">{formatPrice(item.price)}</span>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
+                  <div style={{
+                    width: 40, height: 54, background: item.image ? `url(${item.image}) center / cover` : 'var(--pa-stone)'
+                  }} aria-hidden="true" />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{item.name}</span>
+                    <span className="pa-subtitle">
+                      {[item.color, item.size].filter(Boolean).join(' · ')} · ×{item.quantity || 1}
+                    </span>
+                  </span>
                   <bdi>{formatPrice((item.price || 0) * (item.quantity || 1))}</bdi>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Totals */}
-          <Summary
-            rows={[
-              { label: t('subtotal'), value: formatPrice(orderData?.subtotal) },
-              ...(discount > 0
-                ? [{ label: t('discount'), value: `−${formatPrice(discount)}`, tone: 'discount' }]
-                : []),
-              {
-                label: t('shipping'),
-                value: shipping === 0 ? (t('free') || 'FREE') : formatPrice(shipping)
-              },
-              { label: t('totalDue'), value: formatPrice(orderData?.totalPrice), tone: 'total' }
-            ]}
-          />
-
-          {/* Footer */}
-          <div className="pa-callout" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span>
-              {t('thankYouOrder') || 'Thank you for your order'}, {orderData?.customerName?.split(' ')[0] || (t('valuedCustomer') || 'Customer')}.
-            </span>
-            <span className="pa-subtitle">ProActive Store · Fashion · proactive.store.eg@gmail.com</span>
-            <span className="pa-subtitle">Hash: <bdi>{securityHash}</bdi> · <bdi>{orderId}</bdi></span>
-            <span className="pa-subtitle"><bdi>{creationDate.iso.slice(0, 19).replace('T', ' ')}</bdi> UTC</span>
-          </div>
+          {/* Delivering to */}
+          {orderData?.address && (
+            <div className="pa-block">
+              <div className="pa-group-title">{L('deliveringTo', 'Delivering to', 'التوصيل إلى')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
+                <b>{orderData.customerName}</b>
+                <span className="pa-ltr">{orderData.customerPhone}</span>
+                <address style={{ fontStyle: 'normal' }}>
+                  {[
+                    orderData.address.street,
+                    orderData.address.building,
+                    orderData.address.city
+                  ].filter(Boolean).join(', ')}
+                  <br />
+                  {typeof orderData.address.governorate === 'object'
+                    ? loc(orderData.address.governorate, lang)
+                    : orderData.address.governorate}
+                </address>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Action buttons */}
       <div className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px 32px' }}>
-        <Button variant="outline" onClick={() => navigate('/home')}>
-          ← {t('backToShop') || 'Back to Shop'}
+        <Button onClick={generatePDF} disabled={pdfLoading}>
+          {pdfLoading ? '…' : '⬇'} {t('downloadPdf') || 'Download PDF receipt'}
         </Button>
-        <Button variant="outline" onClick={generatePDF} disabled={pdfLoading}>
-          {pdfLoading ? '…' : '⬇'} {t('downloadPdf') || 'Download PDF'}
-        </Button>
-        <Button onClick={handlePrint}>
-          🖨 {t('print') || 'Print'}
+        <Button variant="outline" onClick={() => navigate('/shop')}>
+          {t('backToShop') || 'Back to Shop'}
         </Button>
       </div>
-
-      {/* Toast notification */}
-      {toast && (
-        <div className={`pa-callout no-print ${toast.type === 'success' ? 'pa-ok' : 'pa-callout--error'}`} role="status" style={{ position: 'fixed', insetInline: 16, bottom: 88, zIndex: 10000 }}>
-          {toast.type === 'success' ? '✓' : '✕'} {toast.message}
-        </div>
-      )}
     </>
   )
 }

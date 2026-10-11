@@ -16,6 +16,7 @@ import { defaultGovernorateCosts } from '../config/egypt'
 import { useCart } from '../context/CartContext'
 import { useLanguage } from '../context/LanguageContext'
 import { postJson } from '../services/api'
+import { loc } from '../ui'
 import { analytics } from '../services/analytics'
 import { paymentStatusFor } from '../utils/pricing'
 import { classifyCheckoutError, linesForRejection } from '../utils/checkoutErrors'
@@ -34,7 +35,7 @@ const EMPTY_ADDRESS = {
 
 export function useCheckout() {
   const navigate = useNavigate()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const {
     items, totalItems, totalPrice, deliveryInfo, setDeliveryInfo, clearDeliveryInfo,
     appliedCoupon, clearCart, updateQuantity, removeFromCart
@@ -274,12 +275,16 @@ export function useCheckout() {
         subtotal: result.subtotal,
         discount: result.discount,
         shippingCost: result.shippingCost,
-        items: (result.items ?? []).map((item) => ({
+          items: (result.items ?? []).map((item) => ({
           id: `${item.productId}:${item.variantId}`,
           productId: item.productId,
           variantId: item.variantId,
-          name: item.title,
+          // The receipt and the success screen render these, so they must be
+          // plain strings rather than the {ar,en} objects the product stores.
           title: item.title,
+          name: loc(item.title, lang),
+          nameAr: loc(item.title, 'ar'),
+          nameEn: loc(item.title, 'en'),
           unitPrice: item.unitPrice,
           price: item.unitPrice,
           quantity: item.qty,

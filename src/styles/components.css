@@ -621,6 +621,19 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
 .pa-qty--admin button { width: var(--pa-tap); height: var(--pa-tap); }
 .pa-qty--admin output { width: 56px; height: var(--pa-tap); font-size: 16px; }
 
+/* ------------------------------ Country gate ---------------------------- */
+/* One question, then in. The options are the whole screen on a phone; the
+   layout stays a single column at every width rather than becoming a hero. */
+.pa-gate { min-height: 100vh; display: flex; flex-direction: column; max-width: 520px; margin-inline: auto; padding: 0 var(--pa-gutter); }
+.pa-gate__head { height: var(--pa-header-h); display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+.pa-gate__body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding-block: 24px; }
+.pa-gate__title { font-size: 40px; line-height: 1.05; margin: 0; }
+@media (min-width: 768px) { .pa-gate__title { font-size: 48px; } }
+.pa-gate__options { display: flex; flex-direction: column; gap: 12px; }
+.pa-gate__note { margin: 0; font-size: 13px; color: var(--pa-muted); }
+.pa-gate__foot { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.pa-gate__foot .pa-subtitle { text-decoration: none; }
+
 /* =========================================================================
    Checkout
    ========================================================================= */

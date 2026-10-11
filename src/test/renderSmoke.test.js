@@ -55,6 +55,8 @@ const { WishlistProvider } = await import('../context/WishlistContext.jsx')
 const { ToastProvider } = await import('../ui/overlays.jsx')
 
 const routes = [
+  '/',
+  '/splash',
   '/home',
   '/cart',
   '/product/nope',
@@ -63,6 +65,8 @@ const routes = [
   '/terms-of-service',
   '/coupon/EGP-TEST',
   '/order-success',
+  '/payment/success',
+  '/payment/cancel',
   // Added with the shell pass: the browse grid, with filters in the URL, and
   // the wishlist page. Both must render through the same chrome as /home.
   '/shop',

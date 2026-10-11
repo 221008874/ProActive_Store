@@ -14,6 +14,7 @@ import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
 import CouponLanding from './pages/CouponLanding'
 import SavedPage from './pages/SavedPage'
+import CountryGate from './pages/CountryGate'
 
 // Dev-only gallery of the design system. Imported behind a DEV guard so the
 // route, its components and its strings are dropped from the production build.
@@ -33,10 +34,11 @@ function App() {
   return (
     <LocationProvider>
       <Routes>
-        {/* Splash owns the whole viewport: no header, no tab bar. The old
-            LocationSplash that used to sit here asked for geolocation before
-            the shopper had done anything; that request now lives in the cart. */}
-        <Route path="/" element={<Splash />} />
+        {/* The country gate owns the whole viewport: no header, no tab bar.
+            /splash follows it, also full-viewport, because the store is not
+            on screen yet. */}
+        <Route path="/" element={<CountryGate />} />
+        <Route path="/splash" element={<Splash />} />
 
         <Route element={<StoreLayout />}>
           <Route path="/home" element={<Home />} />
