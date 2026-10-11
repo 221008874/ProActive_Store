@@ -79,23 +79,38 @@ it('the splash advances to /home without touching location', async () => {
 })
 
 it('the cart does not prompt for location merely by opening', async () => {
-  // The old behaviour: a mount effect asked for geolocation as soon as the cart
-  // rendered, before the shopper had chosen anything. This asserts the request
-  // is not reachable from an effect any more.
+  // The old behaviour: a mount effect asked for geolocation as soon as the
+  // cart rendered, before the shopper had chosen anything. After the checkout
+  // was split into steps + hooks, the same invariant now spans the whole
+  // checkout surface: no effect in any of those files may request the
+  // position.
   const fs = await import('node:fs')
-  const cart = fs.readFileSync('src/pages/CartPage.jsx', 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '')
+  const EFFECT_FILES = [
+    'src/pages/checkout/BagStep.jsx',
+    'src/pages/checkout/DeliveryStep.jsx',
+    'src/pages/checkout/ReviewStep.jsx',
+    'src/pages/checkout/OrderSummary.jsx',
+    'src/hooks/useCheckout.js',
+    'src/hooks/useCoupon.js'
+  ]
 
-  // Every useEffect body in the file must not contain a geolocation call.
-  const effects = [...cart.matchAll(/useEffect\(\(\)\s*=>\s*\{([\s\S]*?)\n\s*\}, \[/g)].map((m) => m[1])
-  expect(effects.length).toBeGreaterThan(0)
-  for (const body of effects) {
-    expect(body).not.toMatch(/getCurrentPosition/)
+  let effectCount = 0
+  for (const file of EFFECT_FILES) {
+    const source = fs.readFileSync(file, 'utf8')
+    const effects = [...source.matchAll(/useEffect\(\(\)\s*=>\s*\{([\s\S]*?)\n\s*\}, \[/g)].map((m) => m[1])
+    effectCount += effects.length
+    for (const body of effects) {
+      expect(body, `${file} must not request the position from an effect`).not.toMatch(/getCurrentPosition/)
+    }
+    // The permission prompt must not be reachable from an effect at all,
+    // even one that does not end in a dependency array.
+    expect(fs.readFileSync(file, 'utf8')).not.toMatch(/useEffect\(\(\)\s*=>\s*\{[^}]*getCurrentPosition/)
   }
+  expect(effectCount).toBeGreaterThan(0)
 
-  // And the request itself must only be reachable from the governorate handler.
-  expect(cart).toMatch(/if \(governorateId\) requestLocation\(\)/)
+  // And the single prompt lives in the picker, behind its own control.
+  const picker = fs.readFileSync('src/components/LocationPicker.jsx', 'utf8')
+  expect(picker).toMatch(/getCurrentPosition/)
 })
 
 it('the splash never requests location', async () => {
