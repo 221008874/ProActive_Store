@@ -23,28 +23,13 @@ import {
   paymentMethodLabelFor
 } from '../utils/pricing'
 import { validateDeliveryForm } from '../utils/validation'
+import { normalizeCouponCode } from '../utils/coupon'
+import { getJson, postJson } from '../services/api'
 import {
-  assertCouponUsable,
-  buildAppliedCoupon,
-  findCaseInsensitiveMatch,
-  normalizeCouponCode,
-  COUPON_COLLECTION
-} from '../utils/coupon'
-import { 
-  collection, 
-  addDoc, 
-  serverTimestamp, 
-  doc, 
-  getDoc, 
-  query,
-  where,
-  getDocs, 
-  updateDoc, 
-  increment,
-  limit,
-  writeBatch,
-  Timestamp,
-  runTransaction
+  collection,
+  doc,
+  getDoc,
+  getDocs
 } from 'firebase/firestore'
 import { BagLine, FreeShippingBar, Summary, Field } from '../ui'
 import L from 'leaflet'
@@ -62,6 +47,33 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
+// Server rejections, in the shopper's words. Keys are the codes
+// /api/placeOrder and /api/coupon/preview answer with; the Arabic strings
+// are the ones shown when the translation key is missing.
+const CHECKOUT_REJECTIONS = {
+  OUT_OF_STOCK: 'أحد المنتجات لم يعد متوفراً بالكمية المطلوبة',
+  UNAVAILABLE: 'أحد المنتجات لم يعد متوفراً',
+  COUPON_INVALID: 'كود الخصم لم يعد صالحاً',
+  BELOW_MIN_ORDER: 'الطلب أقل من الحد الأدنى للمحافظة المختارة',
+  GOVERNORATE_UNAVAILABLE: 'التوصيل إلى هذه المحافظة غير متاح حالياً',
+  RATE_LIMITED: 'محاولات كثيرة، حاول مرة أخرى بعد عدة دقائق',
+  DUPLICATE_SUSPECTED: 'يوجد طبيع مماثل تم تسجيله قبل قليل — راجع طلباتك الأخيرة',
+  BLOCKED: 'لا يمكن إتمام هذا الطلب',
+  ORDERS_CLOSED: 'الطلب متوقف مؤقتاً، حاول لاحقاً',
+  CAPTCHA_FAILED: 'تحقق الأمان فشل، أعد تحميل الصفحة وحاول مجدداً',
+  NETWORK_ERROR: 'تعذر الاتصال بالخادم، تحقق من الإنترنت وحاول مجدداً',
+  SERVER_ERROR: 'حدث خطأ غير متوقع، حاول مرة أخرى'
+}
+
+const COUPON_REJECTIONS = {
+  UNKNOWN: 'كود الخصم غير موجود',
+  INACTIVE: 'كود الخصم غير مفعل',
+  EXPIRED: 'انتهت صلاحية كود الخصم',
+  EXHAUSTED: 'تم استخدام كود الخصم بالكامل',
+  MIN_ORDER: 'إجمالي السلة أقل من الحد الأدنى لهذا الكود',
+  INVALID: 'كود الخصم غير صالح'
+}
+
 export default function CartPage() {
   const {
     items,
@@ -71,7 +83,6 @@ export default function CartPage() {
     updateQuantity,
     clearCart,
     error: cartError,
-    clearError,
     deliveryInfo,
     setDeliveryInfo,
     clearDeliveryInfo,
@@ -107,12 +118,15 @@ export default function CartPage() {
   const [isSearching, setIsSearching] = useState(false)
   
   const mapRef = useRef(null)
+  // Set the first time the governorate picker asks for a location, so the
+  // browser prompt is triggered once per page rather than on every change.
+  const locationRequested = useRef(false)
   const mapContainerRef = useRef(null)
   const markerRef = useRef(null)
 
   // ============ MINIMUM ORDER AMOUNT STATE ============
   const [minimumOrderAmount, setMinimumOrderAmount] = useState(0)
-  const [loadingMinOrder, setLoadingMinOrder] = useState(false)
+  const [ordersOpen, setOrdersOpen] = useState(true)
 
   // ============ FIXED: Governorate-based shipping states ============
   const [governorateCosts, setGovernorateCosts] = useState({})
@@ -137,6 +151,27 @@ export default function CartPage() {
   const [mapError, setMapError] = useState(false)
   const [mapLoading, setMapLoading] = useState(true)
 
+  // ============ PROACTIVE FASHION: order data model ============
+  // The browser no longer writes orders: /api/placeOrder validates prices,
+  // stock and coupon against the database in one transaction and returns the
+  // receipt payload. These two states are everything the page needs from it.
+  const [checkoutError, setCheckoutError] = useState(null)
+  const clientOrderIdRef = useRef(null)
+
+  // One id per distinct bag. A double tap or a flaky network replays the
+  // SAME order instead of placing a twin; editing the bag starts a new one.
+  const getClientOrderId = () => {
+    if (!clientOrderIdRef.current) {
+      const random = crypto.randomUUID ? crypto.randomUUID() : `co_${Date.now()}_${Math.random().toString(36).slice(2)}`
+      clientOrderIdRef.current = random
+    }
+    return clientOrderIdRef.current
+  }
+
+  const resetClientOrderId = () => {
+    clientOrderIdRef.current = null
+  }
+
   // ============ PRODUCT & STOCK STATES ============
   const [productDetails, setProductDetails] = useState({})
   const [stockErrors, setStockErrors] = useState({})
@@ -152,86 +187,35 @@ export default function CartPage() {
     }
   }, [contextAppliedCoupon])
 
-  // ============ FIXED: Handle scanned coupon from QR ============
-  useEffect(() => {
-    const handleScannedCoupon = async () => {
-      const prefillCode = sessionStorage.getItem('prefillCouponCode')
-      const autoApplyData = sessionStorage.getItem('autoApplyCoupon')
-      
-      if (!prefillCode && !autoApplyData) return
-
-      if (prefillCode) {
-        setCouponInput(prefillCode)
-        sessionStorage.removeItem('prefillCouponCode')
-      }
-
-      if (autoApplyData) {
-        try {
-          const couponData = JSON.parse(autoApplyData)
-          const now = new Date()
-          
-          const storedExpiresAt = couponData.expiresAt ? new Date(couponData.expiresAt) : null
-          if (storedExpiresAt && storedExpiresAt < now) {
-            console.log('Scanned coupon expired:', couponData.code)
-            sessionStorage.removeItem('autoApplyCoupon')
-            return
-          }
-          
-          const couponsRef = collection(db, COLLECTIONS.coupons)
-          const q = query(couponsRef, where('code', '==', couponData.code), where('isActive', '==', true))
-          const snapshot = await getDocs(q)
-          
-          if (!snapshot.empty) {
-            const couponDoc = snapshot.docs[0]
-            const couponInfo = couponDoc.data()
-            
-            const expiresAt = couponInfo.expiresAt?.toDate?.() || new Date(couponInfo.expiresAt)
-            
-            if (expiresAt > now && couponInfo.usedCount < couponInfo.maxUses) {
-              const couponToApply = {
-                id: couponDoc.id,
-                code: couponInfo.code,
-                amount: couponInfo.amount,
-                currency: couponInfo.currency || 'EGP',
-                label: `${currencyConfig.symbol} ${couponInfo.amount} ${t('off') || 'off'}`
-              }
-              
-              setAppliedCoupon(couponToApply)
-              contextSetAppliedCoupon(couponToApply)
-              
-              sessionStorage.setItem(`coupon_${couponData.code}_used`, 'true')
-              
-              console.log('Scanned coupon auto-applied:', couponData.code)
-            }
-          }
-          
-          sessionStorage.removeItem('autoApplyCoupon')
-        } catch (error) {
-          console.error('Error auto-applying scanned coupon:', error)
-        }
-      }
-    }
-
-    handleScannedCoupon()
-  }, [currencyConfig.symbol, contextSetAppliedCoupon, t])
+  // ============ Scanned coupons are applied further down, next to the
+  // manual coupon apply, because both share previewCoupon. ============
 
   // ============ FIXED: Load governorate costs from Firestore ============
+  // Full documents, not just the cost: the delivery step needs each
+  // governorate's minimum order and active flag as well.
+  const [governorateDocs, setGovernorateDocs] = useState({})
+
   useEffect(() => {
     const loadGovernorateCosts = async () => {
       if (currency !== 'EGP') return
-      
+
       setLoadingGovernorates(true)
       try {
         const costsRef = collection(db, COLLECTIONS.governorateCosts)
         const snapshot = await getDocs(costsRef)
         const costs = {}
+        const docs = {}
         snapshot.docs.forEach(doc => {
-          costs[doc.id] = doc.data().cost
+          const data = doc.data() ?? {}
+          costs[doc.id] = Number(data.cost ?? 0)
+          docs[doc.id] = data
         })
         setGovernorateCosts(costs)
+        setGovernorateDocs(docs)
       } catch (error) {
         console.error('Error loading governorate costs:', error)
-setGovernorateCosts(defaultGovernorateCosts())
+        setGovernorateCosts(defaultGovernorateCosts())
+        setGovernorateDocs({})
       } finally {
         setLoadingGovernorates(false)
       }
@@ -263,8 +247,16 @@ setGovernorateCosts(defaultGovernorateCosts())
   }, [])
 
   // ============ GEOLOCATION ============
-  useEffect(() => {
+  // Requested on demand, never on mount: the prompt fires when the shopper picks
+  // a governorate, which is the first moment a delivery address matters. Browsers
+  // only prompt once, so `locationRequested` stops us re-triggering it on every
+  // subsequent change (a denied prompt fails silently from then on).
+  const requestLocation = useCallback(() => {
+    if (locationRequested.current || formData.latitude) return
+    locationRequested.current = true
+
     setMapLoading(true)
+
     if (!navigator.geolocation) {
       setMapError(true)
       setMapCenter({ lat: 30.0444, lng: 31.2357 })
@@ -285,38 +277,54 @@ setGovernorateCosts(defaultGovernorateCosts())
         setMapLoading(false)
       },
       (error) => {
-        console.warn('Geolocation error:', error)
+        // A denial is not a blocker: the shopper can still type an address or
+        // pick a point on the map.
+        console.warn('Geolocation unavailable:', error)
         setMapError(true)
-setMapCenter({ lat: 30.0444, lng: 31.2357 })
+        setMapCenter({ lat: 30.0444, lng: 31.2357 })
         setMapLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
-  }, [currency])
+  }, [formData.latitude])
+
 
   // ============ FIXED: Load minimum order amount from Firestore ============
+  // The order model keeps minOrder on the governorate; the old global
+  // setting stays as a fallback for documents written before that move.
   useEffect(() => {
     const loadMinimumOrderAmount = async () => {
       if (currency !== 'EGP') return
-      
-      setLoadingMinOrder(true)
+
       try {
         const settingsRef = doc(db, COLLECTIONS.settings, 'general')
         const settingsSnap = await getDoc(settingsRef)
-        const minAmount = settingsSnap.exists() ? settingsSnap.data().minimumOrderAmount || 0 : 0
+        const data = settingsSnap.exists() ? settingsSnap.data() : {}
+        const minAmount = Number(data.minimumOrderAmount ?? 0)
         setMinimumOrderAmount(minAmount)
+        // The owner's kill switch: ordering can be paused without a deploy,
+        // and the server refuses orders while it is off.
+        setOrdersOpen(data.ordersOpen !== false)
       } catch (error) {
         console.error('Error loading minimum order amount:', error)
         setMinimumOrderAmount(0)
-      } finally {
-        setLoadingMinOrder(false)
+        setOrdersOpen(true)
       }
     }
 
     loadMinimumOrderAmount()
   }, [currency])
 
+  // The effective minimum for the chosen governorate.
+  const effectiveMinimum = useMemo(() => {
+    if (currency !== 'EGP' || !selectedGovernorate) return 0
+    const fromGovernorate = Number(governorateDocs[selectedGovernorate]?.minOrder ?? 0)
+    return fromGovernorate > 0 ? fromGovernorate : minimumOrderAmount
+  }, [currency, selectedGovernorate, governorateDocs, minimumOrderAmount])
+
   // ============ PRODUCT DETAILS FETCH ============
+  // A cart line is a VARIANT (productId + variantId), so availability is read
+  // from the variant document; the parent product only supplies display data.
   useEffect(() => {
     const fetchProductDetails = async () => {
       const details = {}
@@ -324,25 +332,37 @@ setMapCenter({ lat: 30.0444, lng: 31.2357 })
 
       await Promise.all(items.map(async (item) => {
         try {
-          const docRef = doc(db, currencyConfig.collection, item.id)
-          const docSnap = await getDoc(docRef)
+          const productId = item.productId ?? String(item.id).split(':')[0]
+          const variantId = item.variantId ?? (item.id.includes(':') ? item.id.split(':')[1] : null)
 
-          if (docSnap.exists()) {
-            const data = docSnap.data()
-            details[item.id] = data
+          const productRef = doc(db, currencyConfig.collection, productId)
+          const productSnap = await getDoc(productRef)
 
-            if (data.stock < item.quantity) {
-              errors[item.id] = {
-                type: 'INSUFFICIENT_STOCK',
-                available: data.stock,
-                requested: item.quantity,
-                message: t('onlyAvailable', { count: data.stock })
-              }
-            }
-          } else {
+          if (!productSnap.exists()) {
             errors[item.id] = {
               type: 'PRODUCT_NOT_FOUND',
-              message: t('productNotAvailable')
+              message: t('productNotAvailable') || 'Product no longer available'
+            }
+            return
+          }
+
+          const variantRef = variantId
+            ? doc(db, currencyConfig.collection, productId, 'variants', variantId)
+            : null
+          const variantSnap = variantRef ? await getDoc(variantRef) : null
+
+          const available = variantSnap?.exists()
+            ? Number(variantSnap.data().stock ?? 0)
+            : Number(productSnap.data().stock ?? 0)
+
+          details[item.id] = { ...productSnap.data(), stock: available }
+
+          if (available < item.quantity) {
+            errors[item.id] = {
+              type: 'INSUFFICIENT_STOCK',
+              available,
+              requested: item.quantity,
+              message: t('onlyAvailable', { count: available }) || `Only ${available} available`
             }
           }
         } catch (err) {
@@ -361,7 +381,9 @@ setMapCenter({ lat: 30.0444, lng: 31.2357 })
 
   // ============ DERIVED STATE ============
   const hasDeliveryInfo = useMemo(() => {
-    const baseInfo = deliveryInfo && deliveryInfo.name && deliveryInfo.phone && deliveryInfo.email && deliveryInfo.address
+    // Email is optional in the order model; name, phone, address and the
+    // governorate are what pricing needs.
+    const baseInfo = deliveryInfo && deliveryInfo.name && deliveryInfo.phone && deliveryInfo.address
     if (currency === 'EGP') {
       return baseInfo && deliveryInfo.governorate
     }
@@ -369,11 +391,12 @@ setMapCenter({ lat: 30.0444, lng: 31.2357 })
   }, [deliveryInfo, currency])
 
   const canCheckout = useMemo(() => {
-    if (currency === 'EGP' && minimumOrderAmount > 0 && totalPrice < minimumOrderAmount) {
+    if (!ordersOpen) return false
+    if (currency === 'EGP' && effectiveMinimum > 0 && totalPrice < effectiveMinimum) {
       return false
     }
     return Object.keys(stockErrors).length === 0 && hasDeliveryInfo && !isProcessing
-  }, [stockErrors, hasDeliveryInfo, isProcessing, currency, minimumOrderAmount, totalPrice])
+  }, [stockErrors, hasDeliveryInfo, isProcessing, currency, effectiveMinimum, totalPrice, ordersOpen])
 
   // ============ FORM HANDLERS ============
   const handleInputChange = (e) => {
@@ -399,6 +422,8 @@ setMapCenter({ lat: 30.0444, lng: 31.2357 })
         return next
       })
     }
+    // Picking a city is the cue to ask for a precise delivery location.
+    if (governorateId) requestLocation()
   }
 
 // ============ FORM VALIDATION ============
@@ -417,20 +442,17 @@ setMapCenter({ lat: 30.0444, lng: 31.2357 })
   }
 
   // ============ LOCATION SEARCH ============
+  // Through /api/geocode, never directly against Nominatim: the public
+  // instance's usage policy (1 req/s, identifying User-Agent, no
+  // search-as-you-type, caching) is enforced server-side. The search fires
+  // from a submit, not from keystrokes.
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return
-    
+
     setIsSearching(true)
     try {
-const response = await fetch(
-           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=eg&limit=5`
-      )
-      const data = await response.json()
-      setSearchResults(data.map(item => ({
-        display_name: item.display_name,
-        lat: parseFloat(item.lat),
-        lon: parseFloat(item.lon)
-      })))
+      const data = await getJson(`/geocode?q=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchResults(Array.isArray(data.results) ? data.results : [])
     } catch (error) {
       console.error('Search error:', error)
       setSearchResults([])
@@ -558,102 +580,96 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState(null)
 
+  // Preview through the server: the coupon document (and its usage counters)
+  // is never sent to the browser, and the answer is computed from the real
+  // document. `subtotal` here is the shopper's bag total; the server
+  // recomputes everything from the database at order time.
+  const previewCoupon = useCallback(async (rawCode, subtotal) => {
+    const code = normalizeCouponCode(rawCode).toUpperCase()
+    if (!code) return { ok: false, error: t('invalidCoupon') || 'Invalid coupon' }
+
+    const result = await postJson('/coupon/preview', { code, subtotal })
+    if (result.valid !== true) {
+      const message = COUPON_REJECTIONS[result.reason] ?? t('invalidCoupon') ?? 'Invalid coupon'
+      return { ok: false, error: message }
+    }
+
+    return {
+      ok: true,
+      coupon: {
+        code: result.code,
+        type: result.type,
+        value: result.value,
+        amount: result.discount,
+        currency: 'EGP',
+        label: `${currencyConfig.symbol} ${result.discount} ${t('off') || 'off'}`
+      }
+    }
+  }, [currencyConfig.symbol, t])
+
   const handleApplyCoupon = useCallback(async () => {
-const rawInput = normalizeCouponCode(couponInput)
-      if (!rawInput) return
-    
-    console.log('🔍 Attempting to apply coupon:', rawInput)
-    
+    if (!couponInput.trim()) return
+
     setCouponLoading(true)
     setCouponError(null)
-    
-    try {
-      const couponsRef = collection(db, COLLECTIONS.coupons)
-      
-      let q = query(
-        couponsRef, 
-        where('code', '==', rawInput),
-        where('isActive', '==', true)
-      )
-      let snapshot = await getDocs(q)
-      
-      if (snapshot.empty) {
-        console.log('❌ Exact match failed, trying uppercase...')
-        q = query(
-          couponsRef,
-          where('code', '==', rawInput.toUpperCase()),
-          where('isActive', '==', true)
-        )
-        snapshot = await getDocs(q)
-      }
-      
-      if (snapshot.empty) {
-        console.log('❌ Uppercase failed, trying lowercase...')
-        q = query(
-          couponsRef,
-          where('code', '==', rawInput.toLowerCase()),
-          where('isActive', '==', true)
-        )
-        snapshot = await getDocs(q)
-      }
-      
-      if (snapshot.empty) {
-        console.log('❌ Lowercase failed, trying case-insensitive...')
-        q = query(couponsRef, where('isActive', '==', true))
-const allCoupons = await getDocs(q)
-          const matchingDoc = findCaseInsensitiveMatch(allCoupons.docs, rawInput)
 
-          if (matchingDoc) {
-            snapshot = { docs: [matchingDoc], empty: false }
-          }
-      }
-      
-      console.log('📊 Final snapshot:', {
-        empty: snapshot.empty,
-        size: snapshot.size,
-        docs: snapshot.docs?.map(d => ({ id: d.id, ...d.data() }))
-      })
-      
-      if (snapshot.empty) {
-        setCouponError(t('invalidCoupon'))
-        setCouponLoading(false)
+    try {
+      const { ok, error, coupon } = await previewCoupon(couponInput, totalPrice)
+      if (!ok) {
+        setCouponError(error)
         return
       }
-      
-      const couponDoc = snapshot.docs[0]
-      const couponData = couponDoc.data()
-      
-      console.log('✅ Found coupon:', couponData)
-      
-const now = new Date()
 
-  const rejection = assertCouponUsable(couponData, { now })
-        if (rejection) {
-          setCouponError(t(rejection.key) || rejection.fallback)
-          setCouponLoading(false)
-          return
-        }
-
-        const couponToApply = buildAppliedCoupon({
-          id: couponDoc.id,
-          couponData,
-          symbol: currencyConfig.symbol,
-          t
-        })
-
-        setAppliedCoupon(couponToApply)
-        contextSetAppliedCoupon(couponToApply)
-        setCouponInput(couponData.code)
-      
-      console.log('🎉 Coupon applied successfully:', couponToApply)
-      
+      setAppliedCoupon(coupon)
+      contextSetAppliedCoupon(coupon)
+      setCouponInput(coupon.code)
     } catch (error) {
-      console.error('💥 Coupon validation error:', error)
+      console.error('Coupon preview error:', error)
       setCouponError(t('couponError') || 'Error, please try again')
     } finally {
       setCouponLoading(false)
     }
-  }, [couponInput, currencyConfig.symbol, t, appliedCoupon, contextSetAppliedCoupon])
+  }, [couponInput, previewCoupon, totalPrice, contextSetAppliedCoupon, t])
+
+  // ============ FIXED: Handle scanned coupon from QR ============
+  // Same server preview as the manual apply: the coupon document is never
+  // read by the browser, and the answer is the live one. Lives here, after
+  // previewCoupon, because both share it.
+  useEffect(() => {
+    const handleScannedCoupon = async () => {
+      const prefillCode = sessionStorage.getItem('prefillCouponCode')
+      const autoApplyData = sessionStorage.getItem('autoApplyCoupon')
+
+      if (!prefillCode && !autoApplyData) return
+
+      if (prefillCode) {
+        setCouponInput(prefillCode)
+        sessionStorage.removeItem('prefillCouponCode')
+      }
+
+      if (autoApplyData) {
+        try {
+          const couponData = JSON.parse(autoApplyData)
+
+          const { ok, error, coupon } = await previewCoupon(couponData.code, totalPrice)
+          if (ok) {
+            setAppliedCoupon(coupon)
+            contextSetAppliedCoupon(coupon)
+            setCouponInput(coupon.code)
+          } else {
+            setCouponError(error)
+          }
+        } catch (error) {
+          console.error('Error auto-applying scanned coupon:', error)
+          setCouponError(t('couponError') || 'Error, please try again')
+        } finally {
+          sessionStorage.removeItem('autoApplyCoupon')
+        }
+      }
+    }
+
+    handleScannedCoupon()
+  }, [contextSetAppliedCoupon, previewCoupon, t, totalPrice])
 
   const { discountAmount, shippingCost, finalPrice } = computeTotals({
     totalPrice,
@@ -662,191 +678,129 @@ const now = new Date()
   })
 
   // ============ FIXED: Checkout with proper error handling ============
+  // The browser states intent; /api/placeOrder decides money, stock and the
+  // coupon against the database in one transaction.
   const handleCheckout = useCallback(async () => {
     if (!canCheckout || Object.keys(stockErrors).length > 0) {
-      alert(t('resolveStockIssues'))
+      setCheckoutError(t('resolveStockIssues') || 'Resolve the stock issues first')
       return
     }
 
-    if (appliedCoupon && appliedCoupon.currency && appliedCoupon.currency !== 'EGP') {
-      alert(t('couponCurrencyMismatch') || 'Coupon currency mismatch')
+    if (!ordersOpen) {
+      setCheckoutError(t('orderingPaused') || 'Ordering is paused at the moment. Please try again later.')
       return
     }
 
     setIsProcessing(true)
-    const orderId = `order_${Date.now()}`
-    
-    const discountAmount = appliedCoupon ? appliedCoupon.amount : 0
-    const calculatedSubtotal = Math.max(0, totalPrice - discountAmount)
-    const calculatedShipping = shippingDetails.cost
-    const calculatedFinalPrice = calculatedSubtotal + calculatedShipping
-    
-    console.log('Checkout calculation:', {
-      totalPrice,
-      discountAmount,
-      calculatedSubtotal,
-      shipping: calculatedShipping,
-      finalPrice: calculatedFinalPrice,
-      appliedCoupon
-    })
-    
+    setCheckoutError(null)
+
     try {
-      const orderData = await runTransaction(db, async (transaction) => {
-        const stockChecks = await Promise.all(items.map(async (item) => {
-          const productRef = doc(db, currencyConfig.collection, item.id)
-          const productSnap = await transaction.get(productRef)
-          
-          if (!productSnap.exists()) {
-            throw new Error(t('productNotFound') || `Product ${item.name} no longer exists`)
-          }
-          
-          const currentStock = productSnap.data().stock
-          if (currentStock < item.quantity) {
-            throw new Error(t('insufficientStock') || `Insufficient stock for ${item.name}`)
-          }
-          
-          return { ref: productRef, newStock: currentStock - item.quantity, item }
-        }))
-        
-        let couponData = null
-        let couponRef = null
-        
-        if (appliedCoupon) {
-          couponRef = doc(db, COLLECTIONS.coupons, appliedCoupon.id)
-          const couponSnap = await transaction.get(couponRef)
-          
-          if (!couponSnap.exists()) {
-            throw new Error(t('couponNotFound') || 'Coupon no longer exists')
-          }
-          
-          couponData = couponSnap.data()
-          if (couponData.usedCount >= couponData.maxUses) {
-            throw new Error(t('couponExhausted') || 'Coupon fully used')
-          }
-        }
-        
-        const orderData = {
-          orderId,
-          userId: `guest_${Date.now()}`,
-          items: items.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity || 1
-          })),
-          totalPrice: calculatedFinalPrice,
-          subtotal: totalPrice,
-          discount: discountAmount,
-          shippingCost: calculatedShipping,
-          totalItems: items.reduce((sum, item) => sum + (item.quantity || 1), 0),
-          currency: currencyConfig.code,
-paymentMethod: paymentMethodLabelFor(paymentMethod, t),
-            paymentStatus: paymentStatusFor(paymentMethod),
-          status: 'pending',
-          customerName: deliveryInfo.name,
-          customerPhone: deliveryInfo.phone,
-          customerEmail: deliveryInfo.email,
-          customerAddress: deliveryInfo.address,
-          governorate: currency === 'EGP' ? deliveryInfo.governorate : null,
-          customerLocation: {
-            latitude: deliveryInfo.latitude,
-            longitude: deliveryInfo.longitude
-          },
-          coupon: appliedCoupon ? {
-            code: appliedCoupon.code,
-            amount: appliedCoupon.amount,
-            id: appliedCoupon.id
-          } : null,
-          shipping: {
-            ...shippingDetails,
-            governorate: currency === 'EGP' ? deliveryInfo.governorate : undefined
-          },
-          source: 'web',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }
-
-        const currencyOrderRef = doc(collection(db, currencyConfig.orderCollection))
-        transaction.set(currencyOrderRef, orderData)
-
-        const mobileOrderRef = doc(db, COLLECTIONS.mobileOrders, orderId)
-        transaction.set(mobileOrderRef, {
-          ...orderData,
-          webOrderRef: currencyOrderRef.id,
-          platform: 'web',
-          isRead: false,
-          syncedToMobile: true
-        })
-
-        stockChecks.forEach(({ ref, newStock }) => {
-          transaction.update(ref, { stock: newStock })
-        })
-
-        if (appliedCoupon && couponRef) {
-          transaction.update(couponRef, {
-            usedCount: increment(1),
-            lastUsedAt: Timestamp.now(),
-            lastUsedBy: deliveryInfo.email || 'guest'
-          })
-        }
-        
-        return orderData
+      const result = await postJson('/placeOrder', {
+        cart: items.map((item) => ({
+          productId: item.productId ?? String(item.id).split(':')[0],
+          variantId: item.variantId ?? (item.id.includes(':') ? item.id.split(':')[1] : null),
+          qty: item.quantity
+        })),
+        customer: {
+          name: deliveryInfo.name,
+          phone: deliveryInfo.phone,
+          email: deliveryInfo.email || null
+        },
+        address: {
+          governorateId: deliveryInfo.governorate,
+          governorate: governorateDocs[deliveryInfo.governorate]?.name ?? deliveryInfo.governorate,
+          city: deliveryInfo.city || null,
+          street: deliveryInfo.address,
+          building: deliveryInfo.building || null,
+          notes: deliveryInfo.notes || null,
+          lat: deliveryInfo.latitude ?? null,
+          lng: deliveryInfo.longitude ?? null
+        },
+        couponCode: appliedCoupon?.code ?? null,
+        clientOrderId: getClientOrderId(),
+        source: 'web'
       })
 
+      // A retry of the same bag may legitimately return the order that was
+      // already placed - the idempotency claim. That is a success, not a
+      // duplicate to reject.
       if (appliedCoupon) {
         sessionStorage.setItem(`coupon_${appliedCoupon.code}_used`, 'true')
       }
-      
+
+      const titleOf = (title) =>
+        title && typeof title === 'object' ? title.en ?? title.ar : title ?? ''
+
+      const orderData = {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: 'pending',
+        paymentStatus: paymentStatusFor(paymentMethod),
+        totalPrice: result.total,
+        subtotal: result.subtotal,
+        discount: result.discount,
+        shippingCost: result.shippingCost,
+        currency: currencyConfig.code,
+        paymentMethod: paymentMethodLabelFor(paymentMethod, t),
+        items: (result.items ?? []).map((item) => ({
+          id: `${item.productId}:${item.variantId}`,
+          name: titleOf(item.title),
+          price: item.unitPrice,
+          quantity: item.qty,
+          color: item.color,
+          size: item.size
+        })),
+        customerName: result.customer?.name ?? deliveryInfo.name,
+        customerEmail: result.customer?.email ?? null,
+        customerPhone: result.customer?.phone ?? deliveryInfo.phone,
+        governorate: governorateDocs[deliveryInfo.governorate]?.name?.en ?? deliveryInfo.governorate
+      }
+
+      resetClientOrderId()
       clearCart()
       clearDeliveryInfo()
-      
-      navigate('/order-success', { 
-        state: { 
-          orderId,
-          orderData: {
-            totalPrice: calculatedFinalPrice,
-            subtotal: totalPrice,
-            discount: discountAmount,
-            shippingCost: calculatedShipping,
-            currency: currencyConfig.code,
-            paymentMethod: paymentMethodLabelFor(paymentMethod, t),
-            status: 'pending',
-            paymentStatus: paymentStatusFor(paymentMethod),
-            items: items.map(item => ({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity || 1
-            })),
-            customerName: deliveryInfo.name,
-            customerEmail: deliveryInfo.email,
-            customerPhone: deliveryInfo.phone,
-            governorate: currency === 'EGP' ? deliveryInfo.governorate : null
-          },
-          securityToken: orderId.split('_')[1]
-        } 
-      })
-      
+
+      navigate('/order-success', { state: { orderId: result.orderId, orderData } })
     } catch (error) {
       console.error('Checkout error:', error)
-      alert((t('checkoutFailed') || 'Checkout failed') + ': ' + (error.message || t('tryAgain')))
+      setCheckoutError(CHECKOUT_REJECTIONS[error.code] ?? t('checkoutFailed') ?? 'Checkout failed')
+
+      // The bag must be marked rather than silently retried: the server named
+      // the product that can no longer be bought at the requested quantity.
+      if (error.code === 'OUT_OF_STOCK' && error.detail) {
+        const [productId] = String(error.detail).split(':')
+        setStockErrors((prev) => {
+          const next = { ...prev }
+          for (const item of items) {
+            const lineProductId = item.productId ?? String(item.id).split(':')[0]
+            if (lineProductId === productId) {
+              next[item.id] = {
+                type: 'OUT_OF_STOCK',
+                available: 0,
+                requested: item.quantity,
+                message: t('outOfStockNow') || 'لم يعد متوفراً بالكمية المطلوبة'
+              }
+            }
+          }
+          return next
+        })
+      }
       setIsProcessing(false)
     }
   }, [
-    canCheckout, 
-    items, 
-    totalPrice, 
-    deliveryInfo, 
-    appliedCoupon, 
-    shippingDetails, 
-    paymentMethod, 
+    canCheckout,
+    ordersOpen,
+    items,
+    deliveryInfo,
+    appliedCoupon,
+    paymentMethod,
     stockErrors,
     t,
-    clearCart, 
-    clearDeliveryInfo, 
-    navigate,
+    governorateDocs,
     currencyConfig,
-    currency
+    clearCart,
+    clearDeliveryInfo,
+    navigate
   ])
 
   const handleQuantityUpdate = useCallback(async (item, newQuantity) => {
@@ -900,15 +854,15 @@ paymentMethod: paymentMethodLabelFor(paymentMethod, t),
 
   // ============ BANNERS (design-system markup) ============
   const MinimumOrderBanner = () => {
-    if (currency !== 'EGP' || minimumOrderAmount <= 0 || totalPrice >= minimumOrderAmount) return null
+    if (currency !== 'EGP' || effectiveMinimum <= 0 || totalPrice >= effectiveMinimum) return null
 
-    const remaining = minimumOrderAmount - totalPrice
+    const remaining = effectiveMinimum - totalPrice
 
     return (
       <div className="pa-callout">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <b>{t('minimumOrderRequired') || 'Minimum Order Required'}</b>
-          <span>{t('minimumOrderAmountIs') || 'Minimum order amount is'} <bdi>{formatPrice(minimumOrderAmount)}</bdi></span>
+          <span>{t('minimumOrderAmountIs') || 'Minimum order amount is'} <bdi>{formatPrice(effectiveMinimum)}</bdi></span>
           <span className="pa-subtitle">
             {t('addMoreToProceed') || 'Add'} <bdi>{formatPrice(remaining)}</bdi> {t('moreToCheckout') || 'more to proceed with checkout'}
           </span>
@@ -933,6 +887,39 @@ paymentMethod: paymentMethodLabelFor(paymentMethod, t),
             </button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // Server-side checkout rejections (out of stock, coupon invalid, rate
+  // limited, ordering paused...). Previously an alert() that vanished before
+  // it could be read; now a callout that stays on the page.
+  const CheckoutErrorBanner = () => {
+    if (!checkoutError) return null
+
+    return (
+      <div className="pa-callout pa-callout--error">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <b>{t('orderNotCompleted') || 'لم يتم إتمام الطلب'}</b>
+          <span>{checkoutError}</span>
+          <div>
+            <button type="button" className="pa-btn pa-btn--outline pa-btn--sm" onClick={() => setCheckoutError(null)}>
+              {t('dismiss')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // The kill switch: the owner can pause ordering from egp_settings/general
+  // without a deploy, and the server enforces it too.
+  const OrderingPausedBanner = () => {
+    if (ordersOpen) return null
+    return (
+      <div className="pa-callout">
+        <b>{t('orderingPaused') || 'الطلب متوقف مؤقتاً'}</b>{' '}
+        <span className="pa-subtitle">{t('orderingPausedHint') || 'نعتذر، الشراء متاح قريباً'}</span>
       </div>
     )
   }
@@ -1343,6 +1330,8 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
 
   const minimumBanner = MinimumOrderBanner()
   const cartErrorBanner = CartErrorBanner()
+  const checkoutErrorBanner = CheckoutErrorBanner()
+  const orderingPausedBanner = OrderingPausedBanner()
 
   // ============ EMPTY CART ============
   if (totalItems === 0) {
@@ -1380,8 +1369,10 @@ placeholder={(t('searchAreaStreetEgypt') || "Search for area, street, or landmar
         </button>
       </div>
 
+      {orderingPausedBanner}
       {minimumBanner}
       {cartErrorBanner}
+      {checkoutErrorBanner}
 
       <div className="pa-cols">
         {/* ---- lines ---- */}
