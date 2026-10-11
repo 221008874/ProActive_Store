@@ -23,17 +23,11 @@
        no external request on first load and no third-party dependency on
        Egyptian networks. Do not re-add the Google Fonts links. -->
 
-  <!-- Leaflet: the SPA imports the bundled leaflet package; this CDN copy is
-       a legacy leftover for pages that predate it. -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- Leaflet is bundled from src/components/LocationPicker.jsx; there are
+       deliberately no CDN copies here. A third-party stylesheet and script on
+       the critical path is a render blocker on the networks this store serves. -->
+
   <title>ProActive Store</title>
-   <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
   <!-- Global styles live in src/tokens.css + src/index.css -->
 
   <!-- Loading state for better perceived performance -->
