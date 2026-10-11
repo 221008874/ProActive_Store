@@ -19,8 +19,35 @@ export function createFakeFirestore(seed = {}) {
     // docRef.collection(name) -> subcollection
     collection: (name) => makeRef(`${collectionPath}/${id ? id + "/" : ""}${name}`),
     // collectionRef.doc(id) -> document in this collection
-    doc: (childId) => makeRef(collectionPath, childId ?? `auto${++autoId}`)
+    doc: (childId) => makeRef(collectionPath, childId ?? `auto${++autoId}`),
+    // Document read: { exists, id, data() }, matching the Admin SDK shape
+    // closely enough for the catalog builder and its tests.
+    get: async () => {
+      if (!id) return listCollection(collectionPath);
+      const snap = readRef({ path: `${collectionPath}/${id}` });
+      return {
+        exists: snap.exists,
+        id,
+        data: () => snap.data,
+        ref: makeRef(collectionPath, id)
+      };
+    }
   });
+
+  const listCollection = (collectionPath) => {
+    const parts = resolve(collectionPath);
+    let node = store;
+    for (const part of parts) {
+      if (node == null || typeof node !== "object") node = undefined;
+      else node = node[part];
+    }
+    const docs = Object.entries(node && typeof node === "object" ? node : {}).map(([cid, data]) => ({
+      id: cid,
+      ref: makeRef(`${collectionPath}/${cid}`),
+      data: () => data
+    }));
+    return { docs, size: docs.length, empty: docs.length === 0 };
+  };
 
   const readRef = (ref) => {
     const parts = resolve(ref.path);
@@ -62,8 +89,8 @@ export function createFakeFirestore(seed = {}) {
         update(ref, patch) {
           staged.push({ kind: "update", ref, patch });
         },
-        set(ref, data) {
-          staged.push({ kind: "set", ref, data });
+        set(ref, data, options = {}) {
+          staged.push({ kind: "set", ref, data, merge: options.merge === true });
         }
       };
 
@@ -74,7 +101,15 @@ export function createFakeFirestore(seed = {}) {
         const currentData = current.exists ? current.data : {};
 
         if (write.kind === "set") {
-          writeRef(write.ref, stripSentinels(write.data));
+          if (write.merge) {
+            const current = readRef(write.ref);
+            writeRef(write.ref, {
+              ...(current.exists ? current.data : {}),
+              ...stripSentinels(write.data)
+            });
+          } else {
+            writeRef(write.ref, stripSentinels(write.data));
+          }
           continue;
         }
 
@@ -92,6 +127,53 @@ export function createFakeFirestore(seed = {}) {
       }
 
       return result;
+    },
+
+    // Batched writes, applied on commit. The catalog builder uses one batch
+    // so a half-published snapshot can never be served.
+    batch() {
+      const ops = [];
+      const batch = {
+        set(ref, data, options = {}) {
+          ops.push({ kind: "set", ref, data, merge: options.merge === true });
+        },
+        update(ref, patch) {
+          ops.push({ kind: "update", ref, patch });
+        },
+        delete(ref) {
+          ops.push({ kind: "delete", ref });
+        },
+        async commit() {
+          for (const op of ops) {
+            if (op.kind === "delete") {
+              const parts = resolve(op.ref.path);
+              let node = store;
+              for (let i = 0; i < parts.length - 1; i++) {
+                if (typeof node?.[parts[i]] !== "object" || node[parts[i]] === null) break;
+                node = node[parts[i]];
+              }
+              if (node && typeof node === "object") delete node[parts[parts.length - 1]];
+              continue;
+            }
+            if (op.kind === "set" && op.merge) {
+              const current = readRef(op.ref);
+              writeRef(op.ref, { ...(current.exists ? current.data : {}), ...stripSentinels(op.data) });
+              continue;
+            }
+            if (op.kind === "set") {
+              writeRef(op.ref, stripSentinels(op.data));
+              continue;
+            }
+            const current = readRef(op.ref);
+            const next = { ...(current.exists ? current.data : {}) };
+            for (const [key, value] of Object.entries(op.patch)) {
+              next[key] = value && value.__op === "increment" ? Number(next[key] ?? 0) + value.n : value;
+            }
+            writeRef(op.ref, next);
+          }
+        }
+      };
+      return batch;
     },
 
     // test helpers

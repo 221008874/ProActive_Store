@@ -12,10 +12,15 @@ import {
   computeTotals,
   newOrderNumber,
   normalizeCode,
+  normalizeClientOrderId,
+  hashPhone,
+  hashIp,
   statusForError,
   CheckoutError,
   MAX_LINES,
-  MAX_QTY_PER_LINE
+  MAX_QTY_PER_LINE,
+  DUP_WINDOW_MS,
+  DEFAULT_RATE_LIMITS
 } from '../../api/_core/orderCore.js'
 import { createFakeFirestore, seedFixture } from './fakeFirestore'
 
@@ -331,8 +336,244 @@ describe('orderCore - rejections leave nothing behind', () => {
   })
 })
 
-describe('orderCore - helpers', () => {
-  it('generates order numbers in one format', () => {
+// ---------------------------------------------------------------------------
+// Abuse controls: idempotency, rate limits, duplicates, blocklist.
+// ---------------------------------------------------------------------------
+
+const NOW = 1_800_000_000_000;
+const placeAt = (body, context = {}) => placeOrderTransaction(db, body, { now: NOW, context })
+const snapshot = () => JSON.stringify(db.__store)
+
+describe('orderCore - idempotency (clientOrderId)', () => {
+  it('replays the original order when the same client id is retried', async () => {
+    const first = await placeAt({
+      cart: CART,
+      customer: CUSTOMER,
+      address: ADDRESS,
+      clientOrderId: 'browser-uuid-1'
+    })
+    const before = snapshot()
+
+    const second = await placeAt({
+      cart: CART,
+      customer: CUSTOMER,
+      address: ADDRESS,
+      clientOrderId: 'browser-uuid-1'
+    })
+
+    expect(second.orderId).toBe(first.orderId)
+    expect(second.orderNumber).toBe(first.orderNumber)
+    expect(db.__read('products_egp/dress/variants/red_M').stock).toBe(3)
+    // Nothing but the (identical) replay happened on the second attempt.
+    expect(db.__read('egp_coupons/SAVE10').usedCount ?? 0).toBe(0)
+    expect(snapshot()).toBe(before)
+  })
+
+  it('places a new order for a different client id', async () => {
+    const a = await placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 1 }], customer: CUSTOMER, address: ADDRESS, clientOrderId: 'id-a' })
+    const b = await placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 1 }], customer: { name: 'A', phone: '01112345678' }, address: ADDRESS, clientOrderId: 'id-b' })
+    expect(b.orderId).not.toBe(a.orderId)
+    expect(db.__read('products_egp/dress/variants/red_M').stock).toBe(3)
+  })
+
+  it('ignores a malformed client id instead of trusting it', async () => {
+    const result = await placeAt({
+      cart: CART,
+      customer: CUSTOMER,
+      address: ADDRESS,
+      clientOrderId: 'not/../a/valid/id'
+    })
+    expect(result.orderId).toBeTruthy()
+    expect(db.__exists('client_orders/not/../a/valid/id')).toBe(false)
+  })
+
+  it('normalizes client ids: accepts safe characters, rejects the rest', () => {
+    expect(normalizeClientOrderId('aB3-_xY')).toBe('aB3-_xY')
+    expect(normalizeClientOrderId('x'.repeat(100))).toHaveLength(64)
+    expect(normalizeClientOrderId('bad id')).toBeNull()
+    expect(normalizeClientOrderId('')).toBeNull()
+    expect(normalizeClientOrderId(undefined)).toBeNull()
+  })
+})
+
+describe('orderCore - duplicate detection', () => {
+  it('replays the order when the same phone buys the same items minutes later', async () => {
+    const first = await placeAt({
+      cart: [{ productId: 'dress', variantId: 'red_M', qty: 2 }],
+      customer: CUSTOMER,
+      address: ADDRESS
+    })
+    const second = await placeAt({
+      cart: [{ productId: 'dress', variantId: 'red_M', qty: 2 }],
+      customer: CUSTOMER,
+      address: ADDRESS
+    })
+    expect(second.orderId).toBe(first.orderId)
+    expect(db.__read('products_egp/dress/variants/red_M').stock).toBe(3)
+  })
+
+  it('treats a different cart as a genuinely new order', async () => {
+    const first = await placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    const second = await placeAt({ cart: [{ productId: 'dress', variantId: 'red_L', qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    expect(second.orderId).not.toBe(first.orderId)
+  })
+
+  it('treats the same items from a different phone as a new order', async () => {
+    const first = await placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })
+    const second = await placeAt({ cart: CART, customer: { name: 'Other', phone: '01512345678' }, address: ADDRESS })
+    expect(second.orderId).not.toBe(first.orderId)
+  })
+
+  it('does not replay once the duplicate window has passed', async () => {
+    const first = await placeOrderTransaction(db, { cart: CART, customer: CUSTOMER, address: ADDRESS }, { now: NOW })
+    const second = await placeOrderTransaction(db, { cart: CART, customer: CUSTOMER, address: ADDRESS }, { now: NOW + DUP_WINDOW_MS + 1000 })
+    expect(second.orderId).not.toBe(first.orderId)
+  })
+})
+
+describe('orderCore - rate limits', () => {
+  it('stops a phone after the daily limit, then admits a different phone', async () => {
+    for (const variantId of ['red_M', 'red_L', 'black_M']) {
+      db.__seed(`products_egp/dress/variants/${variantId}`, {
+        colorId: 'black', color: 'Black', size: 'M', stock: 5, active: true
+      })
+    }
+
+    const order = (n) =>
+      placeAt({ cart: [{ productId: 'dress', variantId: `v${n}_M`, qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    db.__seed('products_egp/dress/variants/v1_M', { colorId: 'a', color: 'A', size: 'M', stock: 5, active: true })
+    db.__seed('products_egp/dress/variants/v2_M', { colorId: 'b', color: 'B', size: 'M', stock: 5, active: true })
+    db.__seed('products_egp/dress/variants/v3_M', { colorId: 'c', color: 'C', size: 'M', stock: 5, active: true })
+    db.__seed('products_egp/dress/variants/v4_M', { colorId: 'd', color: 'D', size: 'M', stock: 5, active: true })
+
+    await order(1)
+    await order(2)
+    await order(3)
+    await expect(order(4)).rejects.toThrow(/RATE_LIMITED/)
+
+    await placeAt({ cart: [{ productId: 'dress', variantId: 'v4_M', qty: 1 }], customer: { name: 'New', phone: '01212345678' }, address: ADDRESS })
+  })
+
+  it('respects limits raised in egp_settings/general', async () => {
+    db.__seed('egp_settings/general', { freeShippingThreshold: 800, rateLimits: { perPhoneDay: 1 } })
+    await placeAt({ cart: [{ productId: 'dress', variantId: 'red_L', qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    await expect(placeAt({ cart: [{ productId: 'override', variantId: 'red_M', qty: 1 }], customer: { name: 'X', phone: '01066666666' }, address: ADDRESS })).resolves.toBeTruthy()
+    await expect(placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 1 }], customer: { name: 'Y', phone: '01077777777' }, address: ADDRESS })).resolves.toBeTruthy()
+    // The first phone already used its single allowance. The rate check runs
+    // after the stock reads, so the line must otherwise be orderable.
+    await expect(placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 4 }], customer: CUSTOMER, address: ADDRESS })).rejects.toThrow(/RATE_LIMITED/)
+  })
+
+  it('limits the orders per IP across different phones', async () => {
+    db.__seed('egp_settings/general', { freeShippingThreshold: 800, rateLimits: { perPhoneDay: 50, perIpHour: 2, perIpDay: 50 } })
+    const context = { ip: '41.32.11.9' }
+
+    const from = (n) =>
+      placeAt({ cart: [{ productId: 'dress', variantId: `ip${n}_M`, qty: 1 }], customer: { name: `P${n}`, phone: `0101234567${n}`.slice(0, 11) }, address: ADDRESS }, context)
+    for (const n of [1, 2, 3, 4]) {
+      db.__seed(`products_egp/dress/variants/ip${n}_M`, { colorId: `c${n}`, color: `C${n}`, size: 'M', stock: 5, active: true })
+    }
+
+    await from(1)
+    await from(2)
+    await expect(from(3)).rejects.toThrow(/RATE_LIMITED/)
+  })
+
+  it('does not let a rate-limited attempt write anything', async () => {
+    db.__seed('egp_settings/general', { freeShippingThreshold: 800, rateLimits: { perPhoneDay: 1 } })
+    await placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })
+    const before = snapshot()
+    await expect(placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 3 }], customer: CUSTOMER, address: ADDRESS })).rejects.toThrow(/RATE_LIMITED/)
+    expect(snapshot()).toBe(before)
+  })
+})
+
+describe('orderCore - blocklist and kill switch', () => {
+  it('refuses a phone on the blocklist', async () => {
+    db.__seed(`blocklist/${hashPhone(CUSTOMER.phone)}`, { reason: 'refused 3 orders', addedBy: 'admin', active: true })
+    const before = snapshot()
+    await expect(placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })).rejects.toThrow(/BLOCKED/)
+    expect(snapshot()).toBe(before)
+  })
+
+  it('refuses an IP on the blocklist', async () => {
+    db.__seed(`blocklist/ip_${hashIp('9.9.9.9')}`, { reason: 'fraud ring', active: true })
+    await expect(placeAt({ cart: CART, customer: { name: 'Z', phone: '01099999999' }, address: ADDRESS }, { ip: '9.9.9.9' })).rejects.toThrow(/BLOCKED/)
+  })
+
+  it('allows a blocklist entry that was deactivated', async () => {
+    db.__seed(`blocklist/${hashPhone(CUSTOMER.phone)}`, { reason: 'appealed', active: false })
+    await expect(placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })).resolves.toBeTruthy()
+  })
+
+  it('refuses every order while ordersOpen is false (the runbook kill switch)', async () => {
+    db.__seed('egp_settings/general', { freeShippingThreshold: 800, ordersOpen: false })
+    const before = snapshot()
+    await expect(placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })).rejects.toThrow(/ORDERS_CLOSED/)
+    expect(snapshot()).toBe(before)
+  })
+})
+
+describe('orderCore - risk flags and side effects', () => {
+  it('flags high-value, many-line and first-time orders', async () => {
+    db.__seed('egp_settings/general', { freeShippingThreshold: 800, highValueThreshold: 100 })
+    const result = await placeAt({
+      cart: [
+        { productId: 'dress', variantId: 'red_M', qty: 1 },
+        { productId: 'dress', variantId: 'red_L', qty: 1 },
+        { productId: 'override', variantId: 'red_M', qty: 1 }
+      ],
+      customer: CUSTOMER,
+      address: ADDRESS
+    })
+    expect(result.risk.flags).toContain('high_value')
+    expect(result.risk.flags).toContain('first_time')
+    expect(db.__read(`orders_egp/${result.orderId}`).risk.score).toBeGreaterThan(0)
+  })
+
+  it('does not flag a small repeat order as first-time', async () => {
+    await placeAt({ cart: [{ productId: 'dress', variantId: 'red_M', qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    const second = await placeAt({ cart: [{ productId: 'override', variantId: 'red_M', qty: 1 }], customer: CUSTOMER, address: ADDRESS })
+    expect(second.risk.flags).not.toContain('first_time')
+  })
+
+  it('marks the catalog dirty and queues a new-order notification', async () => {
+    const result = await placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })
+
+    expect(db.__read('egp_settings/catalog').dirty).toBe(true)
+
+    const outbox = db.__store.outbox ?? {}
+    const entries = Object.entries(outbox).map(([id, doc]) => ({ id, ...doc }))
+    expect(entries).toHaveLength(1)
+    expect(entries[0].type).toBe('new_order')
+    expect(entries[0].status).toBe('pending')
+    expect(entries[0].payload).toMatchObject({
+      orderId: result.orderId,
+      orderNumber: result.orderNumber,
+      total: result.total
+    })
+  })
+
+  it('stores hashes, not raw IP or user agent, on the order', async () => {
+    const result = await placeAt(
+      { cart: CART, customer: CUSTOMER, address: ADDRESS },
+      { ip: '156.199.4.5', userAgent: 'Mozilla/5.0 (test)' }
+    )
+    const order = db.__read(`orders_egp/${result.orderId}`)
+    expect(order.ipHash).toBe(hashIp('156.199.4.5'))
+    expect(order.userAgentHash).toHaveLength(64)
+    expect(JSON.stringify(order)).not.toContain('156.199.4.5')
+    expect(order.phoneHash).toBe(hashPhone(CUSTOMER.phone))
+  })
+
+  it('keeps settings that do not exist from breaking the limits', async () => {
+    db.__store.egp_settings = {}
+    await expect(placeAt({ cart: CART, customer: CUSTOMER, address: ADDRESS })).resolves.toBeTruthy()
+    expect(DEFAULT_RATE_LIMITS.perPhoneDay).toBe(3)
+  })
+})
+
+describe('orderCore - helpers', () => {  it('generates order numbers in one format', () => {
     expect(newOrderNumber()).toMatch(/^PA-[A-Z2-9]{6}$/)
   })
 

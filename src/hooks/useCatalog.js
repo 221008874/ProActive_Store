@@ -71,9 +71,10 @@ export function filterProducts(products, filters = {}) {
     if (f.inStockOnly && !(p.totalStock > 0)) return false;
 
     if (query) {
-      // titles are {ar,en} objects, so match against the serialised pair
-      const haystack = JSON.stringify([p.title, p.tags ?? []]).toLowerCase();
-      if (!haystack.includes(query)) return false;
+      // The snapshot carries a normalised searchText (Arabic + English
+      // folded); documents read directly fall back to the serialised pair.
+      const haystack = (p.searchText || JSON.stringify([p.title, p.tags ?? []])).toLowerCase()
+      if (!haystack.includes(query)) return false
     }
 
     return true;
