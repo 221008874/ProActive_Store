@@ -8,10 +8,17 @@
 // The route layer is deliberately thin: body parsing, the bot gate, request
 // context (ip / user-agent / request id) and error mapping. All order logic
 // lives in _core/orderCore.js, which is unit tested against a fake database.
+//
+// After the order commits, the bill is archived (PDF rendered server-side,
+// pushed to the private document store). That step is best-effort by design:
+// a shopper must never lose a paid order because a document store hiccuped.
+// A failure leaves a status:"failed" metadata row that the admin retry
+// endpoint and the backfill script pick up.
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./_core/serverDb.js";
 import { verifyCaptcha } from "./_core/captcha.js";
+import { generateOrderDocument } from "./_core/orderDocumentCore.js";
 
 const { placeOrderTransaction, statusForError } = await import("./_core/orderCore.js");
 
@@ -54,6 +61,16 @@ export default async function handler(req, res) {
         source: body.source ?? "web"
       }
     });
+
+    // Archive the bill. Never fails the order: any error is logged with the
+    // request id, and the order carries a failed metadata row so the admin
+    // retry endpoint or the backfill script can regenerate it.
+    try {
+      await generateOrderDocument(db, result.orderId, { docType: "invoice" });
+    } catch (docError) {
+      console.error(`order document archive failed [${requestId}] [${result.orderId}]:`, docError);
+    }
+
     return res.status(200).json(result);
   } catch (error) {
     const status = statusForError(error);

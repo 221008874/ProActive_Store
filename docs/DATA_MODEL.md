@@ -131,6 +131,37 @@ Bilingual fields are `{ar, en}` objects — resolve with `loc(field, lang)`.
 
 Orders store **snapshots** (title, price, image) — never links that can change later.
 
+## `orders_egp/{orderId}/order_documents/{docType}`
+
+The index of a **generated bill**. The bytes live in a private GitHub
+repository (`repositoryPath`), so this row is the only Firestore record.
+`docType` is the document id (`invoice`; delivery/return slips can join later).
+
+```js
+{
+  docType: "invoice",
+  format: "pdf",
+  mimeType: "application/pdf",
+  status: "ready",            // ready | failed (a failed row is retried)
+  repositoryPath: "orders_egp/invoice/PA-LZ3K9X2/1728000000000-INV-PA-LZ3K9X2.pdf",
+  bytes: 42130,               // size of the PDF
+  sha256: "...",              // hash of the exact bytes in the repository
+  orderNumber: "PA-LZ3K9X2",
+  invoiceNumber: "PA-LZ3K9X2",
+  securityHash: "2352DA72",   // deterministic: sha256(orderId)[0:8]
+  customerName: "Jane Doe",
+  uploadedBy: "system",
+  uploadedAt: 1728000000000,
+  lastError: "...",           // only on a failed row
+  failedAt: 1728000000000,    // only on a failed row
+  commitSha: "..."            // GitHub commit that stored the file
+}
+```
+
+Written only by the server (`/api/placeOrder` after checkout, or the admin
+retry endpoint); admin-only read in the rules. The storefront never reads
+orders. See `docs/ORDER-DOCUMENTS.md`.
+
 ### CORRECTION 1 — order numbers
 
 The migration plan defines `orderNumber` two incompatible ways: `PA-LZ3K9X2`
@@ -177,6 +208,7 @@ generated coupons. Both the admin form and the storefront pricing must read
 | `products_egp`, variants | admin write (customers may only decrement, and only inside an order) |
 | `egp_coupons` | `get` only by exact code; customers may only `usedCount + 1` |
 | `orders_egp` | admin read; customer `create` only, shape-validated |
+| `orders_egp/*/order_documents/*` | admin only (index of generated bills; bytes in the private GitHub repo) |
 | `mobile_orders`, `confirmedPayments_egp` | admin only |
 
 Admin = `request.auth.token.admin == true`. **The claim must be set before the

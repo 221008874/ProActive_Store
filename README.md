@@ -11,26 +11,43 @@ Firebase project `mina-terek-samir-shein`.
 ```
 api/              Vercel serverless functions (the ONLY writer of orders)
   placeOrder.js         POST /api/placeOrder — money, stock and coupon decided
-                        in one Firestore transaction
+                         in one Firestore transaction; archives the tax
+                         invoice afterwards (best-effort, never fails the order)
   catalog.js            GET  /api/catalog — the catalogue snapshot (sharded)
   product.js            GET  /api/product?id= — product + live variant stock
   cart/check.js         POST /api/cart/check — revalidate the bag
   coupon/preview.js     POST /api/coupon/preview — validate a code, never
-                        exposing the coupon document
+                         exposing the coupon document
   geocode.js/reverse.js proxies for the delivery map (1 req/s + 30-day cache,
-                        per the Nominatim usage policy)
+                         per the Nominatim usage policy)
   admin/**              id-token + `admin` claim required: order transitions,
-                        stock adjustments, snapshot rebuild, Cloudinary signing
+                         stock adjustments, snapshot rebuild, Cloudinary
+                         signing, document download + bill retry
   cron/**              scheduled jobs: snapshot rebuild, nightly rollups
   _core/               the logic: orderCore (order transaction + abuse
-                        controls), catalogCore (snapshot builder), captcha,
-                        geocode, authz, serverDb
+                         controls), orderDocumentCore + invoiceDoc (bill
+                         rendering + archival), githubStore (file bytes),
+                         documentPath (path allowlist), catalogCore
+                         (snapshot builder), captcha, geocode, authz, serverDb
 src/services/      client data layer: snapshot cache (IndexedDB) + /api client
-src/test/          vitest — orderCore against a fake Firestore, catalog
-                   builder, captcha/cron guards, cart and pricing logic
-scripts/           build-catalog (CLI), backup-firestore (daily export),
-                   test-rules (security rules on the emulator)
+src/test/          vitest — orderCore against a fake Firestore, bill pipeline,
+                   catalog builder, captcha/cron guards, cart and pricing logic
+scripts/           build-catalog (CLI), backfill-documents (CLI, regenerate
+                   bills for existing orders), backup-firestore (daily
+                   export), test-rules (security rules on the emulator)
 ```
+
+## Generated bills (documents)
+
+Every order gets a tax-invoice PDF, rendered **on the server** from the
+order document in Firestore (real order number, real date, full address,
+coupon — see `api/_core/invoiceDoc.js`) and archived to a **private GitHub
+repository** (`api/_core/githubStore.js`): the bytes are free to store and
+private by construction, while `orders_egp/{orderId}/order_documents/{docType}`
+holds the index (path, sha256, bytes, status). The storefront never sees the
+bytes; the admin panel fetches them through
+`GET /api/admin/documents/download` (admin token + path allowlist). Runbook:
+`docs/ORDER-DOCUMENTS.md`.
 
 ## Commands
 
@@ -53,6 +70,9 @@ npm run build:catalog  # rebuild the catalogue snapshot (needs SERVICE_ACCOUNT)
 | `CAPTCHA_SECRET` | server | Turnstile secret; when unset the bot gate is open (dev only) |
 | `CRON_SECRET` | server | bearer token for the scheduled routes |
 | `CLOUDINARY_*` | server | signed-upload credentials for the Admin |
+| `GITHUB_TOKEN` / `GITHUB_OWNER` / `GITHUB_REPO` | server | the private repository that stores generated bills (bytes only; metadata is in Firestore) |
+| `GITHUB_BRANCH` | server | branch for the document repository (default `main`) |
+| `ADMIN_ALLOWED_ORIGINS` | server | comma-separated admin-panel origins allowed to call `/api/admin/*` cross-origin (browser preflights them); empty = the admin panel cannot reach the bill endpoints |
 | `SITE_URL` | server | absolute origin for sitemap/OG output |
 
 ## Security model

@@ -71,6 +71,16 @@ service cloud.firestore {
       allow create: if false;
     }
 
+    // Generated bills (tax invoices). The bytes live in a private GitHub
+    // repository (see api/_core/githubStore.js); these rows are the index,
+    // written by the server with the Admin SDK. Admin-only, like every
+    // server-owned collection: they carry the customer's name, phone and
+    // address. Covered by the admin bypass above; listed explicitly so the
+    // contract is readable without hunting.
+    match /orders_egp/{orderId}/order_documents/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // ---- server-owned collections ----
     // All written by the /api routes with the Admin SDK (which bypasses
     // rules) and readable only by admins. They hold anti-abuse state

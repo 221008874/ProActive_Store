@@ -46,6 +46,16 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Generated bills (tax invoices) for an order. The bytes live in a
+    // private GitHub repository; these rows are the index and are written by
+    // the server (Admin SDK, which bypasses rules). Admin-only: a row links
+    // an order to a document containing that customer's name, phone and
+    // full address. The storefront never reads orders, so it needs nothing
+    // here.
+    match /orders_egp/{orderId}/order_documents/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // Mirror written for the companion mobile app. No public read: it holds
     // customer contact details and must not be browsable from the storefront.
     match /mobile_orders/{orderId} {

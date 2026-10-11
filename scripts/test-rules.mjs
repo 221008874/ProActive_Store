@@ -7,6 +7,7 @@
 //   - nobody can list orders (names, phones, addresses)
 //   - orders cannot be created from the browser (the server writes them)
 //   - the anti-abuse and snapshot collections are admin-only
+//   - generated-bill metadata (orders_egp/*/order_documents/*) is admin-only
 //   - an admin (custom claim) can write
 
 import { readFileSync } from "node:fs";
@@ -93,6 +94,27 @@ const readRules = async () => {
     await assertSucceeds(
       setDoc(doc(alice, "products_egp", "dress2"), { title: { en: "Another" }, status: "active" })
     );
+  });
+
+  await check("a bill metadata row is admin-only, like the order it belongs to", async () => {
+    await assertFails(getDoc(doc(guest, "orders_egp", "order1", "order_documents", "invoice")));
+    await assertFails(getDoc(doc(bob, "orders_egp", "order1", "order_documents", "invoice")));
+    await assertFails(
+      setDoc(doc(bob, "orders_egp", "order1", "order_documents", "invoice"), {
+        docType: "invoice",
+        status: "ready",
+        repositoryPath: "orders_egp/invoice/PA-1/1-INV-PA-1.pdf"
+      })
+    );
+    await assertSucceeds(
+      setDoc(doc(alice, "orders_egp", "order1", "order_documents", "invoice"), {
+        docType: "invoice",
+        status: "ready",
+        repositoryPath: "orders_egp/invoice/PA-1/1-INV-PA-1.pdf",
+        bytes: 42130
+      })
+    );
+    await assertFails(getDocs(collection(guest, "orders_egp", "order1", "order_documents")));
   });
 
   console.log(`\n${passed} rules checks passed`);
