@@ -35,11 +35,22 @@ export function createFakeFirestore(seed = {}) {
         data: () => snap.data,
         ref: makeRef(collectionPath, id)
       };
+    },
+    // Document update, as the Admin SDK exposes it. The catalogue's freshness
+    // path uses it to clear the dirty flag without a full build.
+    update: async (patch) => {
+      if (!id) throw new Error("update() needs a document reference");
+      const snap = readRef({ path: `${collectionPath}/${id}` });
+      writeRef(makeRef(collectionPath, id), {
+        ...(snap.exists ? snap.data : {}),
+        ...patch
+      });
     }
   });
 
-  // Equality-only query shim: enough for where('slug','==',x).limit(1) and
-  // the catalog builder's collection listing.
+  // Equality and range query shim: enough for where('slug','==',x).limit(1),
+  // the catalog builder's collection listing, and the freshness path's
+  // where('updatedAt', '>', since) scan.
   const makeQuery = (collectionPath, filters = [], cap = null) => ({
     where: (field, op, value) => makeQuery(collectionPath, [...filters, { field, op, value }], cap),
     orderBy: () => makeQuery(collectionPath, filters, cap),
@@ -47,12 +58,38 @@ export function createFakeFirestore(seed = {}) {
     get: async () => {
       const base = listCollection(collectionPath);
       const docs = base.docs.filter((d) =>
-        filters.every(({ field, value }) => d.data()[field] === value)
+        filters.every(({ field, op, value }) => matches(d.data()[field], op, value))
       );
       const capped = cap == null ? docs : docs.slice(0, cap);
       return { docs: capped, size: capped.length, empty: capped.length === 0 };
     }
   });
+
+  // A sentinel timestamp stands for "the server wrote this just now", which in
+  // a test is later than any date the test compares against. ISO strings show
+  // up because the store is serialised through JSON.
+  const asTime = (value) => {
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) return Date.parse(value);
+    if (value && typeof value === "object") {
+      if (value.__ts === true) return Number.MAX_SAFE_INTEGER;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value.seconds != null) return Number(value.seconds) * 1000;
+    }
+    return value;
+  };
+
+  const matches = (actual, op, expected) => {
+    if (op === "==") return asTime(actual) === asTime(expected);
+    const a = asTime(actual);
+    const e = asTime(expected);
+    if (typeof a !== "number" || typeof e !== "number") return false;
+    if (op === ">") return a > e;
+    if (op == null || op === ">=") return a >= e;
+    if (op === "<") return a < e;
+    if (op === "<=") return a <= e;
+    return actual === expected;
+  };
 
   const listCollection = (collectionPath) => {
     const parts = resolve(collectionPath);

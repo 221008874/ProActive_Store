@@ -3,6 +3,12 @@
 // Validation happens here, not in the browser: the coupon document is never
 // sent to the client, and usage counters stay private. The answer is a
 // yes/no plus the discount, nothing else.
+//
+// `subtotal` is optional. The coupon landing page validates a code from a link
+// before the shopper has a bag, so there is no subtotal to judge the minimum
+// order against; omitting it skips only the min-order rule. The real,
+// unbypassable check is at checkout, where the server always validates with
+// the actual subtotal inside the order transaction.
 
 import { getDb } from "../_core/serverDb.js";
 import { normalizeCode, discountForCoupon, couponRejection } from "../_core/orderCore.js";
@@ -14,10 +20,17 @@ export default async function handler(req, res) {
   }
 
   const code = normalizeCode(req.body?.code);
-  const subtotal = Number(req.body?.subtotal);
+  const hasSubtotal = req.body?.subtotal !== undefined && req.body?.subtotal !== null;
+  const subtotal = hasSubtotal ? Number(req.body.subtotal) : 0;
 
   if (!code) return res.status(400).json({ error: "BAD_CODE" });
-  if (!Number.isFinite(subtotal) || subtotal < 0) return res.status(400).json({ error: "BAD_SUBTOTAL" });
+  if (hasSubtotal && (!Number.isFinite(subtotal) || subtotal < 0)) {
+    return res.status(400).json({ error: "BAD_SUBTOTAL" });
+  }
+
+  // Without a subtotal there is nothing to compare a minimum against, so that
+  // one rule is deferred to checkout rather than failing an unknown order.
+  const judge = (coupon) => couponRejection(coupon, hasSubtotal ? subtotal : null);
 
   try {
     const db = getDb();
@@ -28,8 +41,8 @@ export default async function handler(req, res) {
     }
 
     const coupon = snap.data();
-    if (couponRejection(coupon, subtotal)) {
-      return res.status(200).json({ valid: false, code, reason: rejectionReason(coupon, subtotal) });
+    if (judge(coupon)) {
+      return res.status(200).json({ valid: false, code, reason: rejectionReason(coupon, hasSubtotal ? subtotal : null) });
     }
 
     const type = coupon.type ?? "fixed";
@@ -38,7 +51,7 @@ export default async function handler(req, res) {
       code,
       type,
       value: Number(coupon.value ?? 0),
-      discount: discountForCoupon(coupon, subtotal)
+      discount: hasSubtotal ? discountForCoupon(coupon, subtotal) : null
     });
   } catch (error) {
     console.error("coupon preview failed:", error);
@@ -57,6 +70,6 @@ function rejectionReason(coupon, subtotal) {
   if (coupon.maxUses !== null && coupon.maxUses !== undefined && (coupon.usedCount ?? 0) >= Number(coupon.maxUses)) {
     return "EXHAUSTED";
   }
-  if (subtotal < Number(coupon.minOrder ?? 0)) return "MIN_ORDER";
+  if (subtotal !== null && subtotal < Number(coupon.minOrder ?? 0)) return "MIN_ORDER";
   return "INVALID";
 }

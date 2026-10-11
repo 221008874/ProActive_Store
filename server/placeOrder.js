@@ -10,10 +10,15 @@
 // lives in _core/orderCore.js, which is unit tested against a fake database.
 //
 // After the order commits, the bill is archived (PDF rendered server-side,
-// pushed to the private document store). That step is best-effort by design:
-// a shopper must never lose a paid order because a document store hiccuped.
-// A failure leaves a status:"failed" metadata row that the admin retry
-// endpoint and the backfill script pick up.
+// pushed to the private document store) and the owner is told. That step is
+// best-effort by design: a shopper must never lose a paid order because a
+// document store or a webhook hiccuped. A failure leaves a status:"failed"
+// metadata row that the admin retry endpoint and the backfill script pick up.
+//
+// The notification is inline because Vercel's Hobby plan runs crons once a day,
+// and "the shop took an order" is not a message worth waiting a day for. The
+// outbox row is still written, so the nightly notify cron is the retry path:
+// whatever this cannot deliver is still queued.
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./_core/serverDb.js";
@@ -29,6 +34,48 @@ function clientIp(req) {
     return forwarded.split(",")[0].trim();
   }
   return req.socket?.remoteAddress ?? null;
+}
+
+// A webhook that hangs must not hold a shopper on the checkout page, so it
+// gets a hard deadline well inside the function budget. Failing here is fine:
+// the outbox row is still pending and the nightly cron retries it.
+const WEBHOOK_TIMEOUT_MS = 5000;
+
+// Posts the new-order payload to EMAIL_WEBHOOK_URL and, only on success, marks
+// the outbox row delivered so the nightly cron does not send it twice.
+export async function deliverNewOrder(db, result) {
+  const webhook = process.env.EMAIL_WEBHOOK_URL;
+  if (!webhook || !result?.outboxRef) return { delivered: false, reason: "not-configured" };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(webhook, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "new_order",
+        at: Date.now(),
+        payload: {
+          orderId: result.orderId,
+          orderNumber: result.orderNumber,
+          name: result.customer?.name ?? null,
+          phone: result.customer?.phone ?? null,
+          total: result.total,
+          itemCount: result.items?.length ?? 0
+        }
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) throw new Error(`webhook answered ${response.status}`);
+
+    await result.outboxRef.update({ status: "sent", attempts: 1, sentAt: Date.now() });
+    return { delivered: true };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export default async function handler(req, res) {
@@ -71,7 +118,18 @@ export default async function handler(req, res) {
       console.error(`order document archive failed [${requestId}] [${result.orderId}]:`, docError);
     }
 
-    return res.status(200).json(result);
+    // Tell the owner, inline, and mark the outbox row delivered when it lands.
+    // Failure is silent by design: the row stays pending and the nightly cron
+    // retries it with a backoff.
+    try {
+      await deliverNewOrder(db, result);
+    } catch (notifyError) {
+      console.warn(`order notification deferred [${requestId}] [${result.orderId}]:`, notifyError.message);
+    }
+
+    // The route's internal ref never reaches the shopper.
+    const { outboxRef: _outboxRef, ...body } = result;
+    return res.status(200).json(body);
   } catch (error) {
     const status = statusForError(error);
 

@@ -8,14 +8,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
-import { db } from '../services/firebase'
-import { COLLECTIONS } from '../config'
-import { getCurrencyConfig } from '../config/currency'
 import { defaultGovernorateCosts } from '../config/egypt'
 import { useCart } from '../context/CartContext'
 import { useLanguage } from '../context/LanguageContext'
 import { postJson } from '../services/api'
+import { fetchGovernorates, fetchProduct, fetchPublicSettings } from '../services/catalog'
 import { loc } from '../ui'
 import { analytics } from '../services/analytics'
 import { paymentStatusFor } from '../utils/pricing'
@@ -23,14 +20,22 @@ import { classifyCheckoutError, linesForRejection } from '../utils/checkoutError
 
 export const STEPS = { bag: 1, delivery: 2, review: 3 }
 
-// One currency, one product collection.
-const PRODUCTS = getCurrencyConfig().collection
-
 // The shopper's address. One shape from the delivery form to the API.
 const EMPTY_ADDRESS = {
   name: '', phone: '', email: '', governorate: '',
   city: '', address: '', building: '', notes: '',
   latitude: null, longitude: null
+}
+
+// Per-line stock for one bag line, from a catalogue card. A line is a variant, so
+// availability is that variant's stock; a legacy product with no variants falls
+// back to the product's aggregate stock, which is what it always had.
+export function stockForLine(card, item) {
+  if (!card) return 0;
+  const variantId = item.variantId ?? (item.id?.includes(':') ? item.id.split(':')[1] : null);
+  const match = (card.variants ?? []).find((v) => v.id === variantId);
+  if (match) return Number(match.stock ?? 0);
+  return Number(card.totalStock ?? card.stock ?? 0);
 }
 
 export function useCheckout() {
@@ -76,15 +81,22 @@ export function useCheckout() {
 
   /* ------------------------------ load ------------------------------- */
 
+  // Governorates and public settings both ride in the catalogue snapshot, so
+  // opening the bag costs no Firestore reads: the snapshot is already cached
+  // locally by version and served from the CDN. This replaces reading all ~27
+  // governorate documents plus the settings document on every checkout visit.
   useEffect(() => {
     let alive = true
     ;(async () => {
       setLoadingGovernorates(true)
       try {
-        const snap = await getDocs(collection(db, COLLECTIONS.governorateCosts))
+        const list = await fetchGovernorates()
+        if (!alive) return
+        if (list.length === 0) throw new Error('empty governorate list')
+
         const docs = {}
-        snap.docs.forEach((d) => { docs[d.id] = d.data() ?? {} })
-        if (alive) setGovernorateDocs(docs)
+        list.forEach((g) => { docs[g.id] = g })
+        setGovernorateDocs(docs)
       } catch (e) {
         console.error('Error loading governorate costs:', e)
         // Fall back to the built-in table so checkout is still usable against a
@@ -104,8 +116,7 @@ export function useCheckout() {
     let alive = true
     ;(async () => {
       try {
-        const snap = await getDoc(doc(db, COLLECTIONS.settings, 'general'))
-        const data = snap.exists() ? snap.data() : {}
+        const data = await fetchPublicSettings()
         if (!alive) return
         setMinimumOrderAmount(Number(data.minimumOrderAmount ?? 0))
         // The owner's kill switch; the server refuses orders while it is off,
@@ -119,8 +130,10 @@ export function useCheckout() {
     return () => { alive = false }
   }, [])
 
-  // Re-read every line's live stock whenever the bag changes, so a shopper who
-  // left the tab open sees the truth before paying, not after.
+  // Re-read every line's stock whenever the bag changes, so a shopper who left
+  // the tab open sees the truth before paying, not after. The cards come from
+  // the catalogue snapshot (no per-line Firestore read); the live truth is still
+  // re-checked server-side at checkout.
   useEffect(() => {
     let alive = true
     if (items.length === 0) { setProductDetails({}); setStockErrors({}); return }
@@ -128,40 +141,38 @@ export function useCheckout() {
     ;(async () => {
       const details = {}
       const errors = {}
-      await Promise.all(items.map(async (item) => {
-        try {
-          const productId = item.productId ?? String(item.id).split(':')[0]
-          const variantId = item.variantId ?? (item.id.includes(':') ? item.id.split(':')[1] : null)
 
-          const productSnap = await getDoc(doc(db, PRODUCTS, productId))
-          if (!productSnap.exists()) {
-            errors[item.id] = { type: 'UNAVAILABLE', available: 0, message: t('productNotAvailable') || 'Product no longer available' }
-            return
-          }
+      const productIds = [...new Set(items.map((item) => item.productId ?? String(item.id).split(':')[0]))]
+      const cards = await Promise.all(productIds.map((pid) => fetchProduct(pid)))
+      const byId = new Map()
+      cards.forEach((card, i) => { if (card) byId.set(productIds[i], card) })
 
-          const variantSnap = variantId
-            ? await getDoc(doc(db, COLLECTIONS.productsCollection, productId, 'variants', variantId))
-            : null
-          const available = variantSnap?.exists()
-            ? Number(variantSnap.data().stock ?? 0)
-            : Number(productSnap.data().stock ?? 0)
+      for (const item of items) {
+        const productId = item.productId ?? String(item.id).split(':')[0]
+        const card = byId.get(productId)
 
-          details[item.id] = { ...productSnap.data(), stock: available }
-
-          if (available < item.quantity) {
-            errors[item.id] = {
-              type: 'INSUFFICIENT_STOCK', available, requested: item.quantity,
-              message: t('onlyAvailable', { count: available }) || `Only ${available} available`
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching product:', err)
+        if (!card) {
+          errors[item.id] = { type: 'UNAVAILABLE', available: 0, message: t('productNotAvailable') || 'Product no longer available' }
+          continue
         }
-      }))
+
+        const available = stockForLine(card, item)
+        details[item.id] = { ...card, stock: available }
+
+        if (available < item.quantity) {
+          errors[item.id] = {
+            type: 'INSUFFICIENT_STOCK', available, requested: item.quantity,
+            message: t('onlyAvailable', { count: available }) || `Only ${available} available`
+          }
+        }
+      }
+
       if (!alive) return
       setProductDetails(details)
       setStockErrors(errors)
-    })()
+    })().catch((err) => {
+      console.error('Error fetching product details:', err)
+    })
     return () => { alive = false }
   }, [items, t])
 

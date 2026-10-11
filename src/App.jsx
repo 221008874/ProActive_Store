@@ -19,7 +19,6 @@ const AboutUs = lazy(() => import('./pages/AboutUs'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const OrderSuccess = lazy(() => import('./pages/OrderSuccess'))
-const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'))
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'))
 const CouponLanding = lazy(() => import('./pages/CouponLanding'))
 
@@ -75,8 +74,7 @@ function App() {
           <Route path="/about" element={<AboutUs />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/order-success" element={<OrderSuccess />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment/cancel" element={<PaymentCancel />} />
+        <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route path="/coupon/:code" element={<CouponLanding />} />
 
           {import.meta.env.DEV && <Route path="/_ui" element={<UiGallery />} />}

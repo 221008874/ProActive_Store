@@ -4,13 +4,18 @@
 //   1. the catalogue snapshot served by /api/catalog — a handful of documents
 //      for the whole store, cached locally by version;
 //   2. direct Firestore reads — the fallback when the snapshot has not been
-//      built yet (the route answers 503 SNAPSHOT_NOT_BUILT), and for the live
-//      per-variant stock checks the snapshot deliberately does not carry.
+//      built yet (the route answers 503 SNAPSHOT_NOT_BUILT).
 //
 // Every function returns plain objects with the document `id` merged in, so
 // callers never have to remember which fields live on the snapshot versus the
 // data. Archived/draft products are filtered at the query, not in the UI, so a
 // stale page cannot accidentally show them.
+//
+// Everything a visitor browses resolves from the snapshot, including the
+// product page's variants: a shopper opening a product costs no Firestore read
+// at all. Live documents are only consulted when the snapshot cannot answer
+// (a product published since the last build), and money is always re-checked
+// server-side at checkout.
 
 import {
   collection,
@@ -113,17 +118,36 @@ export async function fetchProductsByIds(ids = []) {
   return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
-// The product page reads the live product + variants through the API so a
-// cached card can never contradict the page the shopper is about to buy from.
+// One product from the snapshot, by id or by slug, with its variants. Returns
+// null when the snapshot does not carry it (published since the last build, or
+// archived), which is the caller's cue to fall back.
+export function findInSnapshot(snapshot, idOrSlug) {
+  if (!snapshot?.products?.length || !idOrSlug) return null;
+  const key = String(idOrSlug).trim().toLowerCase();
+  return (
+    snapshot.products.find((p) => p.id === key) ??
+    snapshot.products.find((p) => (p.slug ?? "").toLowerCase() === key) ??
+    null
+  );
+}
+
+// The product page. The snapshot carries variants, so this is the path a
+// visitor takes and it reads no Firestore documents at all. It falls back to
+// /api/product (live, CDN-cached) when the snapshot cannot answer, and to
+// direct reads only when that route is unreachable too.
 export async function fetchProduct(id) {
   if (!id) return null;
+
+  const snapshot = await readSnapshot();
+  const fromSnapshot = findInSnapshot(snapshot, id);
+  if (fromSnapshot) return { ...fromSnapshot, variants: fromSnapshot.variants ?? [] };
 
   try {
     const product = await getJson(`/product?id=${encodeURIComponent(id)}`);
     return { variants: [], ...product };
   } catch {
-    // Snapshot route unavailable: fall back to the documents the rules still
-    // allow the storefront to read.
+    // Snapshot and API both unavailable: fall back to the documents the rules
+    // still allow the storefront to read.
     const snap = await getDoc(doc(db, "products_egp", id));
     if (!snap.exists() || snap.data().status !== "active") return null;
 
@@ -132,10 +156,17 @@ export async function fetchProduct(id) {
   }
 }
 
-// Live stock for one variant: the snapshot's totalStock is a lagging
-// aggregate, so availability on the product page and the bag reads this.
-export async function fetchVariantStock(productId, variantId) {
-  const snap = await getDoc(doc(db, "products_egp", productId, "variants", variantId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+// Delivery costs and per-governorate minimums, from the snapshot's governorate
+// list. The bag would otherwise read all 27 governorate documents on every
+// visit, which is the single largest read cost in checkout.
+export async function fetchGovernorates() {
+  const snapshot = await readSnapshot();
+  return snapshot?.governorates ?? [];
+}
+
+// Public store settings (ordersOpen kill switch, free-shipping threshold,
+// minimum order fallback), from the snapshot.
+export async function fetchPublicSettings() {
+  const snapshot = await readSnapshot();
+  return snapshot?.settings ?? {};
 }

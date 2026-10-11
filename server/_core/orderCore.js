@@ -145,6 +145,9 @@ export function discountForCoupon(coupon, subtotal) {
   return Math.max(0, Math.min(Number(coupon.value ?? 0), subtotal));
 }
 
+// Why a coupon would be refused, or null when it stands. `subtotal` may be null
+// when there is no order yet (the coupon landing page): the minimum-order rule
+// is then deferred to checkout, where the real subtotal is always known.
 export function couponRejection(coupon, subtotal, now = Date.now()) {
   if (!coupon) return null;
   if (coupon.active === false) return true;
@@ -158,7 +161,7 @@ export function couponRejection(coupon, subtotal, now = Date.now()) {
     if ((coupon.usedCount ?? 0) >= Number(coupon.maxUses)) return true;
   }
 
-  if (subtotal < Number(coupon.minOrder ?? 0)) return true;
+  if (subtotal !== null && subtotal !== undefined && subtotal < Number(coupon.minOrder ?? 0)) return true;
 
   return null;
 }
@@ -333,23 +336,33 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
     });
 
     // ---------------- WRITES ----------------
+    // `updatedAt` is what the catalogue's partial rebuild scans for, so a
+    // stock move here is a stock move the storefront will see. Writers that
+    // forget to move it are only corrected by the nightly full build.
     for (const line of lines) {
       tx.update(line.variantRef, { stock: FieldValue.increment(-line.qty) });
       tx.update(line.productRef, {
         soldCount: FieldValue.increment(line.qty),
-        totalStock: FieldValue.increment(-line.qty)
+        totalStock: FieldValue.increment(-line.qty),
+        updatedAt: FieldValue.serverTimestamp()
       });
     }
     if (couponRef) tx.update(couponRef, { usedCount: FieldValue.increment(1) });
 
+    // Anti-abuse documents are pure caches, so each carries the moment it stops
+    // being useful. A TTL policy on `expireAt` (Firebase console, one field per
+    // collection) keeps them from accumulating forever against the 1 GiB
+    // storage quota - see the note in README.md.
     if (rateIpRef) {
       tx.set(rateIpRef, {
         hour: nextWindow(rateIpSnap.exists ? rateIpSnap.data.hour : null, limits.perIpHour, now, HOUR),
-        day: nextWindow(rateIpSnap.exists ? rateIpSnap.data.day : null, limits.perIpDay, now, DAY)
+        day: nextWindow(rateIpSnap.exists ? rateIpSnap.data.day : null, limits.perIpDay, now, DAY),
+        expireAt: new Date(now + 2 * DAY)
       });
     }
     tx.set(ratePhoneRef, {
-      day: nextWindow(ratePhoneSnap.exists ? ratePhoneSnap.data.day : null, limits.perPhoneDay, now, DAY)
+      day: nextWindow(ratePhoneSnap.exists ? ratePhoneSnap.data.day : null, limits.perPhoneDay, now, DAY),
+      expireAt: new Date(now + 2 * DAY)
     });
 
     const orderRef = db.collection("orders_egp").doc();
@@ -388,17 +401,24 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       createdAt: FieldValue.serverTimestamp()
     });
 
-    // Queued for the new-order notification worker (email now, push later).
-    tx.set(db.collection("outbox").doc(), {
+    // Queued for the new-order notification. placeOrder delivers it inline and
+    // flips it to `sent`; anything it could not deliver is picked up by the
+    // nightly notify cron (Vercel's Hobby plan runs crons once a day, so this
+    // cannot be a 5-minute loop).
+    const outboxRef = db.collection("outbox").doc();
+    tx.set(outboxRef, {
       type: "new_order",
       status: "pending",
       attempts: 0,
       at: now,
+      // A row nobody will ever look at again should not outlive its usefulness.
+      expireAt: new Date(now + 30 * DAY),
       payload: { orderId: orderRef.id, orderNumber, phone: customer.phone, total: totals.total }
     });
 
-    // Tells the catalog builder the denormalised stock on the snapshot is now
-    // stale; the job rebuilds within its 10-15 minute cycle.
+    // Tells the catalogue builder the denormalised stock on the snapshot is now
+    // stale. The rebuild happens on the next catalogue read once the cooldown
+    // has passed (see refreshSnapshotIfStale), or on the nightly full build.
     tx.set(db.doc("egp_settings/catalog"), { dirty: true, dirtyAt: now }, { merge: true });
 
     const result = {
@@ -408,16 +428,31 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       ...totals,
       risk,
       customer,
-      address
+      address,
+      // Returned to the route so it can mark the outbox row delivered without
+      // the client ever seeing this.
+      outboxRef
     };
 
-    if (claimRef) tx.set(claimRef, { result, at: now });
-    tx.set(recentRef, { fingerprint, at: now, result });
+    // The idempotency claim only has to outlive a retry storm, and the
+    // duplicate window is ten minutes; a day is generous.
+    if (claimRef) tx.set(claimRef, { result: publicResult(result), at: now, expireAt: new Date(now + DAY) });
+    tx.set(recentRef, { fingerprint, at: now, result: publicResult(result), expireAt: new Date(now + DAY) });
 
     // Returned so the success page can render without the client reading the
     // order back - the hardened rules do not allow public order reads.
     return result;
   });
+}
+
+// What a shopper (or a retry) is allowed to see: the same order, minus the
+// outbox reference the route uses internally. The replay paths below return
+// exactly this shape, so a retry answers with the original order and not with
+// whatever the route happens to attach now.
+export function publicResult(result = {}) {
+  const rest = { ...result };
+  delete rest.outboxRef;
+  return rest;
 }
 
 // HTTP status for a thrown error. Known checkout problems are the caller's
