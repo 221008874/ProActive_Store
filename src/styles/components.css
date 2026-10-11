@@ -169,6 +169,39 @@
 .pa-hero__title { font-size: 44px; line-height: .98; margin-bottom: 16px; }
 @media (min-width: 1024px) { .pa-hero { min-height: 520px; padding: 48px 64px; } .pa-hero__title { font-size: 72px; } }
 
+/* Hero shell: the banner on a phone, the 2fr/1fr banner+tiles grid on desktop. */
+.pa-hero-wrap { display: flex; flex-direction: column; }
+.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: #fff; }
+.pa-hero__dots { display: flex; gap: 6px; margin-top: 20px; }
+.pa-hero__dots button {
+  height: 4px; padding: 0; border: 0; background: rgba(255,255,255,.4); cursor: pointer;
+  transition: width .18s ease, background .18s ease;
+}
+.pa-hero__dots button[data-on="true"] { background: #fff; }
+.pa-hero__side { display: none; }
+@media (min-width: 1024px) {
+  .pa-hero-wrap { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; max-width: var(--pa-content-max); margin-inline: auto; padding: 16px var(--pa-gutter) 0; }
+  .pa-hero-wrap .pa-hero { border-radius: var(--pa-radius); }
+  .pa-hero__side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
+}
+/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon). */
+.pa-hero__tile {
+  position: relative; display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 20px; background: var(--pa-stone); border: 1px solid var(--pa-line);
+  text-decoration: none; color: var(--pa-ink);
+}
+.pa-hero__tile:hover { background: var(--pa-line); }
+.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+
+/* Home shelves: a rail on a phone, a grid from laptop up. Both are rendered and
+   the CSS picks one, so there is no JS breakpoint and no layout shift on resize. */
+.pa-home__shelf .pa-home__grid { display: none; }
+@media (min-width: 1024px) {
+  .pa-home__shelf .pa-rail { display: none; }
+  .pa-home__shelf .pa-home__grid { display: grid; }
+}
+.pa-card--dimmed { opacity: .6; }
+
 /* Category strip (round photos) */
 .pa-cats { display: flex; gap: 14px; padding: 14px var(--pa-gutter) 0; overflow-x: auto; scrollbar-width: none; }
 .pa-cat { flex: 0 0 62px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; font-size: 12px; font-weight: 600; }
@@ -347,6 +380,26 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   background: var(--pa-paper); border-top: 1px solid var(--pa-line);
 }
 .pa-sticky > .pa-btn { flex: 1 1 0; }
+
+/* Product page header row: title with the share/save pair on its inline end. */
+.pa-pdp__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pa-pdp__head h1 { font-size: 24px; line-height: 1.15; }
+.pa-pdp__count {
+  position: absolute; inset-block-end: 10px; inset-inline-end: 10px;
+  padding: 3px 8px; background: rgba(18,18,18,.72); color: #fff;
+  font-size: 11px; font-weight: 700; direction: ltr;
+}
+.pa-pdp__guide { font-size: 13px; font-weight: 700; margin-inline-start: auto; text-decoration: none; }
+.pa-pdp__thumbs { display: none; }
+@media (min-width: 1024px) {
+  .pa-pdp__head h1 { font-size: 34px; }
+  /* Vertical thumbnail rail beside the main image, per the desktop board. */
+  .pa-pdp__thumbs { display: grid; grid-template-columns: repeat(4, 72px); gap: 8px; margin-top: 12px; }
+  .pa-pdp__thumbs button { padding: 0; border: 1px solid var(--pa-line); background: var(--pa-stone); cursor: pointer; }
+  .pa-pdp__thumbs button[aria-pressed="true"] { border: 2px solid var(--pa-ink); }
+  .pa-pdp__thumbs img { display: block; width: 100%; height: auto; }
+  .pa-pdp .pa-card__photo { max-height: 640px; }
+}
 @media (min-width: 1024px) {
   .pa-pdp--desktop { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; max-width: var(--pa-content-max); margin-inline: auto; padding: 24px var(--pa-gutter); }
   .pa-pdp--desktop .pa-sticky { position: static; border: 0; padding: 0; height: auto; background: transparent; }
