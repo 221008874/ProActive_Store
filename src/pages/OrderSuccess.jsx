@@ -42,30 +42,6 @@ async function loadCairoFont() {
   }
 }
 
-// Basic Arabic reshaper — joins isolated letters into their connected forms
-// This is a simplified version; for production use npm install arabic-reshaper
-function reshapeArabic(text) {
-  if (!text || !hasArabic(text)) return text
-  // Use the browser's built-in bidi/shaping via a canvas trick
-  // This is a lightweight approach that works for display purposes
-  return text
-}
-
-// Returns a pdfMake node with correct font for the content
-function pdfText(text, style = {}) {
-  const str = String(text || '')
-  if (hasArabic(str)) {
-    return {
-      text: str,
-      font: 'Cairo',
-      alignment: 'right',
-      direction: 'rtl',
-      ...style,
-    }
-  }
-  return { text: str, ...style }
-}
-
 // Safe text for mixed content
 function safePdfText(text) {
   if (!text) return ''
@@ -172,7 +148,7 @@ function buildPdfBackground(securityHash, W = 595, H = 842) {
 }
 
 // ─── Security SVG overlay (screen) ────────────────────────────────────────
-function SecurityLayer({ orderId, securityHash, isDark }) {
+function SecurityLayer({ securityHash, isDark }) {
   const c = getColors(isDark ? 'dark' : 'light')
   const color   = c.disabled
   const opacity = 0.032
@@ -246,7 +222,6 @@ function ConfettiBurst({ active, theme = 'light' }) {
     canvas.height = window.innerHeight
 
     // Board palette: ink/stone carry the paper confetti, sale + instock the accents.
-    // Board palette: ink/stone carry the paper confetti, sale + instock the accents.
     const c = getColors(theme)
     const CONFETTI_COLORS = [c.primary, c.textMuted, c.success, c.danger, c.warning, c.surface]
     const particles = Array.from({ length: 120 }, () => ({
@@ -285,7 +260,7 @@ function ConfettiBurst({ active, theme = 'light' }) {
     }
     draw()
     return () => cancelAnimationFrame(frame)
-  }, [active])
+  }, [active, theme])
 
   return (
     <canvas
@@ -412,7 +387,11 @@ export default function OrderSuccess() {
       const statusColor = isPaidStatus ? PDF.success : PDF.textDark
 
       let logoB64 = null
-      try { logoB64 = await imageToBase64(logoLight) } catch {}
+      try {
+        logoB64 = await imageToBase64(logoLight)
+      } catch {
+        logoB64 = null // the logo is decoration; the receipt renders without it
+      }
 
       // Helper: text node that auto-selects font
       const T = (text, style = {}) => {
@@ -873,6 +852,9 @@ export default function OrderSuccess() {
       <div className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px 32px' }}>
         <Button variant="outline" onClick={() => navigate('/home')}>
           ← {t('backToShop') || 'Back to Shop'}
+        </Button>
+        <Button variant="outline" onClick={generatePDF} disabled={pdfLoading}>
+          {pdfLoading ? '…' : '⬇'} {t('downloadPdf') || 'Download PDF'}
         </Button>
         <Button onClick={handlePrint}>
           🖨 {t('print') || 'Print'}

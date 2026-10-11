@@ -6,6 +6,20 @@ import { ThemeProvider } from './context/ThemeContext'
 import { CartProvider } from './context/CartContext'
 import { LanguageProvider } from './context/LanguageContext' // new
 import App from './App'
+
+// Self-hosted fonts (no Google Fonts request on first load, no third-party
+// dependency on Egyptian networks). Same families and weights the design
+// system declares in tokens.css.
+import '@fontsource/bricolage-grotesque/600.css'
+import '@fontsource/bricolage-grotesque/700.css'
+import '@fontsource/manrope/400.css'
+import '@fontsource/manrope/500.css'
+import '@fontsource/manrope/600.css'
+import '@fontsource/manrope/700.css'
+import '@fontsource/ibm-plex-sans-arabic/400.css'
+import '@fontsource/ibm-plex-sans-arabic/500.css'
+import '@fontsource/ibm-plex-sans-arabic/600.css'
+
 import './tokens.css'
 import './styles/components.css'
 import './index.css'

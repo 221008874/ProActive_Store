@@ -19,10 +19,12 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   
-  <!-- Preconnect to external resources -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Fonts are self-hosted (npm @fontsource/*, imported in src/main.jsx):
+       no external request on first load and no third-party dependency on
+       Egyptian networks. Do not re-add the Google Fonts links. -->
+
+  <!-- Leaflet: the SPA imports the bundled leaflet package; this CDN copy is
+       a legacy leftover for pages that predate it. -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <title>ProActive Store</title>
