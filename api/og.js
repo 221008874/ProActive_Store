@@ -11,6 +11,7 @@
 // the store from shoppers.
 
 import { getDb } from "./_core/serverDb.js";
+import { findPublicProduct } from "./_core/productLookup.js";
 
 function baseUrl(req) {
   return (process.env.SITE_URL ?? `https://${req.headers?.host ?? "localhost"}`).replace(/\/+$/, "");
@@ -33,19 +34,14 @@ export default async function handler(req, res) {
   if (!id) return res.status(400).json({ error: "BAD_ID" });
 
   try {
-    const db = getDb();
-    let productSnap = await db.doc(`products_egp/${id}`).get();
-    if (!productSnap.exists) {
-      const bySlug = await db.collection("products_egp").where("slug", "==", id).limit(1).get();
-      if (!bySlug.empty) productSnap = bySlug.docs[0];
-    }
-    if (!productSnap.exists || productSnap.data().status !== "active") {
+    // Accepts the document id or the slug; the share link uses the slug.
+    const product = await findPublicProduct(getDb(), id);
+    if (!product) {
       return res.status(404).json({ error: "NOT_FOUND" });
     }
 
-    const product = productSnap.data();
     const base = baseUrl(req);
-    const path = product.slug ?? productSnap.id;
+    const path = product.slug ?? product.id;
 
     const title = product.title?.en ?? product.title?.ar ?? "Product";
     const description = String(product.description?.en ?? product.description?.ar ?? "").slice(0, 200);

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import {
   getFirestore,
+  initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager
 } from 'firebase/firestore'
@@ -13,15 +14,17 @@ try {
   app = initializeApp(firebaseConfig)
 
   // Firestore 12.8 deprecated enableIndexedDbPersistence(). The replacement is
-  // a construction-time `localCache` setting rather than an async call, which
-  // also removes the graceful-degradation path the old promise provided — it
-  // used to reject with 'failed-precondition' (multi-tab) or 'unimplemented'
-  // (no support). That is recreated here: if persistence cannot be set up, fall
-  // back to the SDK's default in-memory cache rather than losing the catalogue
+  // a construction-time `localCache` setting — which only initializeFirestore()
+  // accepts. NOTE: getFirestore()'s second argument is a database-ID *string*
+  // (named databases), NOT settings: passing the object there silently registers
+  // the instance under the identifier "[object Object]" and drops the cache
+  // settings on the floor, producing Listen-channel URLs like
+  // .../databases/[object Object]. If persistence cannot be set up, fall back
+  // to the SDK's default in-memory cache rather than losing the catalogue
   // (useCatalog relies on the cache surviving a reload).
   db = (() => {
     try {
-      return getFirestore(app, {
+      return initializeFirestore(app, {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager()
         })

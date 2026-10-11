@@ -20,10 +20,14 @@ export function createFakeFirestore(seed = {}) {
     collection: (name) => makeRef(`${collectionPath}/${id ? id + "/" : ""}${name}`),
     // collectionRef.doc(id) -> document in this collection
     doc: (childId) => makeRef(collectionPath, childId ?? `auto${++autoId}`),
+    // Query chain on a collection: where(field, '==', value).limit(n).get()
+    where: (field, op, value) =>
+      makeQuery(collectionPath, [{ field, op, value }], null),
+    limit: (n) => makeQuery(collectionPath, [], n),
     // Document read: { exists, id, data() }, matching the Admin SDK shape
     // closely enough for the catalog builder and its tests.
     get: async () => {
-      if (!id) return listCollection(collectionPath);
+      if (!id) return makeQuery(collectionPath, [], null).get();
       const snap = readRef({ path: `${collectionPath}/${id}` });
       return {
         exists: snap.exists,
@@ -31,6 +35,22 @@ export function createFakeFirestore(seed = {}) {
         data: () => snap.data,
         ref: makeRef(collectionPath, id)
       };
+    }
+  });
+
+  // Equality-only query shim: enough for where('slug','==',x).limit(1) and
+  // the catalog builder's collection listing.
+  const makeQuery = (collectionPath, filters = [], cap = null) => ({
+    where: (field, op, value) => makeQuery(collectionPath, [...filters, { field, op, value }], cap),
+    orderBy: () => makeQuery(collectionPath, filters, cap),
+    limit: (n) => makeQuery(collectionPath, filters, n),
+    get: async () => {
+      const base = listCollection(collectionPath);
+      const docs = base.docs.filter((d) =>
+        filters.every(({ field, value }) => d.data()[field] === value)
+      );
+      const capped = cap == null ? docs : docs.slice(0, cap);
+      return { docs: capped, size: capped.length, empty: capped.length === 0 };
     }
   });
 

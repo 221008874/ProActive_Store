@@ -34,7 +34,6 @@ const translations = {
     loadingProducts: 'جاري تحميل المنتجات...',
 
     // Product Details
-    description: 'الوصف',
     price: 'السعر',
     quantity: 'الكمية',
     addToCart: 'حط في العربية',
@@ -78,7 +77,6 @@ const translations = {
     qty: 'الكمية',
     each: 'للواحد',
     more: 'أكثر',
-    discount: 'الخصم',
     haveCoupon: 'عندك كود خصم؟',
     enterCouponCode: 'ادخل كود الخصم',
     apply: 'تطبيق',
@@ -279,7 +277,6 @@ const translations = {
     loadingProducts: 'Loading products...',
 
     // Product Details
-    description: 'Description',
     price: 'Price',
     quantity: 'Quantity',
     addToCart: 'Add to Cart',
@@ -323,7 +320,6 @@ const translations = {
     qty: 'Qty',
     each: 'each',
     more: 'more',
-    discount: 'Discount',
     haveCoupon: 'Have a coupon code?',
     enterCouponCode: 'Enter coupon code',
     apply: 'Apply',
@@ -497,15 +493,16 @@ const translations = {
 const LanguageContext = createContext()
 
 export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState('ar') // Default: Arabic
-
-  // Load saved language
-  useEffect(() => {
-    const saved = localStorage.getItem('language')
-    if (saved === 'ar' || saved === 'en') {
-      setLang(saved)
+  // Load the saved language as the initial state rather than in an effect,
+  // so the first paint is already in the right language and direction.
+  const [lang, setLang] = useState(() => {
+    try {
+      const saved = localStorage.getItem('language')
+      return saved === 'ar' || saved === 'en' ? saved : 'ar'
+    } catch {
+      return 'ar' // private mode: default Arabic
     }
-  }, [])
+  })
 
   // Apply direction & language to body
   useEffect(() => {

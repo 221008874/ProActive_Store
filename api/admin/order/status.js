@@ -123,6 +123,16 @@ export default async function handler(req, res) {
         ]
       });
 
+      tx.set(db.collection("admin_logs").doc(), {
+        who: auth.uid,
+        whoEmail: auth.email ?? null,
+        action: "order_status",
+        target: orderId,
+        before: { status: current },
+        after: { status: nextStatus, restockedLines: refs.length },
+        at: now
+      });
+
       // Restocked variants make the snapshot's "sold out" cards wrong.
       tx.set(db.doc("egp_settings/catalog"), { dirty: true, dirtyAt: now }, { merge: true });
 

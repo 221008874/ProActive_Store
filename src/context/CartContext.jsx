@@ -9,6 +9,7 @@ import {
   cartCount,
   cartSubtotal
 } from '../utils/cartLogic'
+import { analytics } from '../services/analytics'
 
 const CartContext = createContext()
 
@@ -210,6 +211,8 @@ export function CartProvider({ children }) {
         quantity
       }
     })
+
+    analytics.addToCart({ id, productId: product.id, variantId, title: product.title ?? name, price: Number(variant?.priceOverride ?? product.price ?? 0), color: variant?.color, size: variant?.size }, quantity)
 
     return { success: true, message: `Added ${quantity} × ${name} to cart`, added: quantity, totalInCart: currentCartQuantity + quantity }
   }, [cart.items])

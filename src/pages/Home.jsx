@@ -1,6 +1,9 @@
-// Home. Data logic is unchanged (session-cached, currency-scoped product fetch);
-// every pixel of presentation moved to the design system: .pa-hero, .pa-about,
-// .pa-section__head and the ProductGrid / ProductCard pair.
+// Home. The product grid now reads the catalogue SNAPSHOT (services/catalog):
+// one CDN-cached route for the whole store instead of one Firestore read per
+// product per visit, and active-only, so drafts never appear. The local
+// snapshot cache survives reloads, so the sessionStorage cache and the
+// currency-scoped fetch are gone; every pixel of presentation lives in the
+// design system (.pa-hero, .pa-about, .pa-section__head, ProductGrid/Card).
 //
 // What was removed on purpose, because the design system already does it:
 //   * windowWidth state        -> CSS media queries own the breakpoints
@@ -12,45 +15,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import { useLocation } from '../context/LocationContext'
-import { db } from '../services/firebase'
-import { productsCollection } from '../config'
-import { collection, getDocs } from 'firebase/firestore'
+import { fetchActiveProducts } from '../services/catalog'
+import { analytics } from '../services/analytics'
 import heroImage from '../assets/mainBG.webp'
 import StoreFooter from '../components/StoreFooter'
 import { ProductGrid, ProductCard, SectionHead } from '../ui'
 import { ProductRail } from '../ui'
 
-const PRODUCT_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
-
-const getCachedProducts = (currency) => {
-  try {
-    const key = `products_${currency}`
-    const cached = sessionStorage.getItem(key)
-    if (!cached) return null
-    const { data, timestamp } = JSON.parse(cached)
-    if (Date.now() - timestamp > PRODUCT_CACHE_TTL) return null
-    return data
-  } catch {
-    return null
-  }
-}
-
-const setCachedProducts = (currency, data) => {
-  try {
-    const key = `products_${currency}`
-    sessionStorage.setItem(key, JSON.stringify({
-      data,
-      timestamp: Date.now()
-    }))
-  } catch (e) {
-    console.warn('Failed to cache products:', e)
-  }
-}
-
 export default function Home() {
   const { t, lang } = useLanguage()
-  const { currency } = useLocation()
   const navigate = useNavigate()
 
   const [products, setProducts] = useState([])
@@ -63,35 +36,25 @@ export default function Home() {
   }
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      if (!currency) return
+    let cancelled = false
 
-      const cached = getCachedProducts(currency)
-      if (cached) {
-        setProducts(cached)
-        setLoading(false)
-        return
-      }
+    // Snapshot-first: CDN-cached route + IndexedDB version cache, with a
+    // direct Firestore read as the fallback when the snapshot is not built.
+    fetchActiveProducts()
+      .then((list) => {
+        if (cancelled) return
+        setProducts(list)
+        analytics.viewItemList(list, 'home')
+      })
+      .catch((err) => console.error('Failed to load products:', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-      try {
-        setLoading(true)
-        const collectionName = productsCollection(currency)
-        const querySnapshot = await getDocs(collection(db, collectionName))
-        const productList = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        setProducts(productList)
-        setCachedProducts(currency, productList)
-      } catch (err) {
-        console.error('Failed to load products:', err)
-      } finally {
-        setLoading(false)
-      }
+    return () => {
+      cancelled = true
     }
-
-    fetchProducts()
-  }, [currency])
+  }, [])
 
   if (loading) {
     return (

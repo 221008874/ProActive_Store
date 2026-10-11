@@ -1,26 +1,12 @@
 // GET /api/cron/rollup — nightly daily statistics.
 //
 // The Admin Overview reads stats_daily/{yyyy-mm-dd} instead of scanning
-// orders, which is what keeps the dashboard cheap. Covers the day that just
-// ended (server time is UTC; the store is Egypt, UTC+2, so the window is
-// the previous Egypt day).
+// orders, which is what keeps the dashboard cheap. Covers the Egypt day that
+// just ended; the rollup also runs on emulator-free deploys as a plain route.
 
 import { getDb } from "../_core/serverDb.js";
 import { isCronAuthorized } from "../_core/cronAuth.js";
-
-const EGYPT_OFFSET_HOURS = 2;
-
-function egyptDayBounds(now = new Date()) {
-  const local = new Date(now.getTime() + EGYPT_OFFSET_HOURS * 60 * 60 * 1000);
-  const dayStartLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - 1);
-  const start = new Date(dayStartLocal);
-  const end = new Date(dayStartLocal + 24 * 60 * 60 * 1000);
-  return {
-    key: end.toISOString().slice(0, 10),
-    start,
-    end
-  };
-}
+import { egyptPreviousDay } from "../_core/dayBounds.js";
 
 export default async function handler(req, res) {
   if (!isCronAuthorized(req)) {
@@ -29,7 +15,7 @@ export default async function handler(req, res) {
 
   try {
     const db = getDb();
-    const { key, start, end } = egyptDayBounds();
+    const { key, start, end } = egyptPreviousDay();
 
     const snap = await db
       .collection("orders_egp")

@@ -29,6 +29,7 @@ import {
 import StoreFooter from '../components/StoreFooter'
 import { loc } from '../utils/i18n.js'
 import { PriceTag, StockHint, SizePicker, ColorSwatches, QtyStepper, thumb } from '../ui'
+import { analytics } from '../services/analytics'
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -86,6 +87,7 @@ export default function ProductDetail() {
           if (variants.length > 0) setSelection(initialSelection(loaded))
           // Legacy (pre-migration) products still carry a flat flavour list.
           if (data.flavors?.length > 0) setSelectedFlavor(data.flavors[0])
+          analytics.viewItem(loaded)
         } else {
           navigate('/home')
         }
@@ -187,7 +189,10 @@ export default function ProductDetail() {
                 <ColorSwatches
                   colors={colors}
                   value={selection.colorId}
-                  onChange={(colorId) => setSelection((s) => pickColor(product, s, colorId))}
+                  onChange={(colorId) => {
+                    setSelection((s) => pickColor(product, s, colorId))
+                    analytics.selectItem(product, colorId, null)
+                  }}
                   lang={lang}
                 />
               </div>
@@ -202,7 +207,10 @@ export default function ProductDetail() {
                     sizes={sizes.map((s) => s.size)}
                     value={selection.size}
                     stockBySize={Object.fromEntries(sizes.map((s) => [s.size, s.stock]))}
-                    onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
+                    onChange={(size) => {
+                      setSelection((s) => pickSize(product, s.colorId, size))
+                      analytics.selectItem(product, selection.colorId, size)
+                    }}
                   />
                   {hasVariants && !variantReady && (
                     <div className="pa-error">{L('selectSizeFirst', 'Please choose an available size.', 'اختر مقاساً متاحاً.')}</div>

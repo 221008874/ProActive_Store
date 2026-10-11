@@ -25,6 +25,7 @@ import {
 import { validateDeliveryForm } from '../utils/validation'
 import { normalizeCouponCode } from '../utils/coupon'
 import { getJson, postJson } from '../services/api'
+import { analytics } from '../services/analytics'
 import {
   collection,
   doc,
@@ -694,6 +695,8 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
     setIsProcessing(true)
     setCheckoutError(null)
 
+    analytics.beginCheckout(items.map((i) => ({ id: i.id, productId: i.productId, variantId: i.variantId, price: i.price, quantity: i.quantity, title: i.title, color: i.color, size: i.size })), finalPrice)
+
     try {
       const result = await postJson('/placeOrder', {
         cart: items.map((item) => ({
@@ -760,6 +763,13 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
       clearCart()
       clearDeliveryInfo()
 
+      analytics.purchase({
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        totalPrice: result.total,
+        items: (result.items ?? []).map((item) => ({ variantId: `${item.productId}:${item.variantId}`, productId: item.productId, unitPrice: item.unitPrice, qty: item.qty, title: item.title, color: item.color, size: item.size }))
+      })
+
       navigate('/order-success', { state: { orderId: result.orderId, orderData } })
     } catch (error) {
       console.error('Checkout error:', error)
@@ -793,6 +803,7 @@ const initialCenter = mapEditorCenter || { lat: 30.0444, lng: 31.2357 }
     items,
     deliveryInfo,
     appliedCoupon,
+    finalPrice,
     paymentMethod,
     stockErrors,
     t,

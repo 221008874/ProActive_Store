@@ -56,6 +56,15 @@ export default async function handler(req, res) {
         by: auth.uid,
         at: now
       });
+      tx.set(db.collection("admin_logs").doc(), {
+        who: auth.uid,
+        whoEmail: auth.email ?? null,
+        action: "stock_adjust",
+        target: `${productId}/${variantId}`,
+        before: { stock: currentStock },
+        after: { stock: nextStock, reason },
+        at: now
+      });
 
       tx.set(db.doc("egp_settings/catalog"), { dirty: true, dirtyAt: now }, { merge: true });
 
