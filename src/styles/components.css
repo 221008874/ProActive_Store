@@ -112,31 +112,66 @@
 .pa-price-row { display: flex; align-items: baseline; flex-wrap: wrap; }
 
 /* ----------------------------- Store chrome -------------------------- */
-.pa-announce {
-  height: var(--pa-announce-h); background: var(--pa-ink); color: #fff; padding: 0 var(--pa-gutter);
-  display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600;
+/* One content width for the whole store. The review found the header spanning
+   one box, the hero another and the grid a third, so the edges never lined up;
+   .pa-container is the single container and every band and content block is
+   measured against it. Bands stay full-bleed and put their content inside a
+   .pa-container, so a coloured footer still reaches the screen edge while its
+   columns still align with the header above them. */
+.pa-container { width: 100%; max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter); }
+
+/* Content blocks that are page-level rather than band-level. They carry the
+   container themselves instead of being wrapped by one, so a page cannot end up
+   with the cap twice or not at all. */
+.pa-container,
+.pa-cats,
+.pa-section__head,
+.pa-grid,
+.pa-rail,
+.pa-about,
+.pa-toolbar,
+.pa-chips,
+.pa-empty,
+.pa-pdp__block,
+.pa-delivery,
+.pa-acc,
+.pa-sticky,
+.pa-line,
+.pa-block,
+.pa-summary,
+.pa-summary-card,
+.pa-ship-bar,
+.pa-receipt {
+  max-width: var(--pa-content-max);
+  margin-inline: auto;
 }
-.pa-announce .pa-lang { display: flex; gap: 10px; }
-.pa-announce .pa-lang a { color: var(--pa-on-dark-2); text-decoration: none; }
-.pa-announce .pa-lang a[aria-current="true"] { color: #fff; font-weight: 700; }
+
+.pa-announce {
+  height: var(--pa-announce-h); background: var(--pa-ink); color: var(--pa-paper);
+  display: flex; align-items: stretch; font-size: 12px; font-weight: 600;
+}
+.pa-announce__inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pa-announce .pa-lang { display: flex; gap: 10px; align-items: center; }
+.pa-announce .pa-lang a { color: inherit; text-decoration: none; }
+.pa-announce .pa-lang a[aria-current="true"] { font-weight: 700; }
 
 .pa-header {
-  height: var(--pa-header-h); display: flex; align-items: center; justify-content: space-between;
-  padding: 0 4px; border-bottom: 1px solid var(--pa-line); background: var(--pa-paper);
+  height: var(--pa-header-h); display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--pa-line); background: var(--pa-paper);
   position: sticky; top: 0; z-index: 20;
 }
+.pa-header__bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .pa-logo { font-family: var(--pa-font-display); font-size: 22px; font-weight: 700; letter-spacing: .04em; text-decoration: none; }
 .pa-header .pa-count { position: absolute; top: 6px; inset-inline-end: 5px; }
 .pa-header__nav { display: none; }
 .pa-header__search { display: none; }
 @media (min-width: 768px) {
-  .pa-header { padding: 0 24px; gap: 24px; }
   .pa-header__nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; }
   .pa-header__nav a { text-decoration: none; padding: 8px 0; }
   .pa-header__search {
     display: flex; flex: 1 1 280px; max-width: 360px; height: 44px; align-items: center;
-    padding: 0 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
-    background: var(--pa-paper); font: 500 14px var(--pa-font-body); color: var(--pa-muted);
+    padding-inline: 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
+    background: var(--pa-paper); font: 500 14px var(--pa-font-body); color: var(--pa-ink);
   }
   /* The field IS the search control on desktop — hiding the icon stops the two
      affordances stacking side by side. */
@@ -158,8 +193,6 @@
 .pa-has-tabbar { padding-bottom: calc(var(--pa-tabbar-h) + env(safe-area-inset-bottom)); }
 @media (min-width: 768px) { .pa-has-tabbar { padding-bottom: 0; } }
 
-.pa-container { width: 100%; max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter); }
-
 /* Hero */
 .pa-hero {
   position: relative; min-height: 320px; background: var(--pa-tint-6) center / cover;
@@ -180,7 +213,11 @@
 .pa-hero__dots button[data-on="true"] { background: #fff; }
 .pa-hero__side { display: none; }
 @media (min-width: 1024px) {
-  .pa-hero-wrap { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; max-width: var(--pa-content-max); margin-inline: auto; padding: 16px var(--pa-gutter) 0; }
+  .pa-hero-wrap {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 16px;
+    max-width: var(--pa-content-max); margin-inline: auto;
+    padding: 16px var(--pa-gutter) 0;
+  }
   .pa-hero-wrap .pa-hero { border-radius: var(--pa-radius); }
   .pa-hero__side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
 }
@@ -256,8 +293,10 @@
 
 /* Footer: four columns on desktop, stacked on a phone. The delivery note is
    the last column because it is the one thing a shopper checks before the
-   bag, not after. */
-.pa-footer { margin-top: 14px; padding: 20px var(--pa-gutter) 16px; border-top: 1px solid var(--pa-line); display: flex; flex-direction: column; gap: 10px; }
+   bag, not after. The band is full-bleed; .pa-container keeps its columns on
+   the same measure as the header and the pages above. */
+.pa-footer { margin-top: 14px; padding: 20px 0 16px; border-top: 1px solid var(--pa-line); }
+.pa-footer__inner { display: flex; flex-direction: column; gap: 10px; }
 .pa-footer__links { display: flex; gap: 18px; font-size: 13px; font-weight: 600; }
 .pa-footer__brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pa-footer__col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -270,20 +309,23 @@
   border-radius: var(--pa-radius); font: 600 13px var(--pa-font-body); cursor: pointer;
 }
 @media (min-width: 1024px) {
-  .pa-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
+  .pa-footer__inner { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
   .pa-footer__links { flex-direction: column; gap: 8px; }
 }
 
-/* Announcement bar toggles (language + theme on desktop) */
+/* Announcement bar toggles (language + theme on desktop). The bar paints
+   --pa-ink, so its text paints --pa-paper: the previous hard-coded #fff plus a
+   fixed --pa-on-dark-2 turned the strip into pale-on-pale in dark mode, where
+   --pa-ink is the light colour. */
 .pa-announce .pa-lang a, .pa-announce .pa-lang button {
   background: transparent; border: 0; padding: 0; cursor: pointer;
-  color: var(--pa-on-dark-2); font: 600 12px var(--pa-font-body);
+  color: inherit; font: 600 12px var(--pa-font-body);
 }
-.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { color: #fff; font-weight: 700; }
+.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { font-weight: 700; }
 .pa-announce__theme { display: none; }
 @media (min-width: 1024px) { .pa-announce__theme { display: inline-flex; } }
 .pa-announce__sep { display: none; }
-@media (min-width: 1024px) { .pa-announce__sep { display: inline; color: var(--pa-on-dark-2); } }
+@media (min-width: 1024px) { .pa-announce__sep { display: inline; opacity: .6; } }
 
 /* ---------------------------- Header + mega menu ------------------------- */
 .pa-header__nav { display: none; }

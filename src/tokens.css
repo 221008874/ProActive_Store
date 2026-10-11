@@ -76,8 +76,8 @@
   --pa-announce-h: 36px;
   --pa-tabbar-h: 64px;
   --pa-sticky-h: 76px;
-  --pa-gutter: 16px;         /* phone side padding */
-  --pa-content-max: 1360px;  /* desktop content cap */
+  --pa-gutter: 16px;         /* page side padding (phone) */
+  --pa-content-max: 1440px;  /* the one content width: header, pages and footer all stop here */
 
 
   /* ---- Breakpoints (reference only; CSS vars can't be used in @media) ----
@@ -85,7 +85,7 @@
      desktop >= 1440 (5 col) · admin < 768 folds to cards + bottom bar        */
   --pa-grid-cols: 2;
 }
-@media (min-width: 768px)  { :root { --pa-grid-cols: 3; --pa-gutter: 24px; } }
+@media (min-width: 768px)  { :root { --pa-grid-cols: 3; --pa-gutter: 40px; } }
 @media (min-width: 1024px) { :root { --pa-grid-cols: 4; } }
 @media (min-width: 1440px) { :root { --pa-grid-cols: 5; } }
 

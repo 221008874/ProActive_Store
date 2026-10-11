@@ -11,19 +11,21 @@ import { Count, IconButton } from "./primitives";
 export function AnnouncementBar({ text, lang, onLang, theme, onTheme, themeLabels = {} }) {
   return (
     <div className="pa-announce">
-      <span>{text}</span>
-      <span className="pa-lang">
-        <span className="pa-announce__sep" aria-hidden="true">·</span>
-        <button type="button" onClick={() => onLang("en")} aria-current={lang === "en"} lang="en">EN</button>
-        <button type="button" onClick={() => onLang("ar")} aria-current={lang === "ar"} lang="ar">عربي</button>
-        <span className="pa-announce__sep" aria-hidden="true">·</span>
-        {onTheme && (
-          <button type="button" className="pa-announce__theme" onClick={onTheme}
-            aria-label={theme === "dark" ? themeLabels.light : themeLabels.dark}>
-            {theme === "dark" ? (themeLabels.light ?? "Light") : (themeLabels.dark ?? "Dark")}
-          </button>
-        )}
-      </span>
+      <div className="pa-container pa-announce__inner">
+        <span>{text}</span>
+        <span className="pa-lang">
+          <span className="pa-announce__sep" aria-hidden="true">·</span>
+          <button type="button" onClick={() => onLang("en")} aria-current={lang === "en"} lang="en">EN</button>
+          <button type="button" onClick={() => onLang("ar")} aria-current={lang === "ar"} lang="ar">عربي</button>
+          <span className="pa-announce__sep" aria-hidden="true">·</span>
+          {onTheme && (
+            <button type="button" className="pa-announce__theme" onClick={onTheme}
+              aria-label={theme === "dark" ? themeLabels.light : themeLabels.dark}>
+              {theme === "dark" ? (themeLabels.light ?? "Light") : (themeLabels.dark ?? "Dark")}
+            </button>
+          )}
+        </span>
+      </div>
     </div>
   );
 }
@@ -46,56 +48,61 @@ export function Header({
   const to = (href) => (Tag === "a" ? { href } : { to: href });
   return (
     <header className="pa-header">
-      <IconButton label={labels.menu ?? "Open menu"} onClick={onMenu}><IconMenu /></IconButton>
-      <Tag className="pa-logo" {...to(logoHref)}>PROACTIVE</Tag>
+      {/* The bar is the container: logo, nav, search and bag all sit on the same
+          measure as the page content below, instead of the header owning a
+          second, wider padding of its own. */}
+      <div className="pa-container pa-header__bar">
+        <IconButton label={labels.menu ?? "Open menu"} onClick={onMenu}><IconMenu /></IconButton>
+        <Tag className="pa-logo" {...to(logoHref)}>PROACTIVE</Tag>
 
-      <nav className="pa-header__nav" aria-label="Main">
-        {nav.map((n) => (
-          // An entry with children opens a mega-menu; the link itself is the
-          // section landing page, so it works without the menu too.
-          <span key={n.href} className="pa-navitem">
-            <Tag {...to(n.href)} className={`pa-navlink ${n.sale ? "pa-navlink--sale" : ""}`}>{n.label}</Tag>
-            {n.children?.length > 0 && (
-              <div className="pa-mega">
-                {n.children.map((c) => (
-                  <Tag key={c.href} {...to(c.href)}>{c.label}</Tag>
-                ))}
-              </div>
-            )}
-          </span>
-        ))}
-      </nav>
+        <nav className="pa-header__nav" aria-label="Main">
+          {nav.map((n) => (
+            // An entry with children opens a mega-menu; the link itself is the
+            // section landing page, so it works without the menu too.
+            <span key={n.href} className="pa-navitem">
+              <Tag {...to(n.href)} className={`pa-navlink ${n.sale ? "pa-navlink--sale" : ""}`}>{n.label}</Tag>
+              {n.children?.length > 0 && (
+                <div className="pa-mega">
+                  {n.children.map((c) => (
+                    <Tag key={c.href} {...to(c.href)}>{c.label}</Tag>
+                  ))}
+                </div>
+              )}
+            </span>
+          ))}
+        </nav>
 
-      {onSearchSubmit ? (
-        <form
-          className="pa-header__search"
-          role="search"
-          onSubmit={(e) => { e.preventDefault(); onSearchSubmit?.(searchValue ?? ""); }}
-        >
-          <IconSearch width={18} height={18} />
-          <input
-            type="search"
-            value={searchValue ?? ""}
-            onChange={(e) => onSearchChange?.(e.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={labels.search ?? "Search"}
-          />
-        </form>
-      ) : (
-        <button type="button" className="pa-header__search" onClick={onSearch}>{searchPlaceholder}</button>
-      )}
+        {onSearchSubmit ? (
+          <form
+            className="pa-header__search"
+            role="search"
+            onSubmit={(e) => { e.preventDefault(); onSearchSubmit?.(searchValue ?? ""); }}
+          >
+            <IconSearch width={18} height={18} />
+            <input
+              type="search"
+              value={searchValue ?? ""}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={labels.search ?? "Search"}
+            />
+          </form>
+        ) : (
+          <button type="button" className="pa-header__search" onClick={onSearch}>{searchPlaceholder}</button>
+        )}
 
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <IconButton label={labels.search ?? "Search"} onClick={onSearch} className="pa-header__search-icon">
-          <IconSearch />
-        </IconButton>
-        <Tag className="pa-icon-btn" aria-label={`${labels.saved ?? "Saved"}, ${savedCount}`} {...to(savedHref)}>
-          <IconHeart />
-          {savedCount > 0 && <Count n={savedCount} />}
-        </Tag>
-        <Tag className="pa-icon-btn" aria-label={`${labels.bag ?? "Bag"}, ${bagCount}`} {...to(bagHref)}>
-          <IconBag /><Count n={bagCount} />
-        </Tag>
+        <div className="pa-header__actions">
+          <IconButton label={labels.search ?? "Search"} onClick={onSearch} className="pa-header__search-icon">
+            <IconSearch />
+          </IconButton>
+          <Tag className="pa-icon-btn" aria-label={`${labels.saved ?? "Saved"}, ${savedCount}`} {...to(savedHref)}>
+            <IconHeart />
+            {savedCount > 0 && <Count n={savedCount} />}
+          </Tag>
+          <Tag className="pa-icon-btn" aria-label={`${labels.bag ?? "Bag"}, ${bagCount}`} {...to(bagHref)}>
+            <IconBag /><Count n={bagCount} />
+          </Tag>
+        </div>
       </div>
     </header>
   );

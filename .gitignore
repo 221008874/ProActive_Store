@@ -33,3 +33,6 @@ firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 gcp-key*.json
 firestore-export*/
+
+# Playwright screenshot output from scripts/ui-shots.mjs
+shots/
