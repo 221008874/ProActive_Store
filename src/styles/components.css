@@ -75,10 +75,13 @@
 .pa-size[disabled], .pa-size--soldout {          /* sold-out sizes are crossed out, never hidden */
   border: 1px dashed var(--pa-line); color: var(--pa-disabled); text-decoration: line-through; cursor: not-allowed;
 }
-.pa-swatches { display: flex; gap: 14px; align-items: center; padding: 3px; }
+.pa-swatches { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 3px; }
 .pa-swatch {
   /* 44px hit target with a 38px painted circle: the colour lives only in the
-     content box, so `--pa-tap` is honoured without growing the visual swatch. */
+     content box, so `--pa-tap` is honoured without growing the visual swatch.
+     `flex: 0 0 auto` is load-bearing — as a plain flex item the browser shrank
+     the width to fit the 260px sidebar and the circles came out as ellipses. */
+  flex: 0 0 auto;
   width: var(--pa-tap); height: var(--pa-tap); padding: 3px;
   box-sizing: content-box; border-radius: 50%; border: 0;
   cursor: pointer; background: var(--sw, var(--pa-stone)) content-box;
@@ -161,7 +164,10 @@
   position: sticky; top: 0; z-index: 20;
 }
 .pa-header__bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.pa-logo { font-family: var(--pa-font-display); font-size: 22px; font-weight: 700; letter-spacing: .04em; text-decoration: none; }
+/* The action cluster must not be a shrinkable flex item: on a phone it wrapped
+   the bag onto a second line inside the 56px header. */
+.pa-header__actions { display: flex; align-items: center; flex: 0 0 auto; }
+.pa-logo { font-family: var(--pa-font-display); font-size: 22px; font-weight: 700; letter-spacing: .04em; text-decoration: none; white-space: nowrap; }
 .pa-header .pa-count { position: absolute; top: 6px; inset-inline-end: 5px; }
 .pa-header__nav { display: none; }
 .pa-header__search { display: none; }
@@ -378,12 +384,49 @@
 .pa-footer__links a { text-decoration: none; }
 
 /* ------------------------ Browse (filters, chips) -------------------- */
-.pa-toolbar { display: flex; gap: 8px; padding: 10px var(--pa-gutter); border-bottom: 1px solid var(--pa-line); align-items: center; }
-.pa-chips { display: flex; gap: 8px; padding: 10px var(--pa-gutter); overflow-x: auto; scrollbar-width: none; }
+/* The page is the container: the shop is the one listing that has to line up
+   with the header above it and the footer below, and giving it its own padding
+   is what pushed the title into the screen edge. */
+.pa-shop {
+  max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter);
+}
+
+/* Phone header row: back, title + count, bag. */
+.pa-shop__head { display: flex; align-items: center; gap: 8px; padding-block: 8px; }
+.pa-shop__heading { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pa-shop__heading h1 { font-size: 22px; line-height: 1.2; }
+
+/* Desktop heading: breadcrumb, then the title and the count side by side. */
+.pa-shop__intro { display: none; }
+.pa-shop__crumbs {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--pa-muted);
+}
+.pa-shop__crumbs a { text-decoration: none; }
+.pa-shop__crumbs a:hover { text-decoration: underline; }
+.pa-shop__crumbs [aria-current="page"] { color: var(--pa-ink); font-weight: 600; }
+
+.pa-toolbar {
+  display: flex; gap: 8px; align-items: center;
+  margin-inline: calc(-1 * var(--pa-gutter)); padding: 10px var(--pa-gutter);
+  border-bottom: 1px solid var(--pa-line);
+}
+.pa-shop__mobile-only { display: inline-flex; }
+.pa-shop__sort { display: none; align-items: center; gap: 10px; }
+.pa-shop__sort-label { font-size: 13px; font-weight: 700; }
+.pa-shop__sort .pa-field { flex: 0 0 auto; }
+.pa-shop__sort .pa-select { height: 44px; width: auto; min-width: 200px; }
+
+.pa-chips { display: flex; gap: 8px; padding: 10px 0; overflow-x: auto; scrollbar-width: none; }
 .pa-chip {
   flex: 0 0 auto; height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;
   background: var(--pa-stone); border: 0; font: 600 13px var(--pa-font-body); cursor: pointer; color: var(--pa-ink);
 }
+.pa-filter-panel { display: flex; flex-direction: column; gap: 24px; }
+.pa-filter-panel__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pa-shop__more { padding: 24px 0 48px; display: flex; justify-content: center; }
+.pa-shop__results { min-width: 0; }
+
 .pa-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
 .pa-sheet {
   position: fixed; inset-inline: 0; bottom: 0; z-index: 41; max-height: 88vh; overflow: auto;
@@ -392,9 +435,21 @@
 }
 .pa-sheet__title { display: flex; justify-content: space-between; align-items: center; font-family: var(--pa-font-display); font-size: 20px; font-weight: 700; }
 .pa-group-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px; }
+.pa-layout-shop { display: grid; gap: 32px; }
 @media (min-width: 1024px) {
-  .pa-layout-shop { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; }
-  .pa-sidebar-filters { position: sticky; top: calc(var(--pa-header-h) + 16px); align-self: start; display: flex; flex-direction: column; gap: 22px; }
+  /* The phone header row is a duplicate of the desktop heading, not a
+     companion to it. */
+  .pa-shop__head { display: none; }
+  .pa-shop__intro { display: block; padding-top: 24px; }
+  .pa-shop__intro .pa-shop__crumbs { margin-bottom: 12px; }
+  .pa-shop__heading h1 { font-size: var(--pa-fs-heading); line-height: var(--pa-lh-heading); }
+  .pa-shop__mobile-only { display: none; }
+  .pa-shop__sort { display: flex; }
+
+  .pa-layout-shop { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+  .pa-sidebar-filters {
+    position: sticky; top: 96px; display: flex; flex-direction: column; gap: 22px;
+  }
 }
 
 /* ------------------------------ Product page ------------------------- */

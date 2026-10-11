@@ -2,47 +2,38 @@
 import { chromium } from 'playwright'
 import { buildSnapshot } from './ui-fixture.mjs'
 
-const routes = process.argv.slice(2).length
-  ? process.argv.slice(2)
-  : ['/home', '/shop', '/cart']
-
 const snapshot = buildSnapshot()
 const browser = await chromium.launch()
-const ctx = await browser.newContext({ viewport: { width: 1920, height: 1000 }, locale: 'ar-EG' })
-await ctx.addInitScript(() => { localStorage.setItem('language', 'ar'); localStorage.setItem('theme', 'light') })
-await ctx.route('**/api/catalog*', (r) => r.fulfill({ json: snapshot }))
-await ctx.route('**/api/product*', (r) => r.fulfill({ json: snapshot.products[0] }))
-await ctx.route('**/api/geocode*', (r) => r.fulfill({ json: [] }))
-await ctx.route('https://ipapi.co/**', (r) => r.fulfill({ json: { country_code: 'EG' } }))
-const page = await ctx.newPage()
 
-const measure = () => page.evaluate(() => {
-  const box = (s) => {
-    const e = document.querySelector(s)
-    if (!e) return s + ': MISSING'
-    const r = e.getBoundingClientRect()
-    return s + ': ' + Math.round(r.left) + '..' + Math.round(r.right) + ' (w ' + Math.round(r.width) + ')'
+async function shot(width) {
+  const ctx = await browser.newContext({ viewport: { width, height: 900 }, locale: 'ar-EG' })
+  await ctx.addInitScript(() => { localStorage.setItem('language', 'ar'); localStorage.setItem('theme', 'light') })
+  await ctx.route('**/api/catalog*', (r) => r.fulfill({ json: snapshot }))
+  await ctx.route('https://ipapi.co/**', (r) => r.fulfill({ json: { country_code: 'EG' } }))
+  const page = await ctx.newPage()
+  await page.goto('http://localhost:5173/shop', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  const before = await page.evaluate(() => document.querySelectorAll('.pa-sheet').length)
+  const sidebar = await page.evaluate(() => document.querySelectorAll('.pa-sidebar-filters').length)
+  const filterBtn = page.getByRole('button', { name: /تصفية|Filter/ }).first()
+  const hasFilterBtn = await filterBtn.count()
+  let after = 'n/a (desktop: no filter button)'
+  if (hasFilterBtn) {
+    await filterBtn.click()
+    await page.waitForTimeout(400)
+    after = await page.evaluate(() => document.querySelectorAll('.pa-sheet').length)
   }
-  return [
-    box('.pa-announce .pa-container'),
-    box('.pa-header .pa-container'),
-    box('.pa-hero-wrap'),
-    box('.pa-cats'),
-    box('.pa-grid'),
-    box('.pa-section__head'),
-    box('.pa-about'),
-    box('.pa-layout-shop'),
-    box('.pa-sidebar-filters'),
-    box('.pa-footer__inner')
-  ]
-})
-
-for (const r of routes) {
-  await page.goto('http://localhost:5173' + r, { waitUntil: 'networkidle' })
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-  await page.waitForTimeout(250)
-  console.log('=== ' + r)
-  console.log((await measure()).join('\n'))
+  await page.screenshot({ path: `shots/probe-sheet-${width}.png` })
+  let closed = 'n/a'
+  if (hasFilterBtn) {
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+    closed = await page.evaluate(() => document.querySelectorAll('.pa-sheet').length)
+  }
+  console.log(`${width}px  sidebar=${sidebar}  sheet closed=${before}  open=${after}  after Escape=${closed}`)
+  await ctx.close()
 }
 
+await shot(390)
+await shot(1440)
 await browser.close()

@@ -50,6 +50,9 @@ export const IconShare = (p) => (
 
 export const IconFilter = (p) => <svg {...base} {...p}><path d="M4 6h16M7 12h10M10 18h4" /></svg>;
 
+// Sort: two rows of decreasing length, the smallest control that says "order".
+export const IconSort = (p) => <svg {...base} {...p}><path d="M4 7h12M4 12h9M4 17h6" /><path d="M17 5v14m0 0 3-3m-3 3-3-3" /></svg>;
+
 export const IconCheck = (p) => <svg {...base} {...p}><path d="M5 12.5l4.5 4.5L19 7" /></svg>;
 
 // Plus/minus are drawn on a 24 box but read small: keep the stroke weight so
