@@ -241,13 +241,22 @@ export async function writeSnapshot(db, snapshot) {
     if (!nextIds.has(id)) batch.delete(db.doc(`catalog_snapshots/${id}`));
   }
 
-  batch.update(db.doc(FLAG_DOC), {
-    dirty: false,
-    version: snapshot.version,
-    lastBuiltAt: snapshot.builtAt,
-    shards: snapshot.shards.length,
-    productCount: snapshot.productCount
-  });
+  // set + merge, not update: update() requires the document to already exist,
+  // and this is the write that creates it. On a fresh database the flag doc has
+  // never been written, so update() fails NOT_FOUND and the very first rebuild
+  // - the one an owner runs by hand after adding their first product - dies
+  // with a 500.
+  batch.set(
+    db.doc(FLAG_DOC),
+    {
+      dirty: false,
+      version: snapshot.version,
+      lastBuiltAt: snapshot.builtAt,
+      shards: snapshot.shards.length,
+      productCount: snapshot.productCount
+    },
+    { merge: true }
+  );
 
   await batch.commit();
   return { version: snapshot.version, productCount: snapshot.productCount, shards: snapshot.shards.length };
@@ -456,12 +465,16 @@ export async function rebuildShardsPartial(db, { now = Date.now(), lastBuiltAt =
     meta: { ...meta.meta, version, builtAt: now }
   });
 
-  batch.update(db.doc(FLAG_DOC), {
-    dirty: false,
-    version,
-    lastBuiltAt: now,
-    productCount: meta.productCount
-  });
+  batch.set(
+    db.doc(FLAG_DOC),
+    {
+      dirty: false,
+      version,
+      lastBuiltAt: now,
+      productCount: meta.productCount
+    },
+    { merge: true }
+  );
 
   await batch.commit();
 
