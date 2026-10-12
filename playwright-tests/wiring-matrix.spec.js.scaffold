@@ -1,0 +1,297 @@
+import { test, expect } from '@playwright/test';
+
+// Playwright tests for the wiring matrix
+// Run against Firebase emulator: npx playwright test --project=chromium
+
+const ADMIN_URL = 'http://localhost:5173';
+const STORE_URL = 'http://localhost:5174';
+
+// Test credentials (set via setAdmin.mjs)
+const ADMIN_EMAIL = 'admin@proactive.test';
+const ADMIN_PASSWORD = 'admin123';
+
+async function loginAsAdmin(page) {
+  await page.goto(`${ADMIN_URL}/login`);
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button[type="submit"]');
+  await expect(page).toHaveURL(/\/dashboard/);
+}
+
+async function getAuthToken(page) {
+  return await page.evaluate(() => {
+    return new Promise(resolve => {
+      const unsubscribe = firebase.auth().onAuthStateChanged(user => {
+        unsubscribe();
+        if (user) user.getIdToken().then(resolve);
+      });
+    });
+  });
+}
+
+test.describe('Wiring Matrix Tests', () => {
+  let adminPage;
+  let storePage;
+  let context;
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    adminPage = await context.newPage();
+    storePage = await context.newPage();
+    
+    await loginAsAdmin(adminPage);
+  });
+
+  test.afterAll(async () => {
+    await context.close();
+  });
+
+  // ─── Products ────────────────────────────────────────────────────────────────
+
+  test('Row #1: Create product in Admin → appears in Store Home/Shop', async () => {
+    // Create product in Admin
+    await adminPage.goto(`${ADMIN_URL}/dashboard/products`);
+    await adminPage.click('button:has-text("إضافة منتج")');
+    
+    // Fill required fields
+    await adminPage.fill('#e-title-en', 'E2E Test Dress');
+    await adminPage.fill('#e-title-ar', 'فستان اختبار E2E');
+    await adminPage.fill('#e-price', '400');
+    
+    // Add color
+    await adminPage.click('button:has-text("لون")');
+    await adminPage.fill('#ca-en', 'Pink');
+    await adminPage.fill('#ca-ar', 'وردي');
+    await adminPage.fill('#ca-hex', '#FF69B4');
+    await adminPage.click('button:has-text("إضافة")');
+    
+    // Add size
+    await adminPage.click('button:has-text("M")');
+    
+    // Add photo (skip for speed - use placeholder)
+    // Save
+    await adminPage.click('button:has-text("حفظ")');
+    await expect(adminPage.locator('text=تم حفظ المنتج')).toBeVisible();
+    
+    // Get product ID from URL or list
+    const productId = await adminPage.locator('[data-product-id]').first().getAttribute('data-product-id');
+    
+    // Wait for catalog rebuild (or trigger manually)
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store Home
+    await storePage.goto(`${STORE_URL}/home`);
+    await expect(storePage.locator(`text=E2E Test Dress`)).toBeVisible({ timeout: 10000 });
+    
+    // Check Store Shop
+    await storePage.goto(`${STORE_URL}/shop`);
+    await expect(storePage.locator(`text=E2E Test Dress`)).toBeVisible();
+  });
+
+  test('Row #2: Edit variant stock in Admin → updates Store Product page', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/products`);
+    await adminPage.click('text=E2E Test Dress >> button:has-text("تعديل")');
+    
+    // Change stock for Pink M from 3 to 7
+    await adminPage.fill('input[aria-label*="Pink M stock"]', '7');
+    await adminPage.click('button:has-text("حفظ")');
+    await expect(adminPage.locator('text=تم حفظ المنتج')).toBeVisible();
+    
+    // Publish
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store Product page
+    await storePage.goto(`${STORE_URL}/product/${productId}`);
+    await expect(storePage.locator('text=7 متاح')).toBeVisible();
+  });
+
+  // ─── Store Settings ──────────────────────────────────────────────────────────
+
+  test('Row #9: Change free shipping threshold in Admin → updates Bag progress bar', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.fill('input[aria-label="الشحن المجاني للطلبات فوق"]', '1000');
+    await adminPage.blur('input[aria-label="الشحن المجاني للطلبات فوق"]');
+    await expect(adminPage.locator('text=تم الحفظ')).toBeVisible();
+    
+    // Publish
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store Bag
+    await storePage.goto(`${STORE_URL}/cart`);
+    await storePage.fill('input[placeholder="أضف منتج"]', 'test'); // Add item first
+    await expect(storePage.locator('text=1000 ج.م')).toBeVisible(); // Free shipping threshold shown
+  });
+
+  test('Row #10: Change WhatsApp number in Admin → updates footer link', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.fill('input[aria-label="رقم الواتساب"]', '01098765432');
+    await adminPage.blur('input[aria-label="رقم الواتساب"]');
+    await expect(adminPage.locator('text=تم الحفظ')).toBeVisible();
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store footer
+    await storePage.goto(`${STORE_URL}/home`);
+    const whatsappLink = await storePage.locator('a[href^="https://wa.me/01098765432"]').getAttribute('href');
+    expect(whatsappLink).toContain('01098765432');
+  });
+
+  // ─── Governorates ────────────────────────────────────────────────────────────
+
+  test('Row #11: Change Cairo shipping cost in Admin → updates Delivery step', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    const cairoRow = adminPage.locator('tr:has-text("Cairo")');
+    await cairoRow.locator('input[aria-label*="الشحن"]').fill('70');
+    await cairoRow.locator('input[aria-label*="الشحن"]').blur();
+    await expect(adminPage.locator('text=تم الحفظ')).toBeVisible();
+    
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store Delivery step
+    await storePage.goto(`${STORE_URL}/cart`);
+    // Add item, go to delivery step, select Cairo
+    // ... verify shipping cost = 70
+  });
+
+  // ─── Coupons ────────────────────────────────────────────────────────────────
+
+  test('Row #12: Create coupon in Admin → accepted in Bag', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/coupons`);
+    await adminPage.fill('#c-count', '1');
+    await adminPage.fill('#c-prefix', 'E2E');
+    await adminPage.selectOption('#c-type', 'percent');
+    await adminPage.fill('#c-value', '15');
+    await adminPage.fill('#c-min', '100');
+    await adminPage.click('button:has-text("إنشاء 1 كود")');
+    await expect(adminPage.locator('text=تم إنشاء 1 كود')).toBeVisible();
+    
+    // Get the generated code
+    const code = await adminPage.locator('tr td:first-child b').first().textContent();
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Check Store Bag coupon box
+    await storePage.goto(`${STORE_URL}/cart`);
+    await storePage.fill('input[placeholder="كود الخصم"]', code);
+    await storePage.click('button:has-text("تطبيق")');
+    await expect(storePage.locator('text=خصم 15%')).toBeVisible();
+  });
+
+  test('Row #13: Disable coupon in Admin → rejected in Bag', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/coupons`);
+    // Toggle coupon to inactive
+    await adminPage.click(`tr:has-text("${code}") button[role="switch"]`);
+    await expect(adminPage.locator('text=تم الحفظ')).toBeVisible();
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    await expect(adminPage.locator('text=الكتالوج اتنشر')).toBeVisible();
+    
+    // Try to use disabled coupon
+    await storePage.goto(`${STORE_URL}/cart`);
+    await storePage.fill('input[placeholder="كود الخصم"]', code);
+    await storePage.click('button:has-text("تطبيق")');
+    await expect(storePage.locator('text=هذا الكود غير متاح')).toBeVisible();
+  });
+
+  // ─── Orders ──────────────────────────────────────────────────────────────────
+
+  test('Row #15: Place order in Store → appears in Admin Orders', async () => {
+    // Add item to bag and checkout
+    await storePage.goto(`${STORE_URL}/shop`);
+    await storePage.click('text=Floral Summer Dress');
+    await storePage.click('button:has-text("أحمر")');
+    await storePage.click('button:has-text("M")');
+    await storePage.click('button:has-text("ضيف للعربية")');
+    
+    await storePage.goto(`${STORE_URL}/cart`);
+    // Fill delivery form
+    await storePage.fill('input[name="name"]', 'E2E Customer');
+    await storePage.fill('input[name="phone"]', '01011112222');
+    await storePage.selectOption('select[name="governorate"]', 'cairo');
+    await storePage.fill('input[name="city"]', 'Cairo');
+    await storePage.fill('input[name="address"]', '123 Test St');
+    await storePage.click('button:has-text("متابعة")');
+    await storePage.click('button:has-text("تأكيد الطلب")');
+    
+    // Get order number from success page
+    const orderNumber = await storePage.locator('.order-number').textContent();
+    
+    // Check Admin Orders
+    await adminPage.goto(`${ADMIN_URL}/dashboard/orders`);
+    await expect(adminPage.locator(`text=${orderNumber}`)).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Row #16: Cancel order in Admin → restocks Store stock', async () => {
+    // Place order first (reuse from above)
+    // ... then cancel in Admin
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/orders`);
+    await adminPage.click(`tr:has-text("${orderNumber}")`);
+    await adminPage.click('button:has-text("إلغاء")');
+    await adminPage.click('button:has-text("تأكيد")');
+    
+    // Check stock restored in Firestore
+    const admin = require('firebase-admin');
+    const db = admin.firestore();
+    const variantDoc = await db.doc('products_egp/prod-001/variants/red_M').get();
+    expect(variantDoc.data().stock).toBe(3); // Was 2, ordered 1, cancelled → 3
+    
+    // Publish and check Store
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    
+    await storePage.goto(`${STORE_URL}/product/prod-001`);
+    await expect(storePage.locator('text=3 متاح')).toBeVisible();
+  });
+
+  // ─── Categories/Collections ──────────────────────────────────────────────────
+
+  test('Row #6: Create category in Admin → appears in Store nav', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/categories`);
+    await adminPage.click('button:has-text("إضافة قسم")');
+    await adminPage.fill('#ce-en', 'Accessories');
+    await adminPage.fill('#ce-ar', 'إكسسوارات');
+    await adminPage.fill('#ce-slug', 'accessories');
+    await adminPage.click('button:has-text("حفظ")');
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    
+    await storePage.goto(`${STORE_URL}/shop`);
+    await expect(storePage.locator('text=Accessories')).toBeVisible();
+  });
+
+  test('Row #7: Create collection in Admin → appears on Store Home', async () => {
+    await adminPage.goto(`${ADMIN_URL}/dashboard/categories`);
+    await adminPage.click('button:has-text("إضافة تشكيلة")');
+    await adminPage.fill('#co-en', 'Summer Essentials');
+    await adminPage.fill('#co-ar', 'أساسيات الصيف');
+    await adminPage.fill('#co-slug', 'summer-essentials');
+    await adminPage.selectOption('#co-type', 'hero');
+    // Pick products
+    await adminPage.click('button[aria-pressed="false"]:has-text("Floral Summer Dress")');
+    await adminPage.click('button:has-text("حفظ")');
+    
+    await adminPage.goto(`${ADMIN_URL}/dashboard/operations`);
+    await adminPage.click('button:has-text("انشر التغييرات")');
+    
+    await storePage.goto(`${STORE_URL}/home`);
+    await expect(storePage.locator('text=Summer Essentials')).toBeVisible();
+  });
+});
+
+// Screenshot helper
+async function screenshot(page, name) {
+  await page.screenshot({ path: `screenshots/${name}-${Date.now()}.png`, fullPage: true });
+}
