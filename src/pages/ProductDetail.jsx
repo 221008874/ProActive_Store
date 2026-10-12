@@ -16,6 +16,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
+import { analytics } from '../services/analytics'
 import {
   Accordion, Badge, Button, ColorDot, EmptyState, ErrorState, IconHeart, IconShare,
   PriceTag, ProductCard, ProductRail, SizePicker, Skeleton, StockHint, thumb,
@@ -75,7 +76,7 @@ export default function ProductDetail() {
     let alive = true
 
     fetchProduct(id)
-      .then((p) => { if (!alive) return; p ? setProduct(p) : setNotFound(true) })
+      .then((p) => { if (!alive) return; p ? (setProduct(p), analytics.viewItem(p)) : setNotFound(true) })
       .catch(() => { if (alive) setNotFound(true) })
 
     // "You may also like": the same category, everything else. A second read is
@@ -238,7 +239,11 @@ export default function ProductDetail() {
                 {colors.map((c) => (
                   <ColorDot key={c.id} color={c} lang={lang}
                     selected={selection.colorId === c.id}
-                    onSelect={() => setSelection((s) => pickColor(product, s, c.id))} />
+                    onSelect={() => {
+                      const next = pickColor(product, selection, c.id)
+                      setSelection(next)
+                      if (next.colorId) analytics.selectItem(product, loc(next.color?.name, lang) ?? next.colorId, selection.size)
+                    }} />
                 ))}
               </div>
             </div>
@@ -253,7 +258,11 @@ export default function ProductDetail() {
                 sizes={sizes.map((s) => s.size)}
                 value={selection.size}
                 stockBySize={Object.fromEntries(sizes.map((s) => [s.size, s.stock]))}
-                onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
+                onChange={(size) => {
+                  setSelection((s) => pickSize(product, s.colorId, size))
+                  const nextColor = pickSize(product, selection, size).colorId
+                  if (nextColor && size) analytics.selectItem(product, loc(selection.colorId ? product.colors?.find(c => c.id === selection.colorId)?.name : null, lang) ?? '', size)
+                }}
               />
               <StockHint stock={stock} where={selectedColor ? `in ${loc(selectedColor.name, lang)}` : ''} />
               {!variantReady && (
