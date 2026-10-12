@@ -47,6 +47,12 @@ export const HIGH_VALUE_FLAG_DEFAULT = 3000;
 const PHONE_RE = /^01[0125]\d{8}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Arabic-Indic → Western digits (same as client-side foldArabicIndic).
+const ARABIC_INDIC = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+function foldArabicIndic(s) {
+  return String(s).replace(/[٠-٩]/g, (ch) => ARABIC_INDIC.indexOf(ch))
+}
+
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function sha256Hex(value) {
@@ -113,7 +119,8 @@ export function validateRequest(body = {}) {
   const name = String(customer.name ?? "").trim();
   if (!name) throw new CheckoutError("BAD_CUSTOMER");
 
-  const phone = String(customer.phone ?? "").replace(/[\s\-()]/g, "");
+  const rawPhone = String(customer.phone ?? "").replace(/[\s\-()]/g, "");
+  const phone = foldArabicIndic(rawPhone);
   if (!PHONE_RE.test(phone)) throw new CheckoutError("BAD_CUSTOMER");
 
   const email = customer.email ? String(customer.email).trim() : null;
