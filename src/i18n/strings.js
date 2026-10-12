@@ -216,6 +216,10 @@ export const ar = {
   restOfWorld: "باقي العالم",
   addMoreForFreeShipping: "ضيف {amount} عشان تحصل على شحن مجاني!",
   shoppingIn: "التسوق في",
+  contactWhatsApp: "واتساب",
+  contactWhatsAppAria: "راسلنا على واتساب",
+  askAboutSize: "اسأل على المقاس",
+  askAboutSizeAria: "اسألنا عن المقاس على واتساب",
   checkoutFailed: "فشل في إتمام الطلب",
   tryAgain: "حاول تاني",
 };
@@ -438,6 +442,10 @@ export const en = {
   restOfWorld: "Rest of World",
   addMoreForFreeShipping: "Add {amount} more for free shipping!",
   shoppingIn: "Shopping in",
+  contactWhatsApp: "WhatsApp",
+  contactWhatsAppAria: "Message us on WhatsApp",
+  askAboutSize: "Ask about size",
+  askAboutSizeAria: "Ask us about size on WhatsApp",
   checkoutFailed: "Checkout failed",
   tryAgain: "Please try again",
 };
