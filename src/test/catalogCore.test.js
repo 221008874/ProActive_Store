@@ -1,4 +1,4 @@
-// Tests for the catalogue snapshot builder (api/_core/catalogCore.js).
+// Tests for the catalogue snapshot builder (server/_core/catalogCore.js).
 //
 // The snapshot is what keeps the store inside the free Firestore quota, so
 // the sharding maths, the public-settings filter and the stale-shard cleanup
@@ -8,12 +8,17 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   SHARD_SIZE,
   slimCard,
+  slimVariant,
   shardProducts,
   publicSettings,
   normalizeSearchText,
   buildSnapshotData,
   writeSnapshot,
-  readSnapshot
+  readSnapshot,
+  collectVariants,
+  rebuildShardsPartial,
+  refreshSnapshotIfStale,
+  REBUILD_COOLDOWN_MS
 } from '../../server/_core/catalogCore.js'
 import { createFakeFirestore, seedFixture } from './fakeFirestore'
 
@@ -209,5 +214,227 @@ describe('catalogCore - reading the snapshot back', () => {
 
   it('returns null when nothing was ever built', async () => {
     expect(await readSnapshot(db)).toBeNull()
+  })
+})
+
+describe('catalogCore - variants in the card', () => {
+  const variant = (overrides = {}) => ({
+    colorId: 'red', color: 'Red', size: 'M', stock: 5, active: true, ...overrides
+  })
+
+  it('slims a variant to the fields the product page needs', () => {
+    const row = slimVariant(variant({ cost: 99, barcode: 'x' }), 'red_M')
+    expect(row).toEqual({
+      id: 'red_M',
+      colorId: 'red',
+      color: 'Red',
+      size: 'M',
+      stock: 5,
+      active: true,
+      priceOverride: null,
+      image: null
+    })
+    expect(row).not.toHaveProperty('cost')
+    expect(row).not.toHaveProperty('barcode')
+  })
+
+  it('treats a missing active flag as active and keeps a price override', () => {
+    const row = slimVariant({ colorId: 'red', stock: '3', priceOverride: '399.5' }, 'red_M')
+    expect(row.active).toBe(true)
+    expect(row.stock).toBe(3)
+    expect(row.priceOverride).toBe(399.5)
+  })
+
+  it('accepts raw variant rows and query snapshots alike', () => {
+    const card = slimCard(productDoc(), 'dress', [
+      { id: 'red_M', colorId: 'red', size: 'M', stock: 2 },
+      { id: 'red_L', data: () => ({ colorId: 'red', size: 'L', stock: 1 }) }
+    ])
+    expect(card.variants.map((v) => v.id)).toEqual(['red_M', 'red_L'])
+    expect(card.variants[1].stock).toBe(1)
+  })
+
+  it('defaults to no variants rather than undefined', () => {
+    expect(slimCard(productDoc(), 'dress').variants).toEqual([])
+  })
+})
+
+describe('catalogCore - freshness (partial rebuild)', () => {
+  // A catalogue with two active products whose variants are seeded, built at a
+  // known moment, so a later "stock moved" can be re-carded.
+  const seedCatalogue = async ({ now = 1000 } = {}) => {
+    db.__seed('egp_settings/catalog', { dirty: false, version: 0, lastBuiltAt: 0 })
+    const snapshot = buildSnapshotData({
+      products: [
+        docOf('dress', productDoc({ updatedAt: new Date(500) })),
+        docOf('shirt', productDoc({ slug: 'shirt', title: { en: 'Shirt' }, updatedAt: new Date(500) }))
+      ],
+      variantsByProduct: {
+        dress: [{ id: 'red_M', colorId: 'red', size: 'M', stock: 5 }],
+        shirt: [{ id: 'blue_L', colorId: 'blue', size: 'L', stock: 4 }]
+      },
+      settings: { freeShippingThreshold: 800 },
+      currentVersion: 0,
+      now
+    })
+    await writeSnapshot(db, snapshot)
+    return snapshot
+  }
+
+  it('publishes a shardIndex so the partial build can find a card', async () => {
+    await seedCatalogue()
+    const meta = db.__read('catalog_snapshots/meta')
+    expect(meta.meta.shardIndex).toEqual({ dress: 'cards_1', shirt: 'cards_1' })
+  })
+
+  it('re-cards only the products that changed, keeping the rest untouched', async () => {
+    await seedCatalogue()
+
+    // Dress sold one: its product and variant both move.
+    db.__seed('products_egp/dress', productDoc({ totalStock: 4, updatedAt: new Date(6000) }))
+    db.__seed('products_egp/dress/variants/red_M', { colorId: 'red', size: 'M', stock: 4 })
+
+    const result = await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })
+    expect(result.mode).toBe('partial')
+    expect(result.patchedProducts).toBe(1)
+    expect(result.version).toBe(2)
+
+    const cards = db.__read('catalog_snapshots/cards_1').products
+    const dress = cards.find((c) => c.id === 'dress')
+    const shirt = cards.find((c) => c.id === 'shirt')
+    expect(dress.totalStock).toBe(4)
+    expect(dress.variants[0].stock).toBe(4)
+    expect(shirt.totalStock).toBe(productDoc().totalStock) // untouched
+    expect(shirt.variants[0].stock).toBe(4)
+  })
+
+  it('bumps the version everywhere it is visible (meta, shard, flag)', async () => {
+    await seedCatalogue()
+    db.__seed('products_egp/dress', productDoc({ updatedAt: new Date(6000) }))
+
+    await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })
+
+    expect(db.__read('catalog_snapshots/cards_1').version).toBe(2)
+    expect(db.__read('catalog_snapshots/meta').version).toBe(2)
+    expect(db.__read('catalog_snapshots/meta').meta.version).toBe(2)
+    expect(db.__read('egp_settings/catalog')).toMatchObject({ dirty: false, version: 2, lastBuiltAt: 7000 })
+  })
+
+  it('leaves other shards and the product count alone', async () => {
+    db.__seed('egp_settings/catalog', { dirty: false, version: 0, lastBuiltAt: 0 })
+    const many = Array.from({ length: SHARD_SIZE + 2 }, (_, i) =>
+      docOf(`p${i}`, productDoc({ slug: `p${i}`, updatedAt: new Date(500) }))
+    )
+    await writeSnapshot(db, buildSnapshotData({ products: many, currentVersion: 0, now: 1000 }))
+
+    db.__seed('products_egp/p5', productDoc({ slug: 'p5', updatedAt: new Date(6000) }))
+    const result = await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })
+
+    expect(result.shards).toBe(1) // only the shard holding p5
+    expect(db.__read('catalog_snapshots/cards_1').version).toBe(2)
+    expect(db.__read('catalog_snapshots/cards_2').version).toBe(1) // untouched
+    expect(db.__read('catalog_snapshots/meta').productCount).toBe(SHARD_SIZE + 2)
+  })
+
+  it('asks for a full build when a product the index never saw changed', async () => {
+    await seedCatalogue()
+    db.__seed('products_egp/newcomer', productDoc({ slug: 'newcomer', updatedAt: new Date(6000) }))
+    expect(await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })).toBeNull()
+  })
+
+  it('asks for a full build when a changed product stopped being active', async () => {
+    await seedCatalogue()
+    db.__seed('products_egp/dress', productDoc({ status: 'archived', updatedAt: new Date(6000) }))
+    expect(await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })).toBeNull()
+  })
+
+  it('asks for a full build before any shard index exists', async () => {
+    db.__seed('catalog_snapshots/cards_1', { products: [{ id: 'dress' }], version: 1 })
+    db.__seed('catalog_snapshots/meta', { version: 1, shards: [{ id: 'cards_1', count: 1 }], meta: {} })
+    expect(await rebuildShardsPartial(db, { now: 7000, lastBuiltAt: 1000 })).toBeNull()
+  })
+
+  it('clears a stale dirty flag without building when nothing moved', async () => {
+    await seedCatalogue({ now: 1000 })
+    db.__seed('egp_settings/catalog', { dirty: true, version: 1, lastBuiltAt: 1000 })
+
+    const result = await rebuildShardsPartial(db, { now: 5000, lastBuiltAt: 1000 })
+    expect(result.mode).toBe('noop')
+    expect(db.__read('egp_settings/catalog').dirty).toBe(false)
+  })
+})
+
+describe('catalogCore - refresh decision', () => {
+  const seedDirty = (extra = {}) =>
+    db.__seed('egp_settings/catalog', { dirty: true, version: 1, lastBuiltAt: 0, ...extra })
+
+  it('costs one read and builds nothing when the snapshot is clean', async () => {
+    db.__seed('egp_settings/catalog', { dirty: false, version: 1, lastBuiltAt: 10 })
+    expect(await refreshSnapshotIfStale(db, { now: 99999 })).toEqual({ rebuilt: false, reason: 'not-dirty' })
+  })
+
+  it('waits out the cooldown so a burst of orders costs one rebuild', async () => {
+    db.__seed('egp_settings/catalog', { dirty: true, version: 1, lastBuiltAt: 1000 })
+    const now = 1000 + REBUILD_COOLDOWN_MS - 1
+    expect(await refreshSnapshotIfStale(db, { now })).toEqual({ rebuilt: false, reason: 'cooldown' })
+  })
+
+  it('rebuilds once the cooldown has passed', async () => {
+    db.__seed('products_egp/dress', productDoc({ updatedAt: new Date(2000) }))
+    db.__seed('catalog_snapshots/cards_1', { products: [], version: 1 })
+    db.__seed('catalog_snapshots/meta', {
+      version: 1,
+      productCount: 0,
+      shards: [{ id: 'cards_1', count: 0 }],
+      meta: { shardIndex: { dress: 'cards_1' } }
+    })
+    seedDirty({ lastBuiltAt: 1000 })
+
+    const result = await refreshSnapshotIfStale(db, { now: 1000 + REBUILD_COOLDOWN_MS })
+    expect(result.rebuilt).toBe(true)
+    expect(result.mode).toBe('partial')
+    expect(db.__read('egp_settings/catalog').dirty).toBe(false)
+  })
+
+  it('falls back to a full build when the patch cannot be expressed', async () => {
+    db.__seed('products_egp/dress', productDoc({ updatedAt: new Date(2000) }))
+    db.__seed('products_egp/shirt', productDoc({ slug: 'shirt', title: { en: 'Shirt' }, updatedAt: new Date(2000) }))
+    db.__seed('catalog_snapshots/cards_1', { products: [{ id: 'dress' }], version: 1 })
+    db.__seed('catalog_snapshots/meta', {
+      version: 1,
+      productCount: 1,
+      shards: [{ id: 'cards_1', count: 1 }],
+      meta: { shardIndex: { dress: 'cards_1' } }
+    })
+    // shirt was never indexed -> structural change -> full build.
+    seedDirty({ lastBuiltAt: 1000 })
+
+    const result = await refreshSnapshotIfStale(db, { now: 1000 + REBUILD_COOLDOWN_MS })
+    expect(result.mode).toBe('full')
+    const meta = db.__read('catalog_snapshots/meta')
+    // The fixture also carries an active `override` product, so a full build
+    // publishes every active product, not just the two named here.
+    expect(meta.productCount).toBe(3)
+    expect(meta.meta.shardIndex).toMatchObject({ dress: 'cards_1', shirt: 'cards_1', override: 'cards_1' })
+  })
+
+  it('never throws when the rebuild blows up', async () => {
+    db.__seed('egp_settings/catalog', { dirty: true, version: 1, lastBuiltAt: 0 })
+    db.collection = () => { throw new Error('firestore is down') }
+    expect(await refreshSnapshotIfStale(db, { now: 99999 })).toEqual({ rebuilt: false, reason: 'error' })
+  })
+})
+
+describe('catalogCore - variant gathering', () => {
+  it('returns an entry per product, empty when it has none', async () => {
+    const byId = await collectVariants(db, ['dress', 'override', 'archived'])
+    expect(Object.keys(byId).sort()).toEqual(['archived', 'dress', 'override'])
+    expect(byId.dress).toHaveLength(3)
+    expect(byId.dress[0].id).toBe('red_M')
+    expect(byId.archived).toEqual([])
+  })
+
+  it('skips the read entirely when there is nothing to collect', async () => {
+    expect(await collectVariants(db, [])).toEqual({})
   })
 })

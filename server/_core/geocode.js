@@ -70,7 +70,14 @@ async function readCache(db, key, now) {
 
 async function writeCache(db, key, result, now) {
   try {
-    await db.doc(`geocode_cache/${key}`).set({ at: now, result });
+    // expireAt matches the read-side TTL, so a TTL policy on this field reaps
+    // the entry at exactly the moment it stops being useful - the cache cannot
+    // grow without bound against the storage quota (see README).
+    await db.doc(`geocode_cache/${key}`).set({
+      at: now,
+      expireAt: new Date(now + CACHE_TTL_MS),
+      result
+    });
   } catch (error) {
     // A cache write failure must never fail the shopper's search.
     console.error("geocode cache write failed:", error.message);

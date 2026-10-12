@@ -75,10 +75,13 @@
 .pa-size[disabled], .pa-size--soldout {          /* sold-out sizes are crossed out, never hidden */
   border: 1px dashed var(--pa-line); color: var(--pa-disabled); text-decoration: line-through; cursor: not-allowed;
 }
-.pa-swatches { display: flex; gap: 14px; align-items: center; padding: 3px; }
+.pa-swatches { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 3px; }
 .pa-swatch {
   /* 44px hit target with a 38px painted circle: the colour lives only in the
-     content box, so `--pa-tap` is honoured without growing the visual swatch. */
+     content box, so `--pa-tap` is honoured without growing the visual swatch.
+     `flex: 0 0 auto` is load-bearing — as a plain flex item the browser shrank
+     the width to fit the 260px sidebar and the circles came out as ellipses. */
+  flex: 0 0 auto;
   width: var(--pa-tap); height: var(--pa-tap); padding: 3px;
   box-sizing: content-box; border-radius: 50%; border: 0;
   cursor: pointer; background: var(--sw, var(--pa-stone)) content-box;
@@ -97,9 +100,10 @@
 .pa-label { font-size: 13px; font-weight: 700; }
 .pa-input, .pa-select {
   height: var(--pa-btn-h); padding: 0 14px; width: 100%;
-  border: 1px solid var(--pa-ink); border-radius: var(--pa-radius);
-  background: var(--pa-paper); color: var(--pa-ink); font: 500 16px var(--pa-font-body); /* 16px stops iOS zoom */
+  border: 1px solid var(--pa-input-border, var(--pa-ink)); border-radius: var(--pa-radius);
+  background: var(--pa-input-bg, var(--pa-paper)); color: var(--pa-input-fg, var(--pa-ink)); font: 500 16px var(--pa-font-body); /* 16px stops iOS zoom */
 }
+.pa-input::placeholder, .pa-select::placeholder { color: var(--pa-input-placeholder, var(--pa-muted)); }
 .pa-input--admin { height: var(--pa-tap); border-color: var(--pa-line); font-size: 14px; }
 .pa-input[aria-invalid="true"] { border-color: var(--pa-sale); }
 .pa-input--phone { direction: ltr; text-align: start; }
@@ -112,35 +116,78 @@
 .pa-price-row { display: flex; align-items: baseline; flex-wrap: wrap; }
 
 /* ----------------------------- Store chrome -------------------------- */
-.pa-announce {
-  height: var(--pa-announce-h); background: var(--pa-ink); color: #fff; padding: 0 var(--pa-gutter);
-  display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600;
+/* One content width for the whole store. The review found the header spanning
+   one box, the hero another and the grid a third, so the edges never lined up;
+   .pa-container is the single container and every band and content block is
+   measured against it. Bands stay full-bleed and put their content inside a
+   .pa-container, so a coloured footer still reaches the screen edge while its
+   columns still align with the header above them. */
+.pa-container { width: 100%; max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter); }
+
+/* Content blocks that are page-level rather than band-level. They carry the
+   container themselves instead of being wrapped by one, so a page cannot end up
+   with the cap twice or not at all. */
+.pa-container,
+.pa-cats,
+.pa-section__head,
+.pa-grid,
+.pa-rail,
+.pa-about,
+.pa-toolbar,
+.pa-chips,
+.pa-empty,
+.pa-pdp__block,
+.pa-delivery,
+.pa-acc,
+.pa-sticky,
+.pa-line,
+.pa-block,
+.pa-summary,
+.pa-summary-card,
+.pa-ship-bar,
+.pa-receipt {
+  max-width: var(--pa-content-max);
+  margin-inline: auto;
 }
-.pa-announce .pa-lang { display: flex; gap: 10px; }
-.pa-announce .pa-lang a { color: var(--pa-on-dark-2); text-decoration: none; }
-.pa-announce .pa-lang a[aria-current="true"] { color: #fff; font-weight: 700; }
+
+.pa-announce {
+  height: var(--pa-announce-h); background: var(--pa-announce-bg, var(--pa-ink)); color: var(--pa-announce-fg, var(--pa-paper));
+  display: flex; align-items: stretch; font-size: 12px; font-weight: 600;
+}
+.pa-announce__inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pa-announce .pa-lang { display: flex; gap: 10px; align-items: center; }
+.pa-announce .pa-lang a { color: inherit; text-decoration: none; }
+.pa-announce .pa-lang a[aria-current="true"] { font-weight: 700; }
 
 .pa-header {
-  height: var(--pa-header-h); display: flex; align-items: center; justify-content: space-between;
-  padding: 0 4px; border-bottom: 1px solid var(--pa-line); background: var(--pa-paper);
+  height: var(--pa-header-h); display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--pa-line); background: var(--pa-paper);
   position: sticky; top: 0; z-index: 20;
 }
-.pa-logo { font-family: var(--pa-font-display); font-size: 22px; font-weight: 700; letter-spacing: .04em; text-decoration: none; }
+.pa-header__bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+/* The action cluster must not be a shrinkable flex item: on a phone it wrapped
+   the bag onto a second line inside the 56px header. */
+.pa-header__actions { display: flex; align-items: center; flex: 0 0 auto; }
+.pa-logo { font-family: var(--pa-font-display); font-size: 22px; font-weight: 700; letter-spacing: .04em; text-decoration: none; white-space: nowrap; }
 .pa-header .pa-count { position: absolute; top: 6px; inset-inline-end: 5px; }
 .pa-header__nav { display: none; }
 .pa-header__search { display: none; }
 @media (min-width: 768px) {
-  .pa-header { padding: 0 24px; gap: 24px; }
   .pa-header__nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; }
   .pa-header__nav a { text-decoration: none; padding: 8px 0; }
-  .pa-header__search {
-    display: flex; flex: 1 1 280px; max-width: 360px; height: 44px; align-items: center;
-    padding: 0 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
-    background: var(--pa-paper); font: 500 14px var(--pa-font-body); color: var(--pa-muted);
-  }
-  /* The field IS the search control on desktop — hiding the icon stops the two
-     affordances stacking side by side. */
-  .pa-header__search-icon { display: none; }
+.pa-header__search {
+      display: flex; flex: 1 1 280px; max-width: 360px; height: 44px; align-items: center;
+      padding-inline: 14px; border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
+      background: var(--pa-input-bg, var(--pa-paper)); font: 500 14px var(--pa-font-body); color: var(--pa-input-fg, var(--pa-ink));
+    }
+    .pa-header__search input {
+      all: unset; flex: 1; min-width: 0; color: var(--pa-input-fg, var(--pa-ink)); font: inherit;
+    }
+    .pa-header__search input::placeholder { color: var(--pa-input-placeholder, var(--pa-muted)); }
+    /* The field IS the search control on desktop — hiding the icon stops the two
+       affordances stacking side by side. */
+    .pa-header__search-icon { display: none; }
+    .pa-header__search:focus-within { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
 }
 
 .pa-tabbar {                      /* phones only */
@@ -158,8 +205,6 @@
 .pa-has-tabbar { padding-bottom: calc(var(--pa-tabbar-h) + env(safe-area-inset-bottom)); }
 @media (min-width: 768px) { .pa-has-tabbar { padding-bottom: 0; } }
 
-.pa-container { width: 100%; max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter); }
-
 /* Hero */
 .pa-hero {
   position: relative; min-height: 320px; background: var(--pa-tint-6) center / cover;
@@ -171,27 +216,37 @@
 
 /* Hero shell: the banner on a phone, the 2fr/1fr banner+tiles grid on desktop. */
 .pa-hero-wrap { display: flex; flex-direction: column; }
-.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: #fff; }
+.pa-hero__line { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: var(--pa-ink); }
 .pa-hero__dots { display: flex; gap: 6px; margin-top: 20px; }
 .pa-hero__dots button {
-  height: 4px; padding: 0; border: 0; background: rgba(255,255,255,.4); cursor: pointer;
+  height: 4px; padding: 0; border: 0; background: var(--pa-line); cursor: pointer;
   transition: width .18s ease, background .18s ease;
 }
-.pa-hero__dots button[data-on="true"] { background: #fff; }
+.pa-hero__dots button[data-on="true"] { background: var(--pa-ink); }
 .pa-hero__side { display: none; }
 @media (min-width: 1024px) {
-  .pa-hero-wrap { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; max-width: var(--pa-content-max); margin-inline: auto; padding: 16px var(--pa-gutter) 0; }
+  .pa-hero-wrap {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 16px;
+    max-width: var(--pa-content-max); margin-inline: auto;
+    padding: 16px var(--pa-gutter) 0;
+  }
   .pa-hero-wrap .pa-hero { border-radius: var(--pa-radius); }
   .pa-hero__side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
 }
-/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon). */
+/* Category tile: label bottom-left, chevron right (mirrored in RTL by the icon).
+   With image: image covers the tile, label overlays with gradient. Without: flat tint. */
 .pa-hero__tile {
   position: relative; display: flex; align-items: flex-end; justify-content: space-between;
   padding: 20px; background: var(--pa-stone); border: 1px solid var(--pa-line);
-  text-decoration: none; color: var(--pa-ink);
+  text-decoration: none; color: var(--pa-ink); min-height: 140px;
 }
 .pa-hero__tile:hover { background: var(--pa-line); }
-.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+.pa-hero__tile-img {
+  position: absolute; inset: 0; background: var(--pa-tint-1) center / cover; z-index: 0;
+  opacity: 0.6;
+}
+.pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; position: relative; z-index: 1; }
+.pa-hero__tile:hover .pa-hero__tile-img { opacity: 0.8; }
 
 /* Home shelves: a rail on a phone, a grid from laptop up. Both are rendered and
    the CSS picks one, so there is no JS breakpoint and no layout shift on resize. */
@@ -256,8 +311,10 @@
 
 /* Footer: four columns on desktop, stacked on a phone. The delivery note is
    the last column because it is the one thing a shopper checks before the
-   bag, not after. */
-.pa-footer { margin-top: 14px; padding: 20px var(--pa-gutter) 16px; border-top: 1px solid var(--pa-line); display: flex; flex-direction: column; gap: 10px; }
+   bag, not after. The band is full-bleed; .pa-container keeps its columns on
+   the same measure as the header and the pages above. */
+.pa-footer { margin-top: 14px; padding: 20px 0 16px; border-top: 1px solid var(--pa-line); }
+.pa-footer__inner { display: flex; flex-direction: column; gap: 10px; }
 .pa-footer__links { display: flex; gap: 18px; font-size: 13px; font-weight: 600; }
 .pa-footer__brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pa-footer__col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -270,20 +327,23 @@
   border-radius: var(--pa-radius); font: 600 13px var(--pa-font-body); cursor: pointer;
 }
 @media (min-width: 1024px) {
-  .pa-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
+  .pa-footer__inner { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 32px; align-items: start; }
   .pa-footer__links { flex-direction: column; gap: 8px; }
 }
 
-/* Announcement bar toggles (language + theme on desktop) */
+/* Announcement bar toggles (language + theme on desktop). The bar paints
+   --pa-ink, so its text paints --pa-paper: the previous hard-coded #fff plus a
+   fixed --pa-on-dark-2 turned the strip into pale-on-pale in dark mode, where
+   --pa-ink is the light colour. */
 .pa-announce .pa-lang a, .pa-announce .pa-lang button {
   background: transparent; border: 0; padding: 0; cursor: pointer;
-  color: var(--pa-on-dark-2); font: 600 12px var(--pa-font-body);
+  color: inherit; font: 600 12px var(--pa-font-body);
 }
-.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { color: #fff; font-weight: 700; }
+.pa-announce .pa-lang a[aria-current="true"], .pa-announce .pa-lang button[aria-current="true"] { font-weight: 700; }
 .pa-announce__theme { display: none; }
 @media (min-width: 1024px) { .pa-announce__theme { display: inline-flex; } }
 .pa-announce__sep { display: none; }
-@media (min-width: 1024px) { .pa-announce__sep { display: inline; color: var(--pa-on-dark-2); } }
+@media (min-width: 1024px) { .pa-announce__sep { display: inline; opacity: .6; } }
 
 /* ---------------------------- Header + mega menu ------------------------- */
 .pa-header__nav { display: none; }
@@ -336,12 +396,85 @@
 .pa-footer__links a { text-decoration: none; }
 
 /* ------------------------ Browse (filters, chips) -------------------- */
-.pa-toolbar { display: flex; gap: 8px; padding: 10px var(--pa-gutter); border-bottom: 1px solid var(--pa-line); align-items: center; }
-.pa-chips { display: flex; gap: 8px; padding: 10px var(--pa-gutter); overflow-x: auto; scrollbar-width: none; }
+/* The page is the container: the shop is the one listing that has to line up
+   with the header above it and the footer below, and giving it its own padding
+   is what pushed the title into the screen edge. */
+.pa-shop {
+  max-width: var(--pa-content-max); margin-inline: auto; padding-inline: var(--pa-gutter);
+}
+
+/* Phone header row: back, title + count, bag. */
+.pa-shop__head { display: flex; align-items: center; gap: 8px; padding-block: 8px; }
+.pa-shop__heading { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pa-shop__heading h1 { font-size: 22px; line-height: 1.2; }
+
+/* Desktop heading: breadcrumb, then the title and the count side by side. */
+.pa-shop__intro { display: none; }
+.pa-shop__crumbs {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--pa-muted);
+}
+.pa-shop__crumbs a { text-decoration: none; }
+.pa-shop__crumbs a:hover { text-decoration: underline; }
+.pa-shop__crumbs [aria-current="page"] { color: var(--pa-ink); font-weight: 600; }
+
+.pa-toolbar {
+  display: flex; gap: 8px; align-items: center;
+  margin-inline: calc(-1 * var(--pa-gutter)); padding: 10px var(--pa-gutter);
+  border-bottom: 1px solid var(--pa-line);
+}
+.pa-shop__mobile-only { display: inline-flex; }
+.pa-shop__sort { display: none; align-items: center; gap: 10px; }
+.pa-shop__sort-label { font-size: 13px; font-weight: 700; }
+.pa-shop__sort .pa-field { flex: 0 0 auto; }
+.pa-shop__sort .pa-select { height: 44px; width: auto; min-width: 200px; }
+
+.pa-chips { display: flex; gap: 8px; padding: 10px 0; overflow-x: auto; scrollbar-width: none; }
 .pa-chip {
   flex: 0 0 auto; height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;
   background: var(--pa-stone); border: 0; font: 600 13px var(--pa-font-body); cursor: pointer; color: var(--pa-ink);
 }
+.pa-filter-panel { display: flex; flex-direction: column; gap: 24px; }
+.pa-filter-panel__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pa-group-title { display: flex; justify-content: space-between; align-items: baseline; }
+.pa-price-readout { font-size: 13px; font-weight: 600; color: var(--pa-muted); }
+
+/* Dual-handle price slider: two overlaid range inputs with a filled track between them.
+   The track is drawn via ::before on the container; each thumb is styled via
+   appearance: none + custom thumb. Keyboard operable, screen-reader labelled. */
+.pa-price-slider {
+  position: relative; height: 24px; display: flex;
+}
+.pa-price-slider::before {
+  content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 4px;
+  transform: translateY(-50%); background: var(--pa-line); border-radius: 2px; pointer-events: none;
+}
+.pa-price-slider::after {
+  content: ""; position: absolute; top: 50%; height: 4px; border-radius: 2px;
+  transform: translateY(-50%); background: var(--pa-ink); pointer-events: none;
+  left: calc(var(--min) * 1%); right: calc((100 - var(--max)) * 1%);
+}
+.pa-price-slider input[type="range"] {
+  appearance: none; -webkit-appearance: none; position: absolute; top: 0; left: 0; width: 100%; height: 24px;
+  background: transparent; pointer-events: none; z-index: 1;
+}
+.pa-price-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--pa-paper); border: 2px solid var(--pa-ink); box-shadow: var(--pa-shadow-hover);
+  pointer-events: auto; cursor: pointer; margin-top: -8px;
+}
+.pa-price-slider input[type="range"]::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--pa-paper); border: 2px solid var(--pa-ink); box-shadow: var(--pa-shadow-hover);
+  pointer-events: auto; cursor: pointer;
+}
+.pa-price-slider input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-price-slider input[type="range"]:focus-visible::-moz-range-thumb { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-price-slider input[id="price-max"] { z-index: 2; }
+
+.pa-shop__more { padding: 24px 0 48px; display: flex; justify-content: center; }
+.pa-shop__results { min-width: 0; }
+
 .pa-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
 .pa-sheet {
   position: fixed; inset-inline: 0; bottom: 0; z-index: 41; max-height: 88vh; overflow: auto;
@@ -350,9 +483,21 @@
 }
 .pa-sheet__title { display: flex; justify-content: space-between; align-items: center; font-family: var(--pa-font-display); font-size: 20px; font-weight: 700; }
 .pa-group-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px; }
+.pa-layout-shop { display: grid; gap: 32px; }
 @media (min-width: 1024px) {
-  .pa-layout-shop { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; }
-  .pa-sidebar-filters { position: sticky; top: calc(var(--pa-header-h) + 16px); align-self: start; display: flex; flex-direction: column; gap: 22px; }
+  /* The phone header row is a duplicate of the desktop heading, not a
+     companion to it. */
+  .pa-shop__head { display: none; }
+  .pa-shop__intro { display: block; padding-top: 24px; }
+  .pa-shop__intro .pa-shop__crumbs { margin-bottom: 12px; }
+  .pa-shop__heading h1 { font-size: var(--pa-fs-heading); line-height: var(--pa-lh-heading); }
+  .pa-shop__mobile-only { display: none; }
+  .pa-shop__sort { display: flex; }
+
+  .pa-layout-shop { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+  .pa-sidebar-filters {
+    position: sticky; top: 96px; display: flex; flex-direction: column; gap: 22px;
+  }
 }
 
 /* ------------------------------ Product page ------------------------- */
@@ -555,11 +700,25 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
   display: flex; gap: 14px; align-items: flex-start; text-align: start; width: 100%;
   padding: 16px; background: var(--pa-paper); color: var(--pa-ink);
   border: 1px solid var(--pa-line); border-radius: var(--pa-radius); cursor: pointer;
-  font: 500 14px var(--pa-font-body);
+  font: 500 14px var(--pa-font-body); position: relative;
 }
 .pa-radio-card[aria-checked="true"] { border: 2px solid var(--pa-ink); padding: 15px; }
 .pa-radio-card[aria-disabled="true"] { color: var(--pa-muted); background: var(--pa-stone); cursor: not-allowed; }
-.pa-radio-card input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--pa-ink); }
+.pa-radio-card input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.pa-radio-card::before {
+  content: ""; flex: 0 0 22px; width: 22px; height: 22px; margin-top: 2px;
+  border: 2px solid var(--pa-ink); border-radius: 50%; background: var(--pa-paper);
+  transition: border-color .15s, background .15s;
+}
+.pa-radio-card[aria-checked="true"]::before {
+  border-color: var(--pa-ink);
+  background: var(--pa-ink);
+}
+.pa-radio-card[aria-checked="true"]::after {
+  content: ""; position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border-radius: 50%; background: var(--pa-paper);
+}
+.pa-radio-card[aria-disabled="true"]::before { border-color: var(--pa-line); background: var(--pa-stone); }
 .pa-radio-card b { display: block; font-size: 15px; font-weight: 700; }
 .pa-radio-card span { display: block; color: var(--pa-muted); font-size: 13px; }
 

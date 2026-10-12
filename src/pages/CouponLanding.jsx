@@ -1,26 +1,33 @@
 // src/pages/CouponLanding.jsx — ProActive Fashion design system refactor.
 //
-// Logic is unchanged: the same Firestore query, the same defence-in-depth
-// validation chain (session flag, active, expiry, usage limit, exact code,
-// currency), the same context + sessionStorage handoff to the cart, and the
-// same two navigation handlers. Only the markup changed — the four animated
-// full-screen states became .pa-coupon-card variants, Summary and .pa-btn, and
-// money goes through the design system's formatEGP.
+// Logic is unchanged: a code arriving from a link is validated, applied to the
+// cart context, and handed to the bag via sessionStorage. Only the markup
+// changed — the four animated full-screen states became .pa-coupon-card
+// variants, Summary and .pa-btn, and money goes through the design system's
+// formatEGP.
+//
+// Validation moved to the server (/api/coupon/preview). The page used to query
+// the coupon document from the browser: one Firestore read per shared link, the
+// whole coupon (usedCount included) handed to whoever followed the link, and a
+// client-side check the hardened rules would refuse anyway. The server answers
+// the same question - is this code usable - without the document.
 
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { db } from '../services/firebase'
-import { COLLECTIONS } from '../config'
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  limit
-} from 'firebase/firestore'
 import { useCart } from '../context/CartContext'
 import { useLanguage } from '../context/LanguageContext'
+import { postJson } from '../services/api'
 import { Button, Summary, formatEGP } from '../ui'
+
+// The server names the rule it refused; the page shows the shopper a sentence.
+const REASON_MESSAGES = {
+  UNKNOWN: 'Invalid coupon code',
+  INACTIVE: 'This coupon is no longer active',
+  EXPIRED: 'This coupon has expired',
+  EXHAUSTED: 'This coupon has reached its usage limit',
+  MIN_ORDER: 'This coupon needs a bigger order',
+  INVALID: 'Invalid coupon code'
+}
 
 export default function CouponLanding() {
   const { code } = useParams()
@@ -56,83 +63,32 @@ export default function CouponLanding() {
           return
         }
 
-        // Query with BOTH filters to minimize data exposure
-        const couponsRef = collection(db, COLLECTIONS.coupons)
-        const q = query(
-          couponsRef,
-          where('code', '==', code.toUpperCase()),
-          where('isActive', '==', true),
-          limit(1)
-        )
+        // The coupon document is a server concern: this used to query it from
+        // the browser, which cost a Firestore read and leaked the whole coupon
+        // (including usedCount) to anyone with the link. The server answers yes/no
+        // plus the discount, and applies the coupon if the code is good.
+        const result = await postJson('/coupon/preview', { code })
 
-        const snapshot = await getDocs(q)
-
-        if (snapshot.empty) {
-          setError('Invalid coupon code')
+        if (!result.valid) {
+          setError(REASON_MESSAGES[result.reason] ?? REASON_MESSAGES.INVALID)
           setLoading(false)
           return
         }
 
-        const couponDoc = snapshot.docs[0]
-        const couponData = couponDoc.data()
-
-        // CRITICAL: Double-check everything client-side
-        const now = new Date()
-        const expiresAt = couponData.expiresAt?.toDate?.() || new Date(couponData.expiresAt)
-
-        // Verify all conditions (defense in depth)
-        if (!couponData.isActive) {
-          setError('This coupon is no longer active')
-          setLoading(false)
-          return
-        }
-
-        if (expiresAt < now) {
-          setError('This coupon has expired')
-          setLoading(false)
-          return
-        }
-
-        if (couponData.usedCount >= couponData.maxUses) {
-          setError('This coupon has reached its usage limit')
-          setLoading(false)
-          return
-        }
-
-        // Additional security: verify the code matches exactly
-        if (couponData.code !== code.toUpperCase()) {
-          setError('Invalid coupon code')
-          setLoading(false)
-          return
-        }
-
-        // FIXED: Check currency compatibility
-        if (couponData.currency && couponData.currency !== 'EGP') {
-          setError(`This coupon is only valid for ${couponData.currency} currency`)
-          setLoading(false)
-          return
-        }
-
-        // Success - set coupon
         const couponToApply = {
-          id: couponDoc.id,
-          code: couponData.code,
-          amount: couponData.amount,
-          currency: couponData.currency || 'EGP',
-          expiresAt: expiresAt.toISOString()
+          id: result.code,
+          code: result.code,
+          amount: result.value,
+          currency: 'EGP'
         }
 
-        setCoupon({
-          id: couponDoc.id,
-          ...couponData,
-          expiresAt: expiresAt
-        })
+        setCoupon({ ...couponToApply, type: result.type, value: result.value })
 
         // Store in context (persists to localStorage)
         setAppliedCoupon(couponToApply)
 
         // Store for cart auto-apply
-        sessionStorage.setItem('prefillCouponCode', couponData.code)
+        sessionStorage.setItem('prefillCouponCode', result.code)
         sessionStorage.setItem('autoApplyCoupon', JSON.stringify(couponToApply))
 
         setLoading(false)
@@ -223,7 +179,7 @@ export default function CouponLanding() {
         <div style={{ width: '100%' }}>
           <Summary
             rows={[
-              { label: L('validUntil', 'Valid until', 'صالح حتى'), value: coupon.expiresAt.toLocaleDateString('en-GB') },
+              { label: L('discountType', 'Discount', 'الخصم'), value: coupon.type === 'percent' ? `${coupon.value}%` : formatEGP(coupon.value) },
               { label: L('status', 'Status', 'الحالة'), value: `✓ ${L('active', 'Active', 'مفعل')}` }
             ]}
           />

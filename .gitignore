@@ -33,3 +33,28 @@ firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 gcp-key*.json
 firestore-export*/
+
+# Playwright screenshot output from scripts/ui-shots.mjs
+shots/
+
+# Playwright runner output. These are regenerated on every run and are reports,
+# not source.
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# UI verification screenshots written by the ad-hoc playwright-*.cjs harnesses.
+# Evidence, not source: regenerate locally instead of versioning 120+ PNGs.
+screenshots/
+
+# Emulator logs (regenerated whenever `firebase emulators:start` runs)
+emulator.log
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
+*-debug.log
+
+# Loose one-off Playwright verification scripts kept outside the spec dir. The
+# maintained suites live in playwright-tests/.
+playwright-*.cjs

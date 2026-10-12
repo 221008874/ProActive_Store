@@ -45,51 +45,53 @@ export default function StoreFooter() {
 
   return (
     <footer className="pa-footer">
-      <div className="pa-footer__col">
-        <div className="pa-footer__brand">
-          <b style={{ fontSize: 18, letterSpacing: '.04em' }}>PROACTIVE</b>
+      <div className="pa-container pa-footer__inner">
+        <div className="pa-footer__col">
+          <div className="pa-footer__brand">
+            <b style={{ fontSize: 18, letterSpacing: '.04em' }}>PROACTIVE</b>
+          </div>
+          <p className="pa-subtitle" style={{ margin: 0, maxWidth: '34ch' }}>
+            {L('footerTagline', 'Carefully chosen pieces, delivered to your door.', 'قطع مختارة بعناية، بتوصل لبابك.')}
+          </p>
+          <div className="pa-footer__toggles">
+            <button type="button" className="pa-footer__toggle" onClick={() => toggleLanguage()} aria-label={L('language', 'Language', 'اللغة')}>
+              {ar ? 'English' : 'العربية'}
+            </button>
+            <button type="button" className="pa-footer__toggle" onClick={() => toggleTheme()}
+              aria-label={theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}>
+              {theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}
+            </button>
+          </div>
         </div>
-        <p className="pa-subtitle" style={{ margin: 0, maxWidth: '34ch' }}>
-          {L('footerTagline', 'Carefully chosen pieces, delivered to your door.', 'قطع مختارة بعناية، بتوصل لبابك.')}
-        </p>
-        <div className="pa-footer__toggles">
-          <button type="button" className="pa-footer__toggle" onClick={() => toggleLanguage()} aria-label={L('language', 'Language', 'اللغة')}>
-            {ar ? 'English' : 'العربية'}
-          </button>
-          <button type="button" className="pa-footer__toggle" onClick={() => toggleTheme()}
-            aria-label={theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}>
-            {theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}
-          </button>
+
+        <div className="pa-footer__col">
+          <div className="pa-footer__title">{L('shop', 'Shop', 'تسوّق')}</div>
+          {shopLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
         </div>
-      </div>
 
-      <div className="pa-footer__col">
-        <div className="pa-footer__title">{L('shop', 'Shop', 'تسوّق')}</div>
-        {shopLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
-      </div>
+        <div className="pa-footer__col">
+          <div className="pa-footer__title">{L('help', 'Help', 'مساعدة')}</div>
+          {helpLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
+        </div>
 
-      <div className="pa-footer__col">
-        <div className="pa-footer__title">{L('help', 'Help', 'مساعدة')}</div>
-        {helpLinks.map((l) => <Link key={l.href} to={l.href}>{l.label}</Link>)}
-      </div>
-
-      <div className="pa-footer__col">
-        <div className="pa-footer__title">{L('delivery', 'Delivery', 'التوصيل')}</div>
-        {/* The delivery promise is a fact about the store, so it is stated
-            plainly: cash on delivery, all 27 governorates, free above the
-            threshold the setting document carries. */}
-        <span className="pa-subtitle">
-          {L('codAllGovernorates', 'Cash on delivery', 'الدفع عند الاستلام')} ·{' '}
-          {ar ? `لكل الـ ${totalGovernorates} محافظة` : `all ${totalGovernorates} governorates`}
-        </span>
-        <span className="pa-subtitle">
-          {L('freeShippingOver', 'Free shipping over', 'شحن مجاني للطلبات فوق')}{' '}
-          <bdi>{formatPriceFor(CURRENCY.freeShippingThreshold, lang)}</bdi>
-        </span>
-        <span className="pa-subtitle">
-          {ar ? `${totalItems} في العربية` : `${totalItems} in bag`}
-          {savedCount > 0 && (ar ? ` · ${savedCount} مفضلة` : ` · ${savedCount} saved`)}
-        </span>
+        <div className="pa-footer__col">
+          <div className="pa-footer__title">{L('delivery', 'Delivery', 'التوصيل')}</div>
+          {/* The delivery promise is a fact about the store, so it is stated
+              plainly: cash on delivery, all 27 governorates, free above the
+              threshold the setting document carries. */}
+          <span className="pa-subtitle">
+            {L('codAllGovernorates', 'Cash on delivery', 'الدفع عند الاستلام')} ·{' '}
+            {ar ? `لكل الـ ${totalGovernorates} محافظة` : `all ${totalGovernorates} governorates`}
+          </span>
+          <span className="pa-subtitle">
+            {L('freeShippingOver', 'Free shipping over', 'شحن مجاني للطلبات فوق')}{' '}
+            <bdi>{formatPriceFor(CURRENCY.freeShippingThreshold, lang)}</bdi>
+          </span>
+          <span className="pa-subtitle">
+            {ar ? `${totalItems} في العربية` : `${totalItems} in bag`}
+            {savedCount > 0 && (ar ? ` · ${savedCount} مفضلة` : ` · ${savedCount} saved`)}
+          </span>
+        </div>
       </div>
     </footer>
   )

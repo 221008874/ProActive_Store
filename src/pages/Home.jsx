@@ -17,7 +17,6 @@ import { useCatalog } from '../hooks/useCatalog'
 import { fetchCategories, fetchCollections } from '../services/catalog'
 import { getFreeShippingThreshold } from '../services/settings'
 import { formatEGP, loc, discountPct } from '../ui'
-import heroImage from '../assets/mainBG.webp'
 import {
   Button, EmptyState, ErrorState, IconChevron, ProductCard, ProductGrid, ProductRail,
   SectionHead, SkeletonGrid
@@ -40,6 +39,7 @@ export default function Home() {
   const { products, loading, error } = useCatalog()
 
   const [categories, setCategories] = useState([])
+  const [collections, setCollections] = useState([])
   const [hero, setHero] = useState(null)
   const [threshold, setThreshold] = useState(null)
   const [slide, setSlide] = useState(0)
@@ -55,12 +55,13 @@ export default function Home() {
     ]).then(([cats, cols, thr]) => {
       if (!alive) return
       if (cats.status === 'fulfilled') setCategories(cats.value)
-      // The hero comes from the first active collection with a banner; a store
-      // with no collections keeps the built-in artwork rather than an empty gap.
-      const withBanner = cols.status === 'fulfilled'
-        ? cols.value.find((c) => c.banner) ?? cols.value[0]
-        : null
-      if (withBanner) setHero(withBanner)
+      if (cols.status === 'fulfilled') {
+        setCollections(cols.value)
+        // The hero comes from the first active collection with a banner; a store
+        // with no collections keeps the built-in artwork rather than an empty gap.
+        const withBanner = cols.value.find((c) => c.banner) ?? cols.value[0]
+        if (withBanner) setHero(withBanner)
+      }
       if (thr.status === 'fulfilled') setThreshold(thr.value)
     })
     return () => { alive = false }
@@ -102,6 +103,7 @@ export default function Home() {
     <>
       <Hero
         hero={hero}
+        collections={collections}
         catName={catName}
         lang={lang}
         L={L}
@@ -238,28 +240,44 @@ export default function Home() {
  * bottom with pagination bars. Desktop: a 2fr/1fr grid — the banner beside two
  * category tiles — because a lone 520px-tall banner wastes the right half of a
  * laptop screen.
+ * Tiles come from collections (type 'tile') with a photo and category label.
+ * When no photo exists, use a flat tint from the palette.
  */
-function Hero({ hero, catName, lang, L, threshold, slide, onSlide }) {
+function Hero({ hero, collections, catName, lang, L, threshold, slide, onSlide }) {
   const billing = lang === 'ar' ? 'الدفع عند الاستلام' : 'Cash on delivery'
+  const hasImage = !!hero?.banner
+  // Use first two collections for tiles, fallback to hardcoded if none
+  const tiles = collections.length > 0
+    ? collections.slice(0, 2).map((c, i) => ({
+        label: c.name ? (c.name[lang] ?? c.name.en ?? c.id) : (i === 0 ? L('newIn', 'New in', 'وصل حديثاً') : L('sale', 'Sale', 'تخفيضات')),
+        href: c.categoryId ? `/shop?category=${encodeURIComponent(c.categoryId)}` : (i === 0 ? '/shop?sort=newest' : '/shop?sale=1'),
+        image: c.image
+      }))
+    : [
+        { label: L('newIn', 'New in', 'وصل حديثاً'), href: '/shop?sort=newest', image: null },
+        { label: L('sale', 'Sale', 'تخفيضات'), href: '/shop?sale=1', image: null }
+      ]
+
   return (
     <section className="pa-hero-wrap">
       <div
         className="pa-hero"
         style={{
-          backgroundImage: hero?.banner
-            ? `linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,.15)), url(${hero.banner})`
-            : `linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,.15)), url(${heroImage})`,
+          backgroundImage: hasImage
+            ? `linear-gradient(to top, rgba(18,18,18,.35), rgba(18,18,18,.15)), url(${hero.banner})`
+            : 'none',
+          backgroundColor: hasImage ? 'transparent' : 'var(--pa-stone)',
           // Deterministic slide offset so re-renders do not jump.
           backgroundPosition: `${slide * 50}% center`
         }}
       >
-        <div className="pa-hero__eyebrow">{L('newIn', 'New in', 'وصل حديثاً')}</div>
-        <h1 className="pa-hero__title">{hero ? catName(hero) : L('newSeason', 'New season', 'الموسم الجديد')}</h1>
-        <p className="pa-hero__line">
+        <div className="pa-hero__eyebrow" style={{ color: hasImage ? 'var(--pa-paper)' : 'var(--pa-ink)' }}>{L('newIn', 'New in', 'وصل حديثاً')}</div>
+        <h1 className="pa-hero__title" style={{ color: hasImage ? 'var(--pa-paper)' : 'var(--pa-ink)' }}>{hero ? catName(hero) : L('newSeason', 'New season', 'الموسم الجديد')}</h1>
+        <p className="pa-hero__line" style={{ color: hasImage ? 'var(--pa-paper)' : 'var(--pa-ink)' }}>
           {billing} · {L('freeShippingOver', 'Free shipping over', 'شحن مجاني فوق')}{' '}
           <bdi>{threshold ? formatEGP(threshold, lang) : '800 EGP'}</bdi>
         </p>
-        <Button size="lg" as={Link} href="/shop">{L('shopNow', 'Shop now', 'تسوّق الآن')}</Button>
+        <Button size="lg" as={Link} href="/shop" style={{ width: 'auto', alignSelf: 'flex-start', height: 52, padding: '0 30px' }}>{L('shopNow', 'Shop now', 'تسوّق الآن')}</Button>
 
         {/* Pagination bars: decorative, so the live region is the slide itself. */}
         <div className="pa-hero__dots" aria-hidden="true">
@@ -272,11 +290,10 @@ function Hero({ hero, catName, lang, L, threshold, slide, onSlide }) {
 
       {/* Desktop-only category tiles beside the banner. */}
       <div className="pa-hero__side">
-        {[0, 1].map((i) => (
-          <Link key={i} className="pa-hero__tile" to={`/shop?sort=newest`}>
-            <span className="pa-hero__tile-label">
-              {i === 0 ? L('newIn', 'New in', 'وصل حديثاً') : L('sale', 'Sale', 'تخفيضات')}
-            </span>
+        {tiles.map((tile, i) => (
+          <Link key={i} className="pa-hero__tile" to={tile.href}>
+            {tile.image && <span className="pa-hero__tile-img" style={{ backgroundImage: `url(${tile.image})` }} />}
+            <span className="pa-hero__tile-label">{tile.label}</span>
             <IconChevron dir="end" width={22} height={22} />
           </Link>
         ))}

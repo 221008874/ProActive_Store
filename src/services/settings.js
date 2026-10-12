@@ -1,37 +1,41 @@
 // Store settings.
 //
-// egp_settings/general is the single document the owner edits from the admin
-// (free-shipping threshold, WhatsApp number, minimum order). It is read by the
-// shell for the announcement bar and by checkout for the minimum, so it is
-// cached in one place rather than fetched per call site.
+// The public half of egp_settings/general (free-shipping threshold, WhatsApp
+// number, minimum order, ordersOpen) ships inside the catalogue snapshot, which
+// the storefront already fetches and caches by version. Reading it from there
+// means opening the shell, the product page and checkout costs no extra
+// Firestore reads at all.
 //
-// The cache is module-level and short-lived: a shopper who leaves the tab open
-// for an hour should still see the current threshold, but a page turn should
-// not re-read the document.
+// The snapshot is a cache: the owner can flip the kill switch or change the
+// threshold and the storefront picks it up on the next catalogue refresh
+// (bounded by the rebuild cooldown). Nothing that decides money reads it —
+// checkout re-reads live documents server-side.
+//
+// The cache below is module-level and short-lived: a shopper who leaves the tab
+// open for an hour should still see the current threshold, but a page turn
+// should not re-fetch the snapshot.
 
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { fetchPublicSettings } from "./catalog";
 import { CURRENCY } from "../config/currency";
 
-const SETTINGS_DOC = "egp_settings/general";
 const CACHE_MS = 5 * 60 * 1000;
 
 let cached = null;
 let cachedAt = 0;
 
 /**
- * The settings document, or null when it does not exist yet (a fresh install).
- * `force` bypasses the cache after a write.
+ * The public settings, or null when the snapshot has not been built yet (a
+ * fresh install). `force` bypasses the cache after a write.
  */
 export async function getSettings({ force = false } = {}) {
   if (!force && cached && Date.now() - cachedAt < CACHE_MS) return cached;
 
   try {
-    const snap = await getDoc(doc(db, "egp_settings", "general"));
-    cached = snap.exists() ? snap.data() : null;
+    const settings = await fetchPublicSettings();
+    cached = settings && Object.keys(settings).length > 0 ? settings : null;
     cachedAt = Date.now();
   } catch {
-    // An unread settings document must not break the shell: the fallback
+    // A missing settings snapshot must not break the shell: the fallback
     // threshold is what the store shipped with.
     if (!cached) cached = null;
   }

@@ -47,7 +47,10 @@ export default async function handler(req, res) {
       if (nextStock < 0) throw new HttpError(409, "NEGATIVE_STOCK");
 
       tx.update(variantRef, { stock: nextStock });
-      tx.update(productRef, { totalStock: increment(delta) });
+      // updatedAt is how the catalogue's partial rebuild finds the products it
+      // has to re-card; without it this adjustment would only reach the
+      // storefront on the next nightly full build.
+      tx.update(productRef, { totalStock: increment(delta), updatedAt: FieldValue.serverTimestamp() });
       tx.set(db.collection("stock_movements").doc(), {
         productId,
         variantId,

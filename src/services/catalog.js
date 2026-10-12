@@ -4,13 +4,18 @@
 //   1. the catalogue snapshot served by /api/catalog — a handful of documents
 //      for the whole store, cached locally by version;
 //   2. direct Firestore reads — the fallback when the snapshot has not been
-//      built yet (the route answers 503 SNAPSHOT_NOT_BUILT), and for the live
-//      per-variant stock checks the snapshot deliberately does not carry.
+//      built yet (the route answers 503 SNAPSHOT_NOT_BUILT).
 //
 // Every function returns plain objects with the document `id` merged in, so
 // callers never have to remember which fields live on the snapshot versus the
 // data. Archived/draft products are filtered at the query, not in the UI, so a
 // stale page cannot accidentally show them.
+//
+// Everything a visitor browses resolves from the snapshot, including the
+// product page's variants: a shopper opening a product costs no Firestore read
+// at all. Live documents are only consulted when the snapshot cannot answer
+// (a product published since the last build), and money is always re-checked
+// server-side at checkout.
 
 import {
   collection,
@@ -57,7 +62,19 @@ export async function fetchActiveProducts() {
   const snap = await getDocs(
     query(collection(db, "products_egp"), where("status", "==", "active"))
   );
-  return snap.docs.map(withId);
+  if (snap.docs.length) return snap.docs.map(withId);
+
+  // TEMPORARY, until PROACTIVE_FASHION_MIGRATION.md has been run against the
+  // live database: documents written before the status field existed carry no
+  // status at all, so the "status == active" query matches nothing and the shop
+  // renders an empty grid over a full catalogue. An empty result therefore gets
+  // one second look with a missing status read as active.
+  //
+  // Bounded to 200 documents: this path only runs when nothing is published, so
+  // the cost is paid once per visit and never on a stocked catalogue. Delete it
+  // with the migration.
+  const legacy = await getDocs(query(collection(db, "products_egp")).limit(200));
+  return legacy.docs.map(withId).filter((p) => p.status == null || p.status === "active");
 }
 
 export async function fetchCategories() {
@@ -113,17 +130,36 @@ export async function fetchProductsByIds(ids = []) {
   return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
-// The product page reads the live product + variants through the API so a
-// cached card can never contradict the page the shopper is about to buy from.
+// One product from the snapshot, by id or by slug, with its variants. Returns
+// null when the snapshot does not carry it (published since the last build, or
+// archived), which is the caller's cue to fall back.
+export function findInSnapshot(snapshot, idOrSlug) {
+  if (!snapshot?.products?.length || !idOrSlug) return null;
+  const key = String(idOrSlug).trim().toLowerCase();
+  return (
+    snapshot.products.find((p) => p.id === key) ??
+    snapshot.products.find((p) => (p.slug ?? "").toLowerCase() === key) ??
+    null
+  );
+}
+
+// The product page. The snapshot carries variants, so this is the path a
+// visitor takes and it reads no Firestore documents at all. It falls back to
+// /api/product (live, CDN-cached) when the snapshot cannot answer, and to
+// direct reads only when that route is unreachable too.
 export async function fetchProduct(id) {
   if (!id) return null;
+
+  const snapshot = await readSnapshot();
+  const fromSnapshot = findInSnapshot(snapshot, id);
+  if (fromSnapshot) return { ...fromSnapshot, variants: fromSnapshot.variants ?? [] };
 
   try {
     const product = await getJson(`/product?id=${encodeURIComponent(id)}`);
     return { variants: [], ...product };
   } catch {
-    // Snapshot route unavailable: fall back to the documents the rules still
-    // allow the storefront to read.
+    // Snapshot and API both unavailable: fall back to the documents the rules
+    // still allow the storefront to read.
     const snap = await getDoc(doc(db, "products_egp", id));
     if (!snap.exists() || snap.data().status !== "active") return null;
 
@@ -132,10 +168,45 @@ export async function fetchProduct(id) {
   }
 }
 
-// Live stock for one variant: the snapshot's totalStock is a lagging
-// aggregate, so availability on the product page and the bag reads this.
-export async function fetchVariantStock(productId, variantId) {
-  const snap = await getDoc(doc(db, "products_egp", productId, "variants", variantId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+// Delivery costs and per-governorate minimums, from the snapshot's governorate
+// list. The bag would otherwise read all 27 governorate documents on every
+// visit, which is the single largest read cost in checkout.
+export async function fetchGovernorates() {
+  const snapshot = await readSnapshot();
+  return snapshot?.governorates ?? [];
+}
+
+// Public store settings (ordersOpen kill switch, free-shipping threshold,
+// minimum order fallback), from the snapshot.
+export async function fetchPublicSettings() {
+  const snapshot = await readSnapshot();
+  return snapshot?.settings ?? {};
+}
+
+// Built-in default taxonomy for when the settings document is missing.
+const DEFAULT_TAXONOMY = {
+  sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'],
+  colors: [
+    { id: 'black', name: { en: 'Black', ar: 'أسود' }, hex: '#121212' },
+    { id: 'white', name: { en: 'White', ar: 'أبيض' }, hex: '#FFFFFF' },
+    { id: 'beige', name: { en: 'Beige', ar: 'بيج' }, hex: '#F4F2EE' },
+    { id: 'navy', name: { en: 'Navy', ar: 'كحلي' }, hex: '#1F4E8C' },
+    { id: 'olive', name: { en: 'Olive', ar: 'زيتي' }, hex: '#6B8E23' },
+    { id: 'burgundy', name: { en: 'Burgundy', ar: 'عنابي' }, hex: '#800020' },
+    { id: 'grey', name: { en: 'Grey', ar: 'رمادي' }, hex: '#8A8780' },
+    { id: 'blue', name: { en: 'Blue', ar: 'أزرق' }, hex: '#3A7BD5' }
+  ]
+}
+
+// The size and colour vocabulary the filters offer, from egp_settings/taxonomy
+// via the snapshot. It is a vocabulary, not a stock list: a size can be offered
+// before anything is cut in it, which is why the shop merges it with what the
+// catalogue actually carries rather than using either alone.
+export async function fetchTaxonomy() {
+  const snapshot = await readSnapshot();
+  const taxonomy = snapshot?.taxonomy ?? {};
+  return {
+    sizes: taxonomy.sizes?.length ? taxonomy.sizes : DEFAULT_TAXONOMY.sizes,
+    colors: taxonomy.colors?.length ? taxonomy.colors : DEFAULT_TAXONOMY.colors
+  }
 }
