@@ -27,7 +27,7 @@ import {
   selectionIsComplete, colorsOf, sizesOf, imagesForColor, primaryImage
 } from '../utils/variantSelection'
 import { fetchProduct, fetchActiveProducts } from '../services/catalog'
-import { getFreeShippingThreshold } from '../services/settings'
+import { getFreeShippingThreshold, getWhatsAppNumber } from '../services/settings'
 import { CURRENCY } from '../config/currency'
 
 const label = (t, lang) => (key, en, ar) => {
@@ -54,6 +54,12 @@ export default function ProductDetail() {
   const [sheet, setSheet] = useState(false)
   const [related, setRelated] = useState([])
   const [threshold, setThreshold] = useState(CURRENCY.freeShippingThreshold)
+  const [whatsAppNumber, setWhatsAppNumber] = useState(null)
+
+  // Fetch WhatsApp number for the "Ask about size" button.
+  useEffect(() => {
+    getWhatsAppNumber().then(setWhatsAppNumber)
+  }, [])
 
   const L = label(t, lang)
   const saved = product ? has(product.id) : false
@@ -253,6 +259,24 @@ export default function ProductDetail() {
                 {L('size', 'Size', 'المقاس')}
                 {selection.size && <span>: {selection.size}</span>}
                 <Link className="pa-pdp__guide" to="/about">{L('sizeGuide', 'Size guide', 'دليل المقاسات')}</Link>
+                <button
+                  type="button"
+                  className="pa-pdp__guide pa-pdp__guide--whatsapp"
+                  onClick={() => {
+                    if (!whatsAppNumber) return
+                    const message = L('askAboutSizeMessage', 'Hi, I\'d like to ask about the size for {product} in {color} / {size}.', 'مرحباً، عايز أسأل عن مقاس {product} باللون {color} / المقاس {size}.')
+                      .replace('{product}', product.title?.en ?? product.title?.ar ?? '')
+                      .replace('{color}', selectedColor ? loc(selectedColor.name, lang) : '')
+                      .replace('{size}', selection.size ?? '')
+                    const url = `https://wa.me/${whatsAppNumber.replace(/[^\d]/g, '')}?text=${encodeURIComponent(message)}`
+                    window.open(url, '_blank')
+                    analytics.whatsappClick?.('ask_about_size')
+                  }}
+                  aria-label={L('askAboutSizeAria', 'Ask us about size on WhatsApp', 'اسألنا عن المقاس على واتساب')}
+                >
+                  <IconWhatsApp width={18} height={18} aria-hidden="true" />
+                  {L('askAboutSize', 'Ask about size', 'اسأل على المقاس')}
+                </button>
               </div>
               <SizePicker
                 sizes={sizes.map((s) => s.size)}

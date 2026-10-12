@@ -108,5 +108,9 @@ export const analytics = {
       value: Number(order.totalPrice ?? order.total ?? 0),
       items: (order.items ?? []).map(line)
     })
+  },
+
+  whatsappClick(action) {
+    trackEvent('whatsapp_click', { action })
   }
 }
