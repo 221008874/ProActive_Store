@@ -64,21 +64,30 @@ test('a non-existent account is rejected instead of silently hanging', async ({ 
 
 // BLOCKED, not passing. Kept as fixme so the intent is not lost.
 //
-// The browser Firestore SDK never establishes its transport against the local
-// emulator: it logs "Could not reach Cloud Firestore backend. Backend didn't
-// respond within 10 seconds", drops to offline mode, and then answers every read
-// from an empty local cache. The panel renders "0 products" and no error, so the
-// UI cannot be distinguished from "the seed failed".
+// The browser Firestore SDK never opens a transport to the local emulator. A CDP
+// capture (Network.requestWillBeSent) shows it issuing NO request at all - not to
+// 127.0.0.1:8399, and not to firestore.googleapis.com either - then timing out
+// with "Could not reach Cloud Firestore backend" and answering every read from
+// its empty offline cache. The panel renders "0 products" with no error, so a
+// broken transport is indistinguishable from an empty database.
 //
-// Everything else has been ruled out by measurement, so this is not an app bug:
+// Ruled out by measurement:
 //   - data present: REST runQuery on the same project/database returns 6 products
 //   - rules allow it: REST runQuery with the admin's own ID token also returns 6
 //   - reachable: fetch() from this same page, including a preflighted POST with
-//     custom headers, returns 200 from 127.0.0.1:8399
+//     custom headers, returns 200 from the emulator
 //   - config correct: projectId 'proactive-fashion-demo', databaseId '(default)'
-//   - not a stale-cache artefact: no Firestore persistence is enabled
-// What remains is the SDK's own channel handshake, which never issues a request
-// the emulator records. Re-enable once that is resolved.
+//   - not cross-origin: using the same hostname (localhost) as the app changes
+//     nothing
+//   - not persistence: no Firestore cache is enabled
+//   - not the transport mode: experimentalAutoDetectLongPolling changes nothing
+//
+// This only affects local browser testing. The publish contract this suite
+// cannot cover IS verified, at the layer where the Admin SDK does work:
+// `node scripts/verify-publish-path.mjs` drives the real catalogCore against the
+// emulator and proves an Admin-style batch (product + dirty flag in one batch)
+// reaches the storefront snapshot, and that a category rename needs the full
+// rebuild the Admin now requests.
 test('the products table reads emulator data, not the live project', async ({ page }) => {
   test.fixme('the Admin reads 0 products because the SDK cannot reach the Firestore emulator');
 
