@@ -171,7 +171,7 @@ export default function CouponLanding() {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-          <div className="pa-price pa-price--lg"><bdi>{formatEGP(coupon.amount)}</bdi></div>
+          <div className="pa-price pa-price--lg"><bdi>{formatEGP(coupon.amount, lang)}</bdi></div>
           <span className="pa-subtitle">{L('discountAmount', 'Discount Amount', 'قيمة الخصم')}</span>
           <div className="pa-coupon-card__code">{coupon.code}</div>
         </div>
@@ -179,7 +179,7 @@ export default function CouponLanding() {
         <div style={{ width: '100%' }}>
           <Summary
             rows={[
-              { label: L('discountType', 'Discount', 'الخصم'), value: coupon.type === 'percent' ? `${coupon.value}%` : formatEGP(coupon.value) },
+              { label: L('discountType', 'Discount', 'الخصم'), value: coupon.type === 'percent' ? `${coupon.value}%` : formatEGP(coupon.value, lang) },
               { label: L('status', 'Status', 'الحالة'), value: L('active', 'Active', 'مفعل') }
             ]}
           />
@@ -192,7 +192,7 @@ export default function CouponLanding() {
 
           {items.length > 0 && (
             <Button variant="outline" block onClick={handleGoToCart}>
-              <IconBag width={18} height={18} /> {L('goToCart', 'Go to Cart', 'روح للعربية')} ({items.length}) · <bdi>{formatEGP(totalPrice)}</bdi>
+              <IconBag width={18} height={18} /> {L('goToCart', 'Go to Cart', 'روح للعربة')} ({items.length}) · <bdi>{formatEGP(totalPrice, lang)}</bdi>
             </Button>
           )}
         </div>

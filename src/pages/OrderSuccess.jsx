@@ -337,7 +337,7 @@ export default function OrderSuccess() {
 
   const safePrice = useCallback((p) => parseFloat(p) || 0, [])
 
-  const formatPrice = useCallback((p) => formatEGP(safePrice(p)), [safePrice])
+  const formatPrice = useCallback((p) => formatEGP(safePrice(p), lang), [safePrice, lang])
 
   // ── Verification effect ──────────────────────────────────────────────────
   useEffect(() => {

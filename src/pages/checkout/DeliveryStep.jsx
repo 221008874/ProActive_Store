@@ -1,11 +1,13 @@
 // Delivery — step 2 of checkout.
 //
+//
 // The address, then the pin. Validation is per-field and runs on submit, so a
 // shopper is not told about an error while they are still typing it. The phone
 // number follows the Egyptian mobile format exactly, because a courier who
 // cannot reach the shopper is a failed delivery.
 
 import { useLanguage } from '../../context/LanguageContext'
+import { useRef } from 'react'
 import { Button, Checkbox, Field, Select, formatEGP } from '../../ui'
 import LocationPicker from '../../components/LocationPicker'
 import { validateDeliveryForm } from '../../utils/validation'
@@ -18,9 +20,19 @@ const label = (t, lang) => (key, en, ar) => {
   return lang === 'ar' ? ar : en
 }
 
+// Scroll the first error into view so a failed submit is never invisible.
+function scrollToFirstError(formRef, errors) {
+  if (!formRef.current || !errors) return
+  const firstKey = Object.keys(errors)[0]
+  if (!firstKey) return
+  const el = formRef.current.querySelector(`[id^="d-${firstKey}"]`)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 export default function DeliveryStep({ checkout }) {
   const { t, lang } = useLanguage()
   const L = label(t, lang)
+  const formRef = useRef(null)
 
   const {
     address, setField, chooseGovernorate, governorateDocs, loadingGovernorates,
@@ -41,21 +53,39 @@ export default function DeliveryStep({ checkout }) {
     e.preventDefault()
     const { errors, isValid } = validateDeliveryForm(address, { t })
     setFormErrors(errors)
-    if (isValid) setStep(3)
+    if (isValid) {
+      setStep(3)
+    } else {
+      scrollToFirstError(formRef, errors)
+    }
+  }
+
+  // Field label → human-readable name for the error summary.
+  const fieldLabels = {
+    name: L('fullName', 'Full name', 'الاسم بالكامل'),
+    phone: L('mobile', 'Mobile number', 'رقم الموبايل'),
+    email: L('email', 'Email', 'البريد الإلكتروني'),
+    address: L('street', 'Street', 'الشارع'),
+    governorate: L('governorate', 'Governorate', 'المحافظة'),
+    city: L('cityArea', 'City / area', 'المدينة / المنطقة'),
+    building: L('building', 'Building / floor', 'العمارة / الدور')
   }
 
   return (
-    <form className="pa-checkout" onSubmit={submit} noValidate>
+    <form ref={formRef} className="pa-checkout" onSubmit={submit} noValidate>
+      {/* Error summary — visible even when the failing field is scrolled away. */}
+      {formErrors && Object.keys(formErrors).length > 0 && (
+        <div className="pa-callout pa-callout--error" role="alert" style={{ margin: '0 var(--pa-gutter) var(--pa-gap)' }}>
+          <b>{L('fixFormErrors', 'Please fix the following:', 'صلح الأخطاء دي:')}</b>
+          <ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>
+            {Object.entries(formErrors).map(([key, msg]) => (
+              <li key={key}><b>{fieldLabels[key] ?? key}:</b> {msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="pa-checkout__section">
-        <Field
-          id="d-name"
-          label={L('fullName', 'Full name', 'الاسم بالكامل')}
-          value={address.name}
-          onChange={(e) => setField('name', e.target.value)}
-          error={formErrors.name}
-          autoComplete="name"
-          required
-        />
         <Field
           id="d-phone"
           label={L('mobile', 'Mobile number', 'رقم الموبايل')}
@@ -66,6 +96,15 @@ export default function DeliveryStep({ checkout }) {
           inputMode="tel"
           className="pa-input--phone"
           autoComplete="tel"
+          required
+        />
+        <Field
+          id="d-name"
+          label={L('fullName', 'Full name', 'الاسم بالكامل')}
+          value={address.name}
+          onChange={(e) => setField('name', e.target.value)}
+          error={formErrors.name}
+          autoComplete="name"
           required
         />
         <Field

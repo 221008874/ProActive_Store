@@ -16,6 +16,7 @@ import { useWishlist } from '../context/WishlistContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { fetchCategories, fetchCollections } from '../services/catalog'
 import { getFreeShippingThreshold } from '../services/settings'
+import { analytics } from '../services/analytics'
 import { formatEGP, loc, discountPct } from '../ui'
 import {
   Button, EmptyState, ErrorState, IconChevron, ProductCard, ProductGrid, ProductRail,
@@ -76,12 +77,22 @@ export default function Home() {
     return pool.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true))).slice(0, 10)
   }, [products])
 
+  // Fire view_item_list for New in
+  useEffect(() => {
+    if (newIn.length > 0) analytics.viewItemList(newIn, 'new_in')
+  }, [newIn])
+
   const sale = useMemo(() => products
     .map((p) => ({ p, pct: p.discountPct ?? discountPct(p.price, p.compareAtPrice) }))
     .filter((x) => x.pct > 0)
     .sort((a, b) => b.pct - a.pct)
     .slice(0, 10)
     .map((x) => x.p), [products])
+
+  // Fire view_item_list for Sale
+  useEffect(() => {
+    if (sale.length > 0) analytics.viewItemList(sale, 'sale')
+  }, [sale])
 
   const circles = useMemo(() => categories
     .filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))

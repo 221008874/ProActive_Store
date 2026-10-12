@@ -29,6 +29,29 @@ function readCart() {
   }
 }
 
+const DELIVERY_STORAGE_KEY = 'proactive_delivery_v2'
+
+function readDeliveryInfo() {
+  try {
+    const raw = localStorage.getItem(DELIVERY_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeDeliveryInfo(info) {
+  try {
+    if (info) {
+      localStorage.setItem(DELIVERY_STORAGE_KEY, JSON.stringify(info))
+    } else {
+      localStorage.removeItem(DELIVERY_STORAGE_KEY)
+    }
+  } catch {
+    // Private mode or quota: ignore
+  }
+}
+
 function readCoupon() {
   try {
     const saved = localStorage.getItem('appliedCoupon')
@@ -146,7 +169,7 @@ export function CartProvider({ children }) {
   const [cart, dispatch] = useReducer(cartReducer, {
     items: readCart(),
     error: null,
-    deliveryInfo: null,
+    deliveryInfo: readDeliveryInfo(),
     appliedCoupon: readCoupon()
   })
 
@@ -155,6 +178,11 @@ export function CartProvider({ children }) {
   useEffect(() => {
     writeCart(cart.items)
   }, [cart.items])
+
+  // Persist deliveryInfo on every change.
+  useEffect(() => {
+    writeDeliveryInfo(cart.deliveryInfo)
+  }, [cart.deliveryInfo])
 
   // FIXED: Use useEffect for localStorage operations (side effects)
   const [appliedCoupon, setAppliedCouponState] = useState(() => readCoupon())
@@ -179,9 +207,9 @@ export function CartProvider({ children }) {
   }, [])
 
   // product is the parent product; variant is the chosen colour/size (optional,
-// so legacy single-variant products still work). The cart line is keyed on the
-// composite product+variant id, which lives in `id` so existing call sites that
-// use item.id keep working.
+  // so legacy single-variant products still work). The cart line is keyed on the
+  // composite product+variant id, which lives in `id` so existing call sites that
+  // use item.id keep working.
   const addToCart = useCallback((product, quantity = 1, variant = null) => {
     if (!product) {
       dispatch({ 
@@ -282,9 +310,9 @@ export function CartProvider({ children }) {
   }, [])
 
   // Refreshes the cart against live Firestore data. `catalogue` maps a cart line
-// id (productId:variantId) to its live variant data. Lines that vanished or sold
-// out are removed, over-stock lines are clamped, and every change is reported
-// so the UI can tell the shopper rather than silently altering their order.
+  // id (productId:variantId) to its live variant data. Lines that vanished or sold
+  // out are removed, over-stock lines are clamped, and every change is reported
+  // so the UI can tell the shopper rather than silently altering their order.
   const validateCart = useCallback((catalogue = {}) => {
     const { items, issues } = reconcileCart(cart.items, catalogue)
 

@@ -16,6 +16,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
+import { analytics } from '../services/analytics'
 import {
   Accordion, Badge, Button, ColorDot, EmptyState, ErrorState, IconHeart, IconShare,
   PriceTag, ProductCard, ProductRail, SizePicker, Skeleton, StockHint, thumb,
@@ -26,7 +27,7 @@ import {
   selectionIsComplete, colorsOf, sizesOf, imagesForColor, primaryImage
 } from '../utils/variantSelection'
 import { fetchProduct, fetchActiveProducts } from '../services/catalog'
-import { getFreeShippingThreshold } from '../services/settings'
+import { getFreeShippingThreshold, getWhatsAppNumber } from '../services/settings'
 import { CURRENCY } from '../config/currency'
 
 const label = (t, lang) => (key, en, ar) => {
@@ -53,6 +54,12 @@ export default function ProductDetail() {
   const [sheet, setSheet] = useState(false)
   const [related, setRelated] = useState([])
   const [threshold, setThreshold] = useState(CURRENCY.freeShippingThreshold)
+  const [whatsAppNumber, setWhatsAppNumber] = useState(null)
+
+  // Fetch WhatsApp number for the "Ask about size" button.
+  useEffect(() => {
+    getWhatsAppNumber().then(setWhatsAppNumber)
+  }, [])
 
   const L = label(t, lang)
   const saved = product ? has(product.id) : false
@@ -75,7 +82,7 @@ export default function ProductDetail() {
     let alive = true
 
     fetchProduct(id)
-      .then((p) => { if (!alive) return; p ? setProduct(p) : setNotFound(true) })
+      .then((p) => { if (!alive) return; p ? (setProduct(p), analytics.viewItem(p)) : setNotFound(true) })
       .catch(() => { if (alive) setNotFound(true) })
 
     // "You may also like": the same category, everything else. A second read is
@@ -238,7 +245,11 @@ export default function ProductDetail() {
                 {colors.map((c) => (
                   <ColorDot key={c.id} color={c} lang={lang}
                     selected={selection.colorId === c.id}
-                    onSelect={() => setSelection((s) => pickColor(product, s, c.id))} />
+                    onSelect={() => {
+                      const next = pickColor(product, selection, c.id)
+                      setSelection(next)
+                      if (next.colorId) analytics.selectItem(product, loc(next.color?.name, lang) ?? next.colorId, selection.size)
+                    }} />
                 ))}
               </div>
             </div>
@@ -248,12 +259,34 @@ export default function ProductDetail() {
                 {L('size', 'Size', 'المقاس')}
                 {selection.size && <span>: {selection.size}</span>}
                 <Link className="pa-pdp__guide" to="/about">{L('sizeGuide', 'Size guide', 'دليل المقاسات')}</Link>
+                <button
+                  type="button"
+                  className="pa-pdp__guide pa-pdp__guide--whatsapp"
+                  onClick={() => {
+                    if (!whatsAppNumber) return
+                    const message = L('askAboutSizeMessage', 'Hi, I\'d like to ask about the size for {product} in {color} / {size}.', 'مرحباً، عايز أسأل عن مقاس {product} باللون {color} / المقاس {size}.')
+                      .replace('{product}', product.title?.en ?? product.title?.ar ?? '')
+                      .replace('{color}', selectedColor ? loc(selectedColor.name, lang) : '')
+                      .replace('{size}', selection.size ?? '')
+                    const url = `https://wa.me/${whatsAppNumber.replace(/[^\d]/g, '')}?text=${encodeURIComponent(message)}`
+                    window.open(url, '_blank')
+                    analytics.whatsappClick?.('ask_about_size')
+                  }}
+                  aria-label={L('askAboutSizeAria', 'Ask us about size on WhatsApp', 'اسألنا عن المقاس على واتساب')}
+                >
+                  <IconWhatsApp width={18} height={18} aria-hidden="true" />
+                  {L('askAboutSize', 'Ask about size', 'اسأل على المقاس')}
+                </button>
               </div>
               <SizePicker
                 sizes={sizes.map((s) => s.size)}
                 value={selection.size}
                 stockBySize={Object.fromEntries(sizes.map((s) => [s.size, s.stock]))}
-                onChange={(size) => setSelection((s) => pickSize(product, s.colorId, size))}
+                onChange={(size) => {
+                  setSelection((s) => pickSize(product, s.colorId, size))
+                  const nextColor = pickSize(product, selection, size).colorId
+                  if (nextColor && size) analytics.selectItem(product, loc(selection.colorId ? product.colors?.find(c => c.id === selection.colorId)?.name : null, lang) ?? '', size)
+                }}
               />
               <StockHint stock={stock} where={selectedColor ? `in ${loc(selectedColor.name, lang)}` : ''} />
               {!variantReady && (

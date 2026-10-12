@@ -16,6 +16,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
+import { analytics } from '../services/analytics'
 import {
   BottomSheet, Button, Checkbox, ColorDot, EmptyState, ErrorState, IconBack, IconBag, IconChevron,
   IconFilter, IconSort, Select, SkeletonGrid, ProductCard, StaleNotice, loc, formatEGP
@@ -143,6 +144,11 @@ export default function ShopPage() {
   }, [results])
 
   const shown = useMemo(() => ordered.slice(0, visible), [ordered, visible])
+
+  // Fire view_item_list when the visible product list changes (filters, sort, page, category, search).
+  useEffect(() => {
+    if (shown.length > 0) analytics.viewItemList(shown, 'catalog')
+  }, [shown])
 
   const patchFilters = useCallback((patch) => {
     write(paramsFromFilters({ ...filters, ...patch }))

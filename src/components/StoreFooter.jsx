@@ -4,12 +4,14 @@
 // phone with the language and theme buttons as real 44px controls so they are
 // reachable without the announcement bar (which is desktop-only for the theme).
 
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { useWishlist } from '../context/WishlistContext'
 import { formatPriceFor, CURRENCY } from '../config/currency'
-import { IconGlobe, IconMoon, IconSun } from '../ui'
+import { getWhatsAppNumber } from '../services/settings'
+import { IconGlobe, IconMoon, IconSun, IconWhatsApp } from '../ui'
 
 const label = (t, lang) => (key, en, ar) => {
   if (key) {
@@ -49,6 +51,11 @@ export default function StoreFooter() {
   ]
 
   const totalGovernorates = 27
+
+  const [whatsAppNumber, setWhatsAppNumber] = useState(null)
+  useEffect(() => {
+    getWhatsAppNumber().then(setWhatsAppNumber)
+  }, [])
 
   return (
     <footer className="pa-footer">
@@ -98,6 +105,23 @@ export default function StoreFooter() {
             </button>
           </div>
         </div>
+
+        {/* WhatsApp contact column — only renders when the owner has set a number. */}
+        {whatsAppNumber && (
+          <div className="pa-footer__col">
+            <div className="pa-footer__title">{L('contactWhatsApp', 'WhatsApp', 'واتساب')}</div>
+            <a
+              className="pa-footer__whatsapp"
+              href={`https://wa.me/${whatsAppNumber.replace(/[^\d]/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={L('contactWhatsAppAria', 'Message us on WhatsApp', 'راسلنا على واتساب')}
+            >
+              <IconWhatsApp width={20} height={20} aria-hidden="true" />
+              <span>WhatsApp</span>
+            </a>
+          </div>
+        )}
 
         <div className="pa-footer__col">
           <div className="pa-footer__title">{L('shop', 'Shop', 'تسوّق')}</div>
