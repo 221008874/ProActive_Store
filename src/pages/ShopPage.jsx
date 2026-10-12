@@ -17,7 +17,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
 import {
-  BottomSheet, Button, Checkbox, ColorDot, EmptyState, ErrorState, Field, IconBack, IconBag, IconChevron,
+  BottomSheet, Button, Checkbox, ColorDot, EmptyState, ErrorState, IconBack, IconBag, IconChevron,
   IconFilter, IconSort, Select, SkeletonGrid, ProductCard, loc, formatEGP
 } from '../ui'
 import { useCatalog, filterProducts, findVariant, SORTERS } from '../hooks/useCatalog'
@@ -449,14 +449,24 @@ function FilterPanel({ filters, facets, lang, L, onPatch, onClear, resultCount, 
 
       {facets.maxPrice > 0 && (
         <section>
-          <div className="pa-group-title">
+          <div className="pa-group-title" id="price-slider-label">
             {L('price', 'Price', 'السعر')}
             <span className="pa-price-readout">
               {formatEGP(Math.min(price, maxPrice), lang)} – {formatEGP(Math.max(price, maxPrice), lang)}
             </span>
           </div>
-          {/* Dual-handle slider: two overlaid <input type="range"> with filled track. */}
-          <div className="pa-price-slider" role="group" aria-labelledby="price-label">
+          {/* Dual-handle slider: two overlaid <input type="range"> with filled track.
+              --min/--max go on the CONTAINER, not the inputs: they drive the
+              ::after filled span, and custom properties do not inherit upwards. */}
+          <div
+            className="pa-price-slider"
+            role="group"
+            aria-labelledby="price-slider-label"
+            style={{
+              '--min': (Math.min(price, maxPrice) / facets.maxPrice) * 100,
+              '--max': (Math.max(price, maxPrice) / facets.maxPrice) * 100
+            }}
+          >
             <input
               id="price-min"
               type="range"
@@ -469,7 +479,6 @@ function FilterPanel({ filters, facets, lang, L, onPatch, onClear, resultCount, 
               onTouchEnd={commitPrice}
               onKeyUp={commitPrice}
               aria-label={L('from', 'From', 'من')}
-              style={{ '--min': (price / facets.maxPrice) * 100, '--max': (maxPrice / facets.maxPrice) * 100 }}
             />
             <input
               id="price-max"
@@ -483,7 +492,6 @@ function FilterPanel({ filters, facets, lang, L, onPatch, onClear, resultCount, 
               onTouchEnd={commitPrice}
               onKeyUp={commitPrice}
               aria-label={L('to', 'To', 'إلى')}
-              style={{ '--min': (price / facets.maxPrice) * 100, '--max': (maxPrice / facets.maxPrice) * 100 }}
             />
           </div>
         </section>

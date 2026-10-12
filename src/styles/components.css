@@ -436,12 +436,13 @@
 .pa-filter-panel { display: flex; flex-direction: column; gap: 24px; }
 .pa-filter-panel__chips { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.pa-group-title { display: flex; justify-content: space-between; align-items: baseline; }
 .pa-price-readout { font-size: 13px; font-weight: 600; color: var(--pa-muted); }
 
 /* Dual-handle price slider: two overlaid range inputs with a filled track between them.
-   The track is drawn via ::before on the container; each thumb is styled via
-   appearance: none + custom thumb. Keyboard operable, screen-reader labelled. */
+   The track is drawn via ::before (empty rail) and ::after (filled span) on the
+   CONTAINER, so --min/--max must be set on .pa-price-slider itself. Custom
+   properties inherit downwards only: setting them on the <input> children left
+   the container's ::after with no values and the filled span silently vanished. */
 .pa-price-slider {
   position: relative; height: 24px; display: flex;
 }
@@ -482,7 +483,12 @@
   display: flex; flex-direction: column; gap: 18px;
 }
 .pa-sheet__title { display: flex; justify-content: space-between; align-items: center; font-family: var(--pa-font-display); font-size: 20px; font-weight: 700; }
-.pa-group-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px; }
+/* One declaration only: an earlier copy of this rule was silently overridden by
+   the one below it, so the flex layout for the price readout never applied. */
+.pa-group-title {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px;
+}
 .pa-layout-shop { display: grid; gap: 32px; }
 @media (min-width: 1024px) {
   /* The phone header row is a duplicate of the desktop heading, not a
@@ -704,7 +710,11 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
 }
 .pa-radio-card[aria-checked="true"] { border: 2px solid var(--pa-ink); padding: 15px; }
 .pa-radio-card[aria-disabled="true"] { color: var(--pa-muted); background: var(--pa-stone); cursor: not-allowed; }
-.pa-radio-card input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.pa-radio-card input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+/* The native input is visually hidden, so its own :focus-visible outline would
+   paint on a 1px box and be invisible. The card draws the ring instead, keyed off
+   :focus-within, so keyboard focus is visible on the thing the user actually sees. */
+.pa-radio-card:focus-within { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
 .pa-radio-card::before {
   content: ""; flex: 0 0 22px; width: 22px; height: 22px; margin-top: 2px;
   border: 2px solid var(--pa-ink); border-radius: 50%; background: var(--pa-paper);
