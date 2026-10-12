@@ -18,16 +18,19 @@ import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
 import {
   BottomSheet, Button, Checkbox, ColorDot, EmptyState, ErrorState, IconBack, IconBag, IconChevron,
-  IconFilter, IconSort, Select, SkeletonGrid, ProductCard, loc, formatEGP
+  IconFilter, IconSort, Select, SkeletonGrid, ProductCard, StaleNotice, loc, formatEGP
 } from '../ui'
 import { useCatalog, filterProducts, findVariant, SORTERS } from '../hooks/useCatalog'
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
-import { fetchCategories, fetchTaxonomy } from '../services/catalog'
+import { fetchCategories, fetchTaxonomy, sortSizesCanonical } from '../services/catalog'
 import {
   filtersFromParams, paramsFromFilters, activeFilterChips, removeChip, SORTS
 } from '../utils/filterUrl'
 
-const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL']
+// CANONICAL_SIZES is imported from the service, not redeclared here: the
+// ordering rule and the vocabulary must be the same list in both places, or the
+// facet and the fallback drift apart again (they did — that is where "XXL" and
+// "2XL" came from).
 
 const label = (t, lang) => (key, en, ar) => {
   if (key) {
@@ -67,13 +70,9 @@ function useFacets(products) {
 
     // Only include taxonomy sizes that have at least some products, OR all if no products have sizes
     const hasProductSizes = sizes.size > 0
-    const mergedSizes = hasProductSizes
-      ? [...sizes].sort((a, b) => {
-          const ia = SIZE_ORDER.indexOf(a)
-          const ib = SIZE_ORDER.indexOf(b)
-          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
-        })
-      : taxonomySizes
+    // sortSizesCanonical folds "2XL" onto "XXL" and orders by the canonical
+    // list, so a facet can never offer the same size under two names.
+    const mergedSizes = hasProductSizes ? sortSizesCanonical(sizes) : sortSizesCanonical(taxonomySizes)
 
     // Only include taxonomy colors that have at least some products, OR all if no products have colors
     const hasProductColors = colors.size > 0
@@ -96,7 +95,7 @@ export default function ShopPage() {
   const toast = useToast()
   const [params, setParams] = useSearchParams()
 
-  const { products, loading, error } = useCatalog()
+  const { products, loading, error, stale, retry } = useCatalog()
   const [categories, setCategories] = useState([])
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -162,7 +161,7 @@ export default function ShopPage() {
   const quickSizes = useMemo(() => {
     const all = new Set()
     for (const p of products) for (const s of p.availableSizes ?? []) all.add(s)
-    return [...all].sort((a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b)).slice(0, 4)
+    return sortSizesCanonical(all).slice(0, 4)
   }, [products])
 
   const handleQuickAdd = useCallback((product, size) => {
@@ -186,6 +185,12 @@ export default function ShopPage() {
         : L('allProducts', 'All products', 'كل المنتجات')
 
   const itemCount = L('nItems', '{n} items', '{n} عنصر').replace('{n}', ordered.length)
+  // The caption above the grid. With filters active it is a result count and
+  // says so; without them it drops the "results" framing so the same string is
+  // not printed twice, once under the heading and once over the grid.
+  const resultCountLabel = count > 0
+    ? L('nResults', '{n} results', '{n} نتيجة').replace('{n}', ordered.length)
+    : itemCount
   // Only one of the two sort affordances exists at a time: the toolbar dropdown
   // on desktop, the sheet's chips on a phone. Showing both is what the review
   // caught — a row of sort chips printed above a select that said the same thing.
@@ -299,12 +304,28 @@ export default function ShopPage() {
             <ErrorState
               title={L('loadFailed', 'Could not load products', 'تحميل المنتجات فشل')}
               body={L('checkConnection', 'Check your connection and try again.', 'راجع الاتصال وجرب تاني.')}
-              onRetry={() => window.location.reload()}
+              onRetry={retry}
               retryLabel={L('retry', 'Try again', 'جرب تاني')}
+              code={error?.code}
             />
           )}
 
-          {!loading && !error && ordered.length === 0 && (
+          {/* Three different situations, three different messages. Collapsing
+              them is what made an unpublished catalogue look like an outage:
+              "we could not read the catalogue", "the catalogue has nothing in
+              it", and "your filters excluded everything" are not the same
+              sentence, and none of them offers the other's action. */}
+          {!loading && !error && products.length === 0 && (
+            <EmptyState
+              title={L('noProducts', 'Nothing here yet', 'مفيش منتجات لسه')}
+              body={L('noProductsBody', 'The first pieces are on their way.', 'أول قطع في طريقها.')}
+              actionLabel={L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+              as={Link}
+              to="/home"
+            />
+          )}
+
+          {!loading && !error && products.length > 0 && ordered.length === 0 && (
             <EmptyState
               title={L('noMatches', 'No items match', 'مفيش منتجات مطابقة')}
               body={L('tryRemoving', 'Try removing a filter or searching for something else.', 'جرب تشيل فلتر أو تدور على حاجة تانية.')}
@@ -313,28 +334,38 @@ export default function ShopPage() {
             />
           )}
 
-          {!loading && ordered.length > 0 && (
-            <div className="pa-grid">
-              {shown.map((p) => (
-                <div key={p.id} className={p.totalStock <= 0 ? 'pa-card--dimmed' : undefined}>
-                  <ProductCard
-                    product={p}
-                    lang={lang}
-                    as={Link}
-                    href={`/product/${p.id}`}
-                    saved={has(p.id)}
-                    onSave={() => toggleSave(p.id)}
-                    quickSizes={quickSizes}
-                    onQuickAdd={handleQuickAdd}
-                    labels={{
-                      onlyLeft: (n) => L('onlyNLeft', `Only ${n} left`, `باقي ${n} بس`),
-                      add: L('add', 'Add', 'إضافة'),
-                      size: L('size', 'size', 'مقاس')
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
+          {!loading && !error && ordered.length > 0 && (
+            <>
+              {/* Stale cache: the grid is real, but it may be yesterday's. */}
+              {stale && (
+                <StaleNotice label={L('showingSaved', 'Showing saved items.', 'بنعرض المنتجات المحفوظة.')} />
+              )}
+              {/* Result count directly above the grid it describes: a shopper
+                  who has just changed three filters should not have to read the
+                  page heading to find out what those filters did. */}
+              <p className="pa-shop__count" role="status">{resultCountLabel}</p>
+              <div className="pa-grid">
+                {shown.map((p) => (
+                  <div key={p.id} className={p.totalStock <= 0 ? 'pa-card--dimmed' : undefined}>
+                    <ProductCard
+                      product={p}
+                      lang={lang}
+                      as={Link}
+                      href={`/product/${p.id}`}
+                      saved={has(p.id)}
+                      onSave={() => toggleSave(p.id)}
+                      quickSizes={quickSizes}
+                      onQuickAdd={handleQuickAdd}
+                      labels={{
+                        onlyLeft: (n) => L('onlyNLeft', `Only ${n} left`, `باقي ${n} بس`),
+                        add: L('add', 'Add', 'إضافة'),
+                        size: L('size', 'size', 'مقاس')
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {visible < ordered.length && (

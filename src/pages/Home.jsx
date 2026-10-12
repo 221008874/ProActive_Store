@@ -10,7 +10,7 @@
 // disagree about what is on offer.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useCatalog } from '../hooks/useCatalog'
@@ -19,7 +19,7 @@ import { getFreeShippingThreshold } from '../services/settings'
 import { formatEGP, loc, discountPct } from '../ui'
 import {
   Button, EmptyState, ErrorState, IconChevron, ProductCard, ProductGrid, ProductRail,
-  SectionHead, SkeletonGrid
+  SectionHead, SkeletonGrid, StaleNotice
 } from '../ui'
 
 const label = (t, lang) => (key, en, ar) => {
@@ -35,8 +35,7 @@ const seconds = (ts) => (ts && typeof ts.toMillis === 'function' ? ts.toMillis()
 export default function Home() {
   const { t, lang } = useLanguage()
   const { has, toggle: toggleSave } = useWishlist()
-  const navigate = useNavigate()
-  const { products, loading, error } = useCatalog()
+  const { products, loading, error, stale, retry } = useCatalog()
 
   const [categories, setCategories] = useState([])
   const [collections, setCollections] = useState([])
@@ -123,9 +122,19 @@ export default function Home() {
         </nav>
       )}
 
-      {/* With nothing new in, this section rendered its heading and an empty
-          grid: a "New in" shelf with no products reads as a broken carousel
-          rather than as a shop that has not stocked anything yet. */}
+      {/* Products resolved from the local cache rather than the network. Quiet,
+          and only when there is actually a catalogue to look stale. */}
+      {!loading && !error && stale && (
+        <div className="pa-container">
+          <StaleNotice label={L('showingSaved', 'Showing saved items.', 'بنعرض المنتجات المحفوظة.')} />
+        </div>
+      )}
+
+      {/* With nothing new in, this section renders nothing at all. A "New in"
+          shelf with no products reads as a broken carousel, and a load-failure
+          message printed under a section heading reads as the section's own
+          problem — neither is true when the store simply has not stocked
+          anything yet. */}
       {newIn.length > 0 && (
         <section className="pa-section" aria-labelledby="home-new">
           <div id="home-new">
@@ -183,20 +192,35 @@ export default function Home() {
         </section>
       )}
 
+      {/* The catalogue is a page-level condition, not a section-level one: if it
+          could not be read, one clear message with a retry belongs here, not a
+          copy of the same failure pasted under each shelf. If it was read and
+          is simply empty, the shelves above have already hidden themselves and
+          this says so. */}
       {loading && <SkeletonGrid count={6} />}
+
       {!loading && error && (
-        <ErrorState
-          title={L('loadFailed', 'Could not load products', 'تحميل المنتجات فشل')}
-          body={L('checkConnection', 'Check your connection and try again.', 'راجع الاتصال وجرب تاني.')}
-          onRetry={() => navigate(0)}
-          retryLabel={L('retry', 'Try again', 'جرب تاني')}
-        />
+        <section className="pa-section">
+          <ErrorState
+            title={L('loadFailed', 'Could not load products', 'تحميل المنتجات فشل')}
+            body={L('checkConnection', 'Check your connection and try again.', 'راجع الاتصال وجرب تاني.')}
+            onRetry={retry}
+            retryLabel={L('retry', 'Try again', 'جرب تاني')}
+            code={error?.code}
+          />
+        </section>
       )}
+
       {!loading && !error && products.length === 0 && (
-        <EmptyState
-          title={L('noProducts', 'Nothing here yet', 'مفيش منتجات لسه')}
-          body={L('noProductsBody', 'The first pieces are on their way.', 'أول قطع في طريقها.')}
-        />
+        <section className="pa-section">
+          <EmptyState
+            title={L('noProducts', 'Nothing here yet', 'مفيش منتجات لسه')}
+            body={L('noProductsBody', 'The first pieces are on their way.', 'أول قطع في طريقها.')}
+            actionLabel={L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+            as={Link}
+            to="/home"
+          />
+        </section>
       )}
 
       <section className="pa-about">
@@ -246,16 +270,42 @@ export default function Home() {
 function Hero({ hero, collections, catName, lang, L, threshold, slide, onSlide }) {
   const billing = lang === 'ar' ? 'الدفع عند الاستلام' : 'Cash on delivery'
   const hasImage = !!hero?.banner
-  // Use first two collections for tiles, fallback to hardcoded if none
-  const tiles = collections.length > 0
-    ? collections.slice(0, 2).map((c, i) => ({
-        label: c.name ? (c.name[lang] ?? c.name.en ?? c.id) : (i === 0 ? L('newIn', 'New in', 'وصل حديثاً') : L('sale', 'Sale', 'تخفيضات')),
-        href: c.categoryId ? `/shop?category=${encodeURIComponent(c.categoryId)}` : (i === 0 ? '/shop?sort=newest' : '/shop?sale=1'),
-        image: c.image
-      }))
+
+  /* P1.9: the two side tiles used to take `collections.slice(0, 2)` — the first
+   * two collections of ANY type — and otherwise hardcode "New in" and "Sale".
+   * The review saw two empty stone boxes that duplicated the nav links, and the
+   * duplication was the bug: a hero tile is a merchandising slot, so it should
+   * be driven by collections explicitly marked as tiles, not by whatever
+   * happens to sort first.
+   *
+   * `type === 'tile'` (or an explicit `heroTile: true`) is the contract. When
+   * a store has none — the state today — the fallback is two real links to the
+   * New in and Sale listings with a flat palette tint and no photo, which is
+   * honest: they are shortcuts, and they are labelled as such. Each tile stays
+   * a single <Link> covering the whole box, so the arrow is decoration and not
+   * a separate hit target. */
+  const fromCollections = collections
+    .filter((c) => c && (c.type === 'tile' || c.heroTile === true))
+    .slice(0, 2)
+    .map((c) => ({
+      label: c.name ? (c.name[lang] ?? c.name.en ?? c.id) : c.id,
+      // Prefer the collection's own link, then its category, then its product
+      // list. `/shop?collection=` is what the shop filter already understands.
+      href:
+        c.link ??
+        (c.categoryId
+          ? `/shop?category=${encodeURIComponent(c.categoryId)}`
+          : c.productIds?.length
+            ? '/shop'
+            : '/shop'),
+      image: c.image ?? c.banner ?? null
+    }))
+
+  const tiles = fromCollections.length > 0
+    ? fromCollections
     : [
-        { label: L('newIn', 'New in', 'وصل حديثاً'), href: '/shop?sort=newest', image: null },
-        { label: L('sale', 'Sale', 'تخفيضات'), href: '/shop?sale=1', image: null }
+        { label: L('newIn', 'New in', 'وصل حديثاً'), href: '/shop?sort=newest', image: null, tint: true },
+        { label: L('sale', 'Sale', 'تخفيضات'), href: '/shop?sale=1', image: null, tint: true }
       ]
 
   return (
@@ -291,10 +341,14 @@ function Hero({ hero, collections, catName, lang, L, threshold, slide, onSlide }
       {/* Desktop-only category tiles beside the banner. */}
       <div className="pa-hero__side">
         {tiles.map((tile, i) => (
-          <Link key={i} className="pa-hero__tile" to={tile.href}>
+          <Link
+            key={tile.href + i}
+            className={`pa-hero__tile ${tile.image ? '' : 'pa-hero__tile--tint'}`}
+            to={tile.href}
+          >
             {tile.image && <span className="pa-hero__tile-img" style={{ backgroundImage: `url(${tile.image})` }} />}
             <span className="pa-hero__tile-label">{tile.label}</span>
-            <IconChevron dir="end" width={22} height={22} />
+            <IconChevron dir="end" width={22} height={22} aria-hidden="true" />
           </Link>
         ))}
       </div>

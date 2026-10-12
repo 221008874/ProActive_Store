@@ -27,7 +27,15 @@ globalIgnores(['dist', '.vercel']),
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // `varsIgnorePattern: '^[A-Z_]'` is what lets `<IconHanger />` count as a
+      // use of the `IconHanger` import: the core rule does not understand JSX,
+      // so a component referenced only as <Foo/> looks unused. The same applies
+      // to a component passed through destructuring — `map(({ Icon }) => <Icon
+      // />)` destructures in a *parameter*, which ESLint classifies as an arg,
+      // not a var, so `varsIgnorePattern` never sees it and `argsIgnorePattern`
+      // has to carry the same rule or every renamed component in a map throws
+      // a false "defined but never used".
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
     },
   },
 
@@ -48,7 +56,7 @@ globalIgnores(['dist', '.vercel']),
     },
     rules: {
       'react-hooks/rules-of-hooks': 'off',
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
     },
   },
   // The test suite runs in Node (vitest defaults to the node environment; the

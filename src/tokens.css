@@ -78,6 +78,10 @@
   --pa-sticky-h: 76px;
   --pa-gutter: 16px;         /* page side padding (phone) */
   --pa-content-max: 1440px;  /* the one content width: header, pages and footer all stop here */
+  /* Reading measure for prose pages (privacy, terms). A token rather than a
+     literal so the InfoPage column and anything that measures itself against
+     it cannot disagree. ~75 characters per line at the body size. */
+  --pa-info-measure: 720px;
 
 
   /* ---- Breakpoints (reference only; CSS vars can't be used in @media) ----

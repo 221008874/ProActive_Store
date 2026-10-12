@@ -4,34 +4,76 @@
 // enables IndexedDB persistence, so the cache survives reloads) and filter in
 // memory. Split filterProducts into a server query once that ceiling is passed.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchActiveProducts } from "../services/catalog";
 
-export function useCatalog() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Three mutually exclusive states, plus a flag for "these came from the cache":
+//
+//   loading  the grid shows skeletons
+//   error    the catalogue could not be read at all (has .code, e.g. E-CATALOG-…)
+//   empty    the catalogue was read successfully and contains no products
+//
+// `stale` is orthogonal: the products are there but they came from IndexedDB, so
+// the page says "showing saved items" instead of implying they are live.
+//
+// The distinction between `error` and `empty` is the whole point of this hook.
+// An empty catalogue that renders as an error looks like an outage to a shopper
+// and to whoever is on the other end of the support request; one that renders
+// as "nothing here yet" is simply true.
+export function useCatalog({ attempts = 3 } = {}) {
+  // One state object rather than four, because the four fields are only ever
+  // written together: a settled load has a product list and no error, a failed
+  // one has an error and no products. Splitting them let them disagree (a stale
+  // product list next to a fresh error), which is exactly the class of bug the
+  // tri-state was introduced to remove.
+  const [result, setResult] = useState({
+    products: [],
+    error: null,
+    stale: false,
+    settled: false
+  });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetchActiveProducts()
-      .then((list) => {
-        if (!cancelled) setProducts(list);
+    // fetchActiveProducts already retries transient failures with exponential
+    // backoff (1s, 2s, 4s) before it gives up, so a single blip never reaches
+    // the shopper as an error state.
+    fetchActiveProducts({ attempts })
+      .then(({ products: list, stale: fromCache }) => {
+        if (cancelled) return;
+        setResult({ products: list ?? [], error: null, stale: Boolean(fromCache), settled: true });
       })
       .catch((e) => {
-        if (!cancelled) setError(e);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        setResult({
+          products: [],
+          error: e ?? { code: "E-CATALOG-UNKNOWN" },
+          stale: false,
+          settled: true
+        });
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
+  }, [attempt, attempts]);
+
+  // `loading` is derived from `settled` rather than stored, so "start loading"
+  // and "the last load finished" can never drift apart. The reset happens in
+  // the click handler (an event, not an effect) precisely so React does not
+  // have to cascade a render.
+  const retry = useCallback(() => {
+    setResult({ products: [], error: null, stale: false, settled: false });
+    setAttempt((n) => n + 1);
   }, []);
 
-  return { products, loading, error };
+  return {
+    products: result.products,
+    loading: !result.settled,
+    error: result.error,
+    stale: result.stale,
+    retry
+  };
 }
 
 const seconds = (ts) => (ts && typeof ts.toMillis === "function" ? ts.toMillis() : Number(ts) || 0);

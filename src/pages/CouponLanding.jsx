@@ -17,7 +17,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useLanguage } from '../context/LanguageContext'
 import { postJson } from '../services/api'
-import { Button, Summary, formatEGP } from '../ui'
+import { Button, Summary, formatEGP, IconAlert, IconBag, IconInfo, IconInvalid, IconShop, IconSpark } from '../ui'
 
 // The server names the rule it refused; the page shows the shopper a sentence.
 const REASON_MESSAGES = {
@@ -126,7 +126,7 @@ export default function CouponLanding() {
     return (
       <div className="pa-container" style={{ paddingBlock: 48, display: 'flex', justifyContent: 'center' }}>
         <div className="pa-coupon-card pa-coupon-card--error" style={{ maxWidth: 480, width: '100%', alignItems: 'center', textAlign: 'center' }}>
-          <div aria-hidden="true" style={{ fontSize: 40 }}>❌</div>
+          <IconInvalid width={40} height={40} className="pa-state-icon pa-state-icon--error" />
           <h1 style={{ fontSize: 24 }}>{L('invalidCouponTitle', 'Invalid Coupon', 'كوبون غير صالح')}</h1>
           <p className="pa-subtitle" style={{ margin: 0 }}>{error}</p>
           <div style={{ marginTop: 8 }}>
@@ -143,7 +143,7 @@ export default function CouponLanding() {
     return (
       <div className="pa-container" style={{ paddingBlock: 48, display: 'flex', justifyContent: 'center' }}>
         <div className="pa-coupon-card" style={{ maxWidth: 480, width: '100%', alignItems: 'center', textAlign: 'center' }}>
-          <div aria-hidden="true" style={{ fontSize: 40 }}>⚠️</div>
+          <IconAlert width={40} height={40} className="pa-state-icon pa-state-icon--warn" />
           <h1 style={{ fontSize: 24 }}>{L('alreadyApplied', 'Already Applied', 'متطبق بالفعل')}</h1>
           <p className="pa-subtitle" style={{ margin: 0 }}>
             {L(null, 'This coupon has already been applied to your cart', 'الكوبون ده متطبق على عربيتك بالفعل')}
@@ -164,7 +164,7 @@ export default function CouponLanding() {
   return (
     <div className="pa-container" style={{ paddingBlock: 48, display: 'flex', justifyContent: 'center' }}>
       <div className="pa-coupon-card" style={{ maxWidth: 520, width: '100%' }}>
-        <div aria-hidden="true" style={{ fontSize: 40 }}>🎉</div>
+        <IconSpark width={40} height={40} className="pa-state-icon pa-state-icon--good" />
         <h1 style={{ fontSize: 24 }}>{L('couponReady', 'Coupon Ready!', 'الكوبون جاهز!')}</h1>
         <p className="pa-subtitle" style={{ margin: 0 }}>
           {L(null, 'This coupon will be automatically applied at checkout', 'الكوبون ده هيتطبق تلقائياً عند إتمام الطلب')}
@@ -180,25 +180,25 @@ export default function CouponLanding() {
           <Summary
             rows={[
               { label: L('discountType', 'Discount', 'الخصم'), value: coupon.type === 'percent' ? `${coupon.value}%` : formatEGP(coupon.value) },
-              { label: L('status', 'Status', 'الحالة'), value: `✓ ${L('active', 'Active', 'مفعل')}` }
+              { label: L('status', 'Status', 'الحالة'), value: L('active', 'Active', 'مفعل') }
             ]}
           />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
           <Button block onClick={handleContinueShopping}>
-            🛍️ {L('continueShopping', 'Continue Shopping', 'كمل تسوق')}
+            <IconShop width={18} height={18} /> {L('continueShopping', 'Continue Shopping', 'كمل تسوق')}
           </Button>
 
           {items.length > 0 && (
             <Button variant="outline" block onClick={handleGoToCart}>
-              🛒 {L('goToCart', 'Go to Cart', 'روح للعربية')} ({items.length}) · <bdi>{formatEGP(totalPrice)}</bdi>
+              <IconBag width={18} height={18} /> {L('goToCart', 'Go to Cart', 'روح للعربية')} ({items.length}) · <bdi>{formatEGP(totalPrice)}</bdi>
             </Button>
           )}
         </div>
 
         <div className="pa-callout" style={{ width: '100%' }}>
-          💡 <b>{L('tip', 'Tip', 'نصيحة')}:</b>{' '}
+          <IconInfo width={18} height={18} /> <b>{L('tip', 'Tip', 'نصيحة')}:</b>{' '}
           {L(null, 'You can change the coupon code in your cart if you have a better one!', 'تقدر تغيّر كود الكوبون في عربيتك لو عندك كود أحسن!')}
         </div>
       </div>

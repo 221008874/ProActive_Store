@@ -6,6 +6,7 @@
 // paint is custom, via the classes in components.css.
 
 import { IconChevron } from "./icons";
+import { swatchNeedsBorder } from "../utils/color";
 
 /**
  * Select. Renders a native <select> with the board's 48px box (40px with
@@ -86,6 +87,12 @@ export function RadioCard({ name, value, checked, onChange, title, description, 
  * Colour selector. A 44px hit target with a 38px painted circle (28px with
  * `small`), named for screen readers and pressed-state aware. `colors` is
  * [{ id, name: {ar,en}, hex }].
+ *
+ * The name is carried three ways on purpose: aria-label for assistive tech,
+ * title for the hover tooltip, and both are on the element so the CSS tooltip
+ * can read it. Light colours (white, off-white/beige) get a darker edge via
+ * --sw-line — without it a white swatch and a beige swatch are two nearly
+ * identical circles on paper and neither looks selected.
  */
 export function ColorDot({ color, selected, onSelect, lang = "en", name, small, disabled, ...rest }) {
   const label = name ?? (color?.name && typeof color.name === "object"
@@ -95,7 +102,7 @@ export function ColorDot({ color, selected, onSelect, lang = "en", name, small, 
     <button
       type="button"
       className={`pa-swatch ${small ? "pa-swatch--sm" : ""}`}
-      style={{ "--sw": color?.hex }}
+      style={{ "--sw": color?.hex, "--sw-line": swatchNeedsBorder(color?.hex) ? "var(--pa-ink)" : "var(--pa-muted)" }}
       aria-pressed={!!selected}
       aria-label={label}
       title={label}

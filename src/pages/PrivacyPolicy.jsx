@@ -1,19 +1,27 @@
-// src/pages/PrivacyPolicy.jsx — ProActive Fashion design system refactor.
+// src/pages/PrivacyPolicy.jsx — privacy policy.
 //
-// Content is unchanged: the same six policy sections still resolve through the
-// translation table and the "last updated" date is the same literal. The
-// page-local header is gone (the app shell renders chrome), the back-to-home
-// handler survives on a design-system outline button, and the ~900px card is
-// now a full-bleed .pa-block band with a centred .pa-container measure.
+// Layout is InfoPage: one container, one reading column, a text back-link above
+// the title and a date that comes from the document's own metadata rather than
+// a literal in the markup. See components/InfoPage.jsx for why the previous
+// hand-rolled version clipped in RTL.
+//
+// P1.10 (owner action, not a code change): the copy below still describes a
+// store that collects only cart contents and mentions only Firebase. The store
+// now collects name, phone, delivery address, map location and order history,
+// and uses Vercel, Cloudinary and Firebase. Someone with the authority to
+// publish policy needs to rewrite `informationWeCollect` and `dataSharing` in
+// src/i18n/strings.js. See docs/PRIVACY_POLICY_REVIEW.md.
 
-import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import StoreFooter from '../components/StoreFooter'
-import { Button, PageTitle } from '../ui'
+import InfoPage from '../components/InfoPage'
+
+// The policy's revision date. Content metadata, not a literal: when the text
+// changes, this is the line that has to change with it, and having it in one
+// obvious place is the only way it ever does.
+const POLICY_UPDATED_AT = '2026-02-01T00:00:00Z'
 
 export default function PrivacyPolicy() {
   const { t, lang } = useLanguage()
-  const navigate = useNavigate()
 
   const ar = lang === 'ar'
   const L = (key, en, fallback) => {
@@ -25,7 +33,7 @@ export default function PrivacyPolicy() {
     {
       key: 'informationWeCollect',
       title: L('informationWeCollect', 'Information We Collect', 'المعلومات اللي بنجمعها'),
-      body: L('infoCollectionText', 'We collect information when you use our app, such as products added to your cart and order details. We do not collect any sensitive personal information.', 'بنجمع معلومات لما تستخدم التطبيق، زي المنتجات اللي بتضاف للعربة وتفاصيل الطلب. مش بنجمع أي معلومات شخصية حساسة.')
+      body: L('infoCollectionText', 'We collect information when you use our app, such as products added to your cart and order details. We do not collect any sensitive personal information.', 'بنجمع معلومات لما تستخدم التطبيق، زي المنتجات اللي بتضاف للعربية وتفاصيل الطلب. مش بنجمع أي معلومات شخصية حساسة.')
     },
     {
       key: 'howWeUseInfo',
@@ -55,29 +63,20 @@ export default function PrivacyPolicy() {
   ]
 
   return (
-    <>
-      <PageTitle
-        title={L('privacyPolicy', 'Privacy Policy', 'سياسة الخصوصية')}
-        subtitle={<>{L('lastUpdated', 'Last Updated', 'آخر تحديث')}: February 1, 2026</>}
-        actions={
-          <Button variant="outline" onClick={() => navigate('/home')}>
-            {L('backToHome', 'Back to home', 'رجوع للرئيسية')}
-          </Button>
-        }
-      />
-
-      <div className="pa-block">
-        <div className="pa-container" style={{ maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {sections.map((section) => (
-            <section key={section.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <h2 style={{ fontSize: 20 }}>{section.title}</h2>
-              <p className="pa-subtitle" style={{ margin: 0, lineHeight: 1.8 }}>{section.body}</p>
-            </section>
-          ))}
-        </div>
-      </div>
-
-      <StoreFooter />
-    </>
+    <InfoPage
+      title={L('privacyPolicy', 'Privacy Policy', 'سياسة الخصوصية')}
+      updatedAt={POLICY_UPDATED_AT}
+      contentLang={lang}
+      updatedLabel={L('lastUpdated', 'Last updated', 'آخر تحديث')}
+      backHref="/home"
+      backLabel={L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+    >
+      {sections.map((section) => (
+        <section key={section.key} className="pa-info__section">
+          <h2>{section.title}</h2>
+          <p>{section.body}</p>
+        </section>
+      ))}
+    </InfoPage>
   )
 }

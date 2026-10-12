@@ -7,10 +7,9 @@
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
-import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
-import { formatPriceFor } from '../config/currency'
-import { CURRENCY } from '../config/currency'
+import { formatPriceFor, CURRENCY } from '../config/currency'
+import { IconGlobe, IconMoon, IconSun } from '../ui'
 
 const label = (t, lang) => (key, en, ar) => {
   if (key) {
@@ -23,7 +22,6 @@ const label = (t, lang) => (key, en, ar) => {
 export default function StoreFooter() {
   const { t, lang, toggleLanguage } = useLanguage()
   const { theme, toggleTheme } = useTheme()
-  const { totalItems } = useCart()
   const { count: savedCount } = useWishlist()
   const ar = lang === 'ar'
   const L = label(t, lang)
@@ -34,11 +32,20 @@ export default function StoreFooter() {
     { label: L('sale', 'Sale', 'تخفيضات'), href: '/shop?sale=1' },
     { label: L('saved', 'Saved', 'المفضلة'), href: '/saved' }
   ]
+  /* P1.4: the "Help" column used to end with a link labelled "العربية" /
+     "Bag" pointing at /cart. In Arabic that reads as "Arabic" — the same word
+     as the language toggle three lines above it — so the footer appeared to
+     offer two different language controls, one of which navigated to the bag.
+     English was less confusing but still wrong: "Bag" is a shop destination,
+     not a help topic, and it duplicates the bag button in the header.
+
+     Language switching belongs to the toggle and nothing else; the bag belongs
+     to the header, the tab bar and /cart. Both links are removed rather than
+     relabelled, because there was no correct label to relabel them to. */
   const helpLinks = [
     { label: L('aboutUs', 'About', 'عنّا'), href: '/about' },
     { label: L('termsOfService', 'Terms of service', 'شروط الخدمة'), href: '/terms-of-service' },
-    { label: L('privacy', 'Privacy', 'الخصوصية'), href: '/privacy' },
-    { label: L('cart', 'Bag', 'العربية'), href: '/cart' }
+    { label: L('privacy', 'Privacy', 'الخصوصية'), href: '/privacy' }
   ]
 
   const totalGovernorates = 27
@@ -53,13 +60,41 @@ export default function StoreFooter() {
           <p className="pa-subtitle" style={{ margin: 0, maxWidth: '34ch' }}>
             {L('footerTagline', 'Carefully chosen pieces, delivered to your door.', 'قطع مختارة بعناية، بتوصل لبابك.')}
           </p>
+          {/* P1.4: these were bare words — "English" and a bare "ليلي" — with
+              no icon, and the theme one carried no pressed state, so a screen
+              reader announced a control whose label changed depending on the
+              mode it was about to switch *away* from.
+
+              Both now name the ACTION ("switch to Light mode") and expose
+              aria-pressed for the state they are in. The visible text names the
+              destination too, so the button and the announcement agree. */}
           <div className="pa-footer__toggles">
-            <button type="button" className="pa-footer__toggle" onClick={() => toggleLanguage()} aria-label={L('language', 'Language', 'اللغة')}>
+            <button
+              type="button"
+              className="pa-footer__toggle"
+              onClick={() => toggleLanguage()}
+              lang={ar ? 'en' : 'ar'}
+              aria-label={ar ? L('switchToEnglish', 'Switch to English', 'التبديل للإنجليزية')
+                              : L('switchToArabic', 'Switch to Arabic', 'التبديل للعربية')}
+            >
+              <IconGlobe width={16} height={16} aria-hidden="true" />
               {ar ? 'English' : 'العربية'}
             </button>
-            <button type="button" className="pa-footer__toggle" onClick={() => toggleTheme()}
-              aria-label={theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}>
-              {theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}
+            <button
+              type="button"
+              className="pa-footer__toggle"
+              onClick={() => toggleTheme()}
+              aria-pressed={theme === 'dark'}
+              aria-label={theme === 'dark'
+                ? L('lightMode', 'Light mode', 'الوضع النهاري')
+                : L('darkMode', 'Dark mode', 'الوضع الليلي')}
+            >
+              {theme === 'dark'
+                ? <IconSun width={16} height={16} aria-hidden="true" />
+                : <IconMoon width={16} height={16} aria-hidden="true" />}
+              {theme === 'dark'
+                ? L('lightMode', 'Light mode', 'الوضع النهاري')
+                : L('darkMode', 'Dark mode', 'الوضع الليلي')}
             </button>
           </div>
         </div>
@@ -87,10 +122,19 @@ export default function StoreFooter() {
             {L('freeShippingOver', 'Free shipping over', 'شحن مجاني للطلبات فوق')}{' '}
             <bdi>{formatPriceFor(CURRENCY.freeShippingThreshold, lang)}</bdi>
           </span>
-          <span className="pa-subtitle">
-            {ar ? `${totalItems} في العربية` : `${totalItems} in bag`}
-            {savedCount > 0 && (ar ? ` · ${savedCount} مفضلة` : ` · ${savedCount} saved`)}
-          </span>
+          {/* P1.4: a fourth line used to sit here printing the live bag count as
+              "0 في العربية". Three problems: it answered a question this column
+              does not own, "0" reads as a broken counter rather than an empty
+              bag, and the Arabic label is identical to the language toggle's.
+
+              The count has three better homes already — the header badge, the
+              tab bar and /cart — and it only ever appears when the bag has
+              something in it. Removed rather than relabelled. */}
+          {savedCount > 0 && (
+            <span className="pa-subtitle">
+              {ar ? `${savedCount} في المفضلة` : `${savedCount} saved`}
+            </span>
+          )}
         </div>
       </div>
     </footer>

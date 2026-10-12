@@ -67,3 +67,78 @@ export const IconPhone = (p) => (
 export const IconUser = (p) => (
   <svg {...base} {...p}><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
 );
+
+// Added in fix round 3 to replace the emoji that were sitting in the terms
+// contact block (📧 📱 📍). Same 24/1.8 stroke style as the rest of the set.
+
+export const IconMail = (p) => (
+  <svg {...base} {...p}><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><path d="M4 7l8 5.5L20 7" /></svg>
+);
+
+export const IconPin = (p) => (
+  <svg {...base} {...p}><path d="M12 21s6.5-5.7 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.3 12 21 12 21z" /><circle cx="12" cy="10.5" r="2.3" /></svg>
+);
+
+/* --- About page: mission / vision / values (fix round 3, replacing 👗 👁️ 💎) --- */
+
+// A garment on a hanger — "our mission".
+export const IconHanger = (p) => (
+  <svg {...base} {...p}><path d="M12 8.5a2 2 0 1 1 2-2" /><path d="M12 8.5L4 16.5a1.6 1.6 0 0 0 1 3h14a1.6 1.6 0 0 0 1-3z" /></svg>
+);
+
+// An eye — "our vision".
+export const IconEye = (p) => (
+  <svg {...base} {...p}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg>
+);
+
+// A cut diamond — "our values".
+export const IconDiamond = (p) => (
+  <svg {...base} {...p}><path d="M6 4h12l3 5-9 11L3 9z" /><path d="M3 9h18M9 4l-3 5 6 11M15 4l3 5-6 11" /></svg>
+);
+
+// A small burst, for the "join our story" banner (replacing 🎉).
+export const IconSpark = (p) => (
+  <svg {...base} {...p}><path d="M12 3.5l1.8 5 5 1.8-5 1.8-1.8 5-1.8-5-5-1.8 5-1.8z" /><path d="M18.5 16.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" /></svg>
+);
+
+/* --- P1.4: icon + label on the language and theme toggles ------------------ */
+
+// Globe: the language toggle, in both locales. Not the flag of the *other*
+// language — that convention breaks as soon as a third language exists, and it
+// gives no clue what the control does.
+export const IconGlobe = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17" /><path d="M12 3.5a13 13 0 0 1 0 17 13 13 0 0 1 0-17z" /></svg>
+);
+
+// Sun / moon: shown as the mode you are switching TO, matching the button's
+// label. A moon next to "الوضع النهاري" would contradict the text beside it.
+export const IconSun = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" /></svg>
+);
+
+export const IconMoon = (p) => (
+  <svg {...base} {...p}><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" /></svg>
+);
+
+/* --- Fix round 3: the icons that replaced the last emoji ------------------- */
+
+// A circled cross: the invalid-coupon state (was a red cross emoji).
+export const IconInvalid = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></svg>
+);
+
+// A warning triangle: the "already applied" state (was a warning-sign emoji).
+export const IconAlert = (p) => (
+  <svg {...base} {...p}><path d="M12 4.5l8.5 15h-17z" /><path d="M12 10v4M12 16.8v.2" /></svg>
+);
+
+// An information mark for the coupon "tip" callout (was a light-bulb emoji).
+export const IconInfo = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.8v.2" /></svg>
+);
+
+// A downward arrow into a tray: the download-PDF action (was a down-arrow
+// emoji). It sits inline with the label, so it inherits currentColor.
+export const IconDownload = (p) => (
+  <svg {...base} {...p}><path d="M12 4v10m0 0l-4-4m4 4l4-4" /><path d="M5 17.5v1.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5" /></svg>
+);

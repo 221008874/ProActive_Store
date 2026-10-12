@@ -7,7 +7,7 @@
 
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import { Button, StepHeader } from '../ui'
+import { Button, StepHeader, IconBag, IconClose, IconHome } from '../ui'
 
 export default function PaymentCancel() {
   const [searchParams] = useSearchParams()
@@ -33,15 +33,15 @@ export default function PaymentCancel() {
 
       <div className="pa-receipt" style={{ maxWidth: 560, marginInline: 'auto', width: '100%', alignItems: 'center', textAlign: 'center' }}>
         <div className="pa-callout pa-callout--error" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-          <b aria-hidden="true" style={{ fontSize: 26 }}>✕</b>
+          <IconClose width={26} height={26} />
           <b>{L('paymentCancelled', 'Payment Cancelled', 'تم إلغاء الدفع')}</b>
           <p className="pa-subtitle" style={{ margin: 0 }}>{errorMessage}</p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
             <Button onClick={() => navigate('/cart')}>
-              🛒 {L('tryAgain', 'Try Again', 'جرب تاني')}
+              <IconBag width={18} height={18} /> {L('tryAgain', 'Try Again', 'جرب تاني')}
             </Button>
             <Button variant="outline" onClick={() => navigate('/home')}>
-              🏠 {L('returnHome', 'Return Home', 'رجوع للرئيسية')}
+              <IconHome width={18} height={18} /> {L('returnHome', 'Return Home', 'رجوع للرئيسية')}
             </Button>
           </div>
         </div>

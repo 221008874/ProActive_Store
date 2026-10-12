@@ -1,21 +1,27 @@
-// src/pages/AboutUs.jsx — ProActive Fashion design system refactor.
+// src/pages/AboutUs.jsx — about page.
 //
-// Content is unchanged: the mission / vision / values cards and the closing
-// copy still resolve through the translation table, and both navigation
-// handlers still go to /home. Presentation moved to the design system —
-// PageTitle, .pa-about cards, .pa-callout and StoreFooter. The windowWidth
-// state, the floating decorative blobs, the page-local header (the app shell
-// renders chrome now) and the keyframe block are gone: breakpoints live in
-// CSS and motion is governed by the tokens.css prefers-reduced-motion gate.
+// Layout is InfoPage for the heading/back-link/date block, then the page's own
+// content: the mission / vision / values cards and the closing banner.
+//
+// Fix round 3: the cards carried 👗 👁️ 💎 and the banner carried 🎉. The spec
+// forbids emoji — they render differently per platform, cannot be sized with
+// the type, and screen readers announce them as their own words ("party
+// popper"). They are stroke icons from the same set as the rest of the chrome,
+// so they inherit currentColor and the 1.8px weight.
+//
+// The page-local <StoreFooter /> is gone: StoreChrome renders the footer for
+// every route, so the page's own copy produced two footers stacked.
 
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import StoreFooter from '../components/StoreFooter'
-import { Button, PageTitle } from '../ui'
+import InfoPage from '../components/InfoPage'
+import { Button, IconDiamond, IconEye, IconHanger, IconSpark } from '../ui'
+
+// Revision date as content metadata, not a literal in the markup.
+const ABOUT_UPDATED_AT = '2026-02-01T00:00:00Z'
 
 export default function AboutUs() {
   const { t, lang } = useLanguage()
-  const navigate = useNavigate()
 
   const ar = lang === 'ar'
   const L = (key, en, fallback) => {
@@ -29,19 +35,24 @@ export default function AboutUs() {
     'ستايلات مختارة بعناية، بتوصل لبابك.'
   )
 
+  // The copy is unchanged — only the emoji that used to precede each title is
+  // gone, replaced by the stroke icon in the same set as the chrome.
   const sections = [
     {
-      icon: '👗',
+      key: 'ourMission',
+      Icon: IconHanger,
       title: L('ourMission', 'Our Mission', 'مهمتنا'),
       description: L('missionDescription', 'Chosen pieces, honest prices, delivered across Egypt.', 'قطع مختارة، أسعار واضحة، وبتوصل لكل مصر.')
     },
     {
-      icon: '👁️',
+      key: 'ourVision',
+      Icon: IconEye,
       title: L('ourVision', 'Our Vision', 'رؤيتنا'),
       description: L('visionDescription', 'A wardrobe you can reach from your phone.', 'دولاب تقدر توصله من موبايلك.')
     },
     {
-      icon: '💎',
+      key: 'ourValues',
+      Icon: IconDiamond,
       title: L('ourValues', 'Our Values', 'قيمنا'),
       description: L('valuesDescription', 'Quality you can feel, service you can trust.', 'جودة تحس بيها، وخدمة تثق بيها.')
     }
@@ -49,36 +60,37 @@ export default function AboutUs() {
 
   return (
     <>
-      <PageTitle
+      <InfoPage
         title={L('aboutUsTitle', 'About Us', 'عنّا')}
-        subtitle={intro}
-        actions={
-          <Button variant="outline" onClick={() => navigate('/home')}>
-            {L('backToHome', 'Back to home', 'رجوع للرئيسية')}
-          </Button>
-        }
-      />
+        updatedAt={ABOUT_UPDATED_AT}
+        contentLang={lang}
+        updatedLabel={L('lastUpdated', 'Last updated', 'آخر تحديث')}
+        backHref="/home"
+        backLabel={L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+      >
+        <section className="pa-about">
+          {sections.map(({ key, Icon, title, description }) => (
+            <div key={key} className="pa-about__card">
+              <b className="pa-about__card-head">
+                <Icon width={22} height={22} aria-hidden="true" />
+                {title}
+              </b>
+              <span>{description}</span>
+            </div>
+          ))}
+        </section>
 
-      <section className="pa-about">
-        {sections.map((section) => (
-          <div key={section.title} className="pa-about__card">
-            <b>{section.icon} {section.title}</b>
-            <span>{section.description}</span>
-          </div>
-        ))}
-      </section>
-
-      <div className="pa-container" style={{ paddingBlock: 20 }}>
-        <div className="pa-callout" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
-          <b style={{ fontSize: 18 }}>🎉 {L('joinOurStory', 'Join Our Story', 'انضم لحكايتنا')}</b>
-          <p className="pa-subtitle" style={{ margin: 0, maxWidth: 640 }}>{intro}</p>
-          <Button onClick={() => navigate('/home')}>
+        <div className="pa-callout pa-about__banner">
+          <b className="pa-about__banner-head">
+            <IconSpark width={22} height={22} aria-hidden="true" />
+            {L('joinOurStory', 'Join Our Story', 'انضم لحكايتنا')}
+          </b>
+          <p className="pa-subtitle">{intro}</p>
+          <Button as={Link} to="/home">
             {L('exploreOurProducts', 'Explore Our Products', 'استكشف منتجاتنا')}
           </Button>
         </div>
-      </div>
-
-      <StoreFooter />
+      </InfoPage>
     </>
   )
 }

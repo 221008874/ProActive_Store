@@ -8,7 +8,7 @@
 // wishlist, categories, settings) comes from the app's own contexts and
 // services, so nothing in the design system knows about this store.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
@@ -21,7 +21,8 @@ import { OfflineBanner } from '../ui/states'
 import { useOnline } from '../hooks/useOnline'
 import StoreFooter from './StoreFooter'
 import {
-  AnnouncementBar, Header, TabBar, IconClose, IconSearch, IconHome, IconShop, IconHeart, IconBag, IconMenu
+  AnnouncementBar, Header, TabBar, IconClose, IconSearch, IconHome, IconShop, IconHeart, IconBag,
+  IconMenu, IconGlobe, IconSun, IconMoon
 } from '../ui'
 
 // t() returns the key itself when a translation is missing, which doubles as the
@@ -145,14 +146,17 @@ export default function StoreChrome({ children }) {
 
   return (
     <>
-      <AnnouncementBar
-        text={announce}
-        lang={lang}
-        onLang={toggleLanguage}
-        theme={theme}
-        onTheme={toggleTheme}
-        themeLabels={{ light: L('light', 'Light', 'نهاري'), dark: L('dark', 'Dark', 'ليلي') }}
-      />
+<AnnouncementBar
+          text={announce}
+          lang={lang}
+          onLang={toggleLanguage}
+          theme={theme}
+          onTheme={toggleTheme}
+          themeLabels={{
+            light: L('lightMode', 'Light mode', 'الوضع النهاري'),
+            dark: L('darkMode', 'Dark mode', 'الوضع الليلي')
+          }}
+        />
 
       <Header
         as={Link}
@@ -208,21 +212,124 @@ function MenuDrawer({ onClose, categories, nav, onLang, lang, theme, onTheme }) 
   const { t } = useLanguage()
   const { totalItems } = useCart()
   const L = label(t, lang)
+  const panelRef = useRef(null)
 
-  const childrenOf = (id) => categories.filter((c) => c.parentId === id)
+  /* P1.8, the category tree.
+   *
+   * The previous code built the drawer from two sources and lost the shape in
+   * between: it took the flat `nav` (New in, the gender roots, Sale) and then
+   * tried to recover each root's children by PARSING THE HREF —
+   * `n.href.split('category=')[1]`. That is an encodeURIComponent round trip
+   * dressed up as data, and it failed twice over: the two synthetic entries
+   * have no `category=` at all, and a real category id came back percent-
+   * encoded, so the lookup never matched and the sub-links never rendered.
+   * With an empty `categories` array the drawer showed two links and no tree,
+   * which is what the review saw.
+   *
+   * `nav` already carries `children` per root — built by the same documents —
+   * so the tree is read straight off it. No parsing, no double-decoding, and
+   * the drawer cannot disagree with the header, because they are the same
+   * object. Depth is capped at two levels (root -> child); a category nested
+   * deeper than that is a data problem, not a UI one.
+   *
+   * Each root is a disclosure rather than a link with a list dumped beneath it:
+   * the row stays a link to the category's own listing (so it works with the
+   * drawer shut and middle-click does what it should) and a separate 44px
+   * button owns the expanded state, announced via aria-expanded. */
+  const treeFor = useMemo(
+    () =>
+      nav
+        .map((n) => ({ ...n, kids: n.children ?? [] }))
+        .filter((n) => n.kids.length > 0),
+    [nav]
+  )
+  void categories
 
-  // Focus starts on the close button so a keyboard user is not dropped into the
-  // middle of the tree; Escape and the backdrop both close.
+  const [openRoots, setOpenRoots] = useState(() => new Set())
+  const isOpen = (href) => openRoots.has(href)
+  const toggle = (href) =>
+    setOpenRoots((prev) => {
+      const next = new Set(prev)
+      if (next.has(href)) next.delete(href)
+      else next.add(href)
+      return next
+    })
+
+  // Scroll lock, so the page behind cannot be scrolled by the wheel while the
+  // drawer covers half of it.
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [])
 
+  /* Focus trap, and focus restoration.
+   *
+   * A drawer that declares aria-modal="true" but lets Tab walk out into the
+   * page behind it is worse than no drawer at all: a keyboard user tabs past
+   * the last control and lands on the header they cannot see, with nothing to
+   * tell them they have left. So:
+   *   1. Tab and Shift+Tab cycle inside the panel.
+   *   2. On close, focus returns to whatever opened the drawer — otherwise it
+   *      lands on <body> and the next Tab starts again from the top of the
+   *      document, which reads to a screen-reader user as the page reloading.
+   * Escape and the backdrop already closed the drawer (the parent owns both);
+   * this adds the missing third leg. */
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return undefined
+
+    const opener = document.activeElement
+
+    const focusables = () =>
+      [...panel.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((el) => el.getClientRects().length > 0)
+
+    const onKeyDown = (e) => {
+      if (e.key !== 'Tab') return
+      const items = focusables()
+      if (items.length === 0) {
+        e.preventDefault()
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    panel.addEventListener('keydown', onKeyDown)
+    return () => {
+      panel.removeEventListener('keydown', onKeyDown)
+      // Only restore if focus is still inside the drawer or nowhere useful:
+      // if the shopper clicked a link and the route changed, moving focus back
+      // to the menu button would yank them out of the page they just opened.
+      if (opener && document.activeElement && (document.body === document.activeElement)) {
+        opener.focus?.()
+      } else if (opener && panel.contains(document.activeElement)) {
+        opener.focus?.()
+      }
+    }
+  }, [])
+
   return (
     <>
       <div className="pa-drawer-backdrop" onClick={onClose} />
-      <aside className="pa-drawer" role="dialog" aria-modal="true" aria-label={L('menu', 'Menu', 'القائمة')}>
+      <aside
+        className="pa-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={L('menu', 'Menu', 'القائمة')}
+        ref={panelRef}
+      >
         <div className="pa-drawer__head">
           <span className="pa-logo">PROACTIVE</span>
           <button type="button" className="pa-icon-btn" style={{ width: 44, height: 44 }}
@@ -233,16 +340,46 @@ function MenuDrawer({ onClose, categories, nav, onLang, lang, theme, onTheme }) 
 
         <div className="pa-drawer__body">
           <nav className="pa-drawer__group" aria-label={L('shop', 'Shop', 'المنتجات')}>
-            {nav.map((n) => (
-              <span key={n.href} className="pa-drawer__group">
-                <Link to={n.href} className="pa-drawer__row" onClick={onClose}>{n.label}</Link>
-                {childrenOf(n.href.split('category=')[1] ?? '').map((c) => (
-                  <Link key={c.id} to={`/shop?category=${encodeURIComponent(c.id)}`} className="pa-drawer__sub" onClick={onClose}>
-                    {c.name ? (c.name[lang] ?? c.name.en ?? c.id) : c.id}
-                  </Link>
-                ))}
-              </span>
-            ))}
+            {nav.map((n) => {
+              const hasKids = treeFor.some((t) => t.href === n.href)
+              return (
+                <span key={n.href} className="pa-drawer__item">
+                  <span className="pa-drawer__item-row">
+                    <Link to={n.href} className="pa-drawer__row" onClick={onClose}>{n.label}</Link>
+                    {hasKids && (
+                      <button
+                        type="button"
+                        className="pa-drawer__expand"
+                        aria-expanded={isOpen(n.href)}
+                        onClick={() => toggle(n.href)}
+                      >
+                        <IconChevron
+                          dir="down"
+                          width={16}
+                          height={16}
+                          aria-hidden="true"
+                          style={{ transform: isOpen(n.href) ? 'rotate(180deg)' : undefined }}
+                        />
+                        <span className="pa-sr">
+                          {isOpen(n.href)
+                            ? L('collapse', 'Collapse', 'طيّ')
+                            : L('expand', 'Expand', 'فتح')}
+                        </span>
+                      </button>
+                    )}
+                  </span>
+                  {hasKids && isOpen(n.href) && (
+                    <span className="pa-drawer__tree">
+                      {treeFor.find((t) => t.href === n.href).kids.map((c) => (
+                        <Link key={c.href} to={c.href} className="pa-drawer__sub" onClick={onClose}>
+                          {c.label}
+                        </Link>
+                      ))}
+                    </span>
+                  )}
+                </span>
+              )
+            })}
           </nav>
 
           <nav className="pa-drawer__group" aria-label={L('menu', 'Menu', 'القائمة')}>
@@ -261,12 +398,43 @@ function MenuDrawer({ onClose, categories, nav, onLang, lang, theme, onTheme }) 
           </nav>
         </div>
 
+        {/* P1.4: the language toggle used to render as a bare "العربية" link
+            sitting between "المفضلة" and "عنّا" in the body of the drawer, where
+            it read as a fifth navigation destination rather than a control —
+            and in Arabic the word is the same one the real toggle uses, so the
+            drawer appeared to have two language links.
+
+            It now lives in the drawer's foot, alongside the theme control,
+            with an icon and an action-named aria-label. Same rules as the
+            footer: language switching happens in exactly one place per screen. */}
         <div className="pa-drawer__foot">
-          <button type="button" className="pa-footer__toggle" onClick={() => onLang()}>
+          <button
+            type="button"
+            className="pa-footer__toggle"
+            onClick={() => onLang()}
+            lang={lang === 'ar' ? 'en' : 'ar'}
+            aria-label={lang === 'ar'
+              ? L('switchToEnglish', 'Switch to English', 'التبديل للإنجليزية')
+              : L('switchToArabic', 'Switch to Arabic', 'التبديل للعربية')}
+          >
+            <IconGlobe width={16} height={16} aria-hidden="true" />
             {lang === 'ar' ? 'English' : 'العربية'}
           </button>
-          <button type="button" className="pa-footer__toggle" onClick={() => onTheme()}>
-            {theme === 'dark' ? L('light', 'Light', 'نهاري') : L('dark', 'Dark', 'ليلي')}
+          <button
+            type="button"
+            className="pa-footer__toggle"
+            onClick={() => onTheme()}
+            aria-pressed={theme === 'dark'}
+            aria-label={theme === 'dark'
+              ? L('lightMode', 'Light mode', 'الوضع النهاري')
+              : L('darkMode', 'Dark mode', 'الوضع الليلي')}
+          >
+            {theme === 'dark'
+              ? <IconSun width={16} height={16} aria-hidden="true" />
+              : <IconMoon width={16} height={16} aria-hidden="true" />}
+            {theme === 'dark'
+              ? L('lightMode', 'Light mode', 'الوضع النهاري')
+              : L('darkMode', 'Dark mode', 'الوضع الليلي')}
           </button>
         </div>
       </aside>

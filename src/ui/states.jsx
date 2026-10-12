@@ -66,16 +66,39 @@ export function EmptyState({ title, body, actionLabel, onAction, as: Tag = "butt
 /**
  * ErrorState — the same shape, but the action is a retry and the tone is the
  * sale colour so it is never mistaken for "nothing here yet".
+ *
+ * `code` is the diagnosability hook: when /api/catalog answers with an HTML
+ * page (the function is not deployed), a 404 (the route is gone) or a 500, the
+ * shopkeeper can read "E-API-404" off the screen and quote it in a report
+ * instead of describing a screenshot. Kept small and muted so it reads as
+ * diagnostics, not as an apology.
  */
-export function ErrorState({ title, body, onRetry, retryLabel = "Try again" }) {
+export function ErrorState({ title, body, onRetry, retryLabel = "Try again", code, retrying }) {
   return (
     <div className="pa-empty" role="alert">
       <div className="pa-empty__title" style={{ color: "var(--pa-sale)" }}>{title}</div>
       {body && <p className="pa-empty__body">{body}</p>}
       {onRetry && (
-        <button type="button" className="pa-btn pa-btn--outline" onClick={onRetry}>{retryLabel}</button>
+        <button type="button" className="pa-btn pa-btn--outline" onClick={onRetry} disabled={retrying}>
+          {retryLabel}
+        </button>
       )}
+      {code && <code className="pa-empty__code">{code}</code>}
     </div>
+  );
+}
+
+/**
+ * StaleNotice — the catalogue resolved from the IndexedDB copy, so the products
+ * on screen may be yesterday's. Small, quiet, and never blocking: stale prices
+ * are far better than no shop at all, and checkout re-checks money server-side.
+ */
+export function StaleNotice({ label }) {
+  if (!label) return null;
+  return (
+    <p className="pa-stale-note" role="status">
+      {label}
+    </p>
   );
 }
 

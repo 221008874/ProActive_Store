@@ -9,7 +9,7 @@ import pdfMake from 'pdfmake/build/pdfmake'
 import pdfFonts from 'pdfmake/build/vfs_fonts'
 import logoLight from '../assets/a29dc90a-d036-4010-b33e-82cd29b6a2d5-removebg-preview.png'
 import { COLORS, getColors } from '../config/themes'
-import { loc,  Button, StepHeader, Summary, StatusPill, formatEGP } from '../ui'
+import { loc,  Button, StepHeader, Summary, StatusPill, formatEGP, IconCheck, IconClose, IconDownload } from '../ui'
 import { useToast } from '../ui/overlays'
 
 // ─── pdfMake base font setup ───────────────────────────────────────────────
@@ -696,7 +696,7 @@ export default function OrderSuccess() {
       }
 
       pdfMake.createPdf(doc).download(`ProActive_Invoice_${invoiceNumber}_${creationDate.file}.pdf`)
-      showToast('Invoice downloaded successfully ✓', 'success')
+      showToast('Invoice downloaded successfully', 'success')
     } catch (err) {
       console.error('PDF generation error:', err)
       showToast('PDF generation failed. Try printing instead.', 'error')
@@ -716,7 +716,7 @@ export default function OrderSuccess() {
         <StepHeader title={t('orderNotFound') || 'Order Not Found'} step={3} of={3} backHref="/home" />
         <div className="pa-receipt" style={{ maxWidth: 520, marginInline: 'auto', width: '100%', alignItems: 'center', textAlign: 'center' }}>
           <div className="pa-callout pa-callout--error" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-            <b aria-hidden="true" style={{ fontSize: 26 }}>✕</b>
+            <IconClose width={26} height={26} />
             <b>{t('orderNotFound') || 'Order Not Found'}</b>
             <span className="pa-subtitle">{t('orderInfoMissing') || 'No order information was found. Please return to the shop and try again.'}</span>
             <Button onClick={() => navigate('/home')}>
@@ -730,7 +730,7 @@ export default function OrderSuccess() {
 
   // ── Banner config ────────────────────────────────────────────────────────
   const bannerConfig = {
-    verified:  { icon: '✓', title: t('paymentConfirmed') || 'Payment Confirmed', body: t('orderBeingPrepared') || 'Your order is confirmed and being prepared.' },
+    verified:  { icon: 'check', title: t('paymentConfirmed') || 'Payment Confirmed', body: t('orderBeingPrepared') || 'Your order is confirmed and being prepared.' },
     pending:   { icon: '⏳', title: t('paymentPending')  || 'Payment Pending',   body: t('orderReceivedPending') || 'We received your order. Complete payment to proceed.' },
     verifying: { icon: '◌', title: t('verifying')        || 'Verifying…',        body: t('checkingOrderStatus')  || 'Checking your order status…' },
   }[verificationStatus] || {}
@@ -829,7 +829,7 @@ export default function OrderSuccess() {
               background: 'var(--pa-ink)', color: 'var(--pa-paper)',
               display: 'grid', placeItems: 'center', fontSize: 26, fontWeight: 700
             }}>
-              <span aria-hidden="true">✓</span>
+              <IconCheck width={18} height={18} />
               <span className="pa-sr">{L('orderPlaced', 'Order placed', 'تم إرسال الطلب')}</span>
             </div>
             <h2 className="pa-display" style={{ fontSize: 30, lineHeight: 1.1 }}>
@@ -901,7 +901,7 @@ export default function OrderSuccess() {
       {/* Action buttons */}
       <div className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px 32px' }}>
         <Button onClick={generatePDF} disabled={pdfLoading}>
-          {pdfLoading ? '…' : '⬇'} {t('downloadPdf') || 'Download PDF receipt'}
+          {pdfLoading ? '…' : <IconDownload width={18} height={18} />} {t('downloadPdf') || 'Download PDF receipt'}
         </Button>
         <Button variant="outline" onClick={() => navigate('/shop')}>
           {t('backToShop') || 'Back to Shop'}

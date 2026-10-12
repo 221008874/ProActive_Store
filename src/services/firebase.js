@@ -41,9 +41,9 @@ try {
     }
   })()
 
-  console.log('✅ Firebase Client initialized');
+  console.log('Firebase Client initialized');
 } catch (error) {
-  console.error('❌ Firebase Client init error:', error);
+  console.error('Firebase Client init error:', error);
   db = null;
 }
 

@@ -85,12 +85,40 @@
   width: var(--pa-tap); height: var(--pa-tap); padding: 3px;
   box-sizing: content-box; border-radius: 50%; border: 0;
   cursor: pointer; background: var(--sw, var(--pa-stone)) content-box;
-}
-.pa-swatch::before {            /* the visible 1px ring, drawn inside the hit area */
-  content: ""; position: absolute; inset: 3px; border: 1px solid var(--pa-line); border-radius: 50%;
+  /* The 1px edge is drawn as a box-shadow rather than a border so it does not
+     eat into the painted circle. `--sw-line` is set inline by ColorDot for
+     light colours (white, beige) whose edge is otherwise invisible against
+     paper; the default is a mid grey, which reads on every swatch. */
+  box-shadow: inset 0 0 0 1px var(--sw-line, var(--pa-muted));
 }
 .pa-swatch { position: relative; }
-.pa-swatch[aria-pressed="true"] { outline: 2px solid var(--pa-ink); outline-offset: 1px; }
+/* Selected: a 2px ink ring with a 3px gap, drawn outside the hit area so the
+   circle itself is not resized. box-shadow on ::before keeps the hit target
+   at exactly --pa-tap. */
+.pa-swatch[aria-pressed="true"]::before {
+  content: ""; position: absolute; inset: -3px;
+  border: 2px solid var(--pa-ink); border-radius: 50%;
+}
+.pa-swatch[aria-pressed="true"] {
+  background: var(--sw, var(--pa-stone)) content-box;
+  box-shadow: inset 0 0 0 1px var(--sw-line, var(--pa-muted));
+}
+.pa-swatch:focus-visible { outline: 2px solid var(--pa-ink); outline-offset: 4px; }
+/* The colour name is available on hover and to assistive tech via aria-label,
+   but the reviewer's point stands: a swatch with no visible name in the panel
+   is just a circle. Showing it on hover/focus keeps the row clean while making
+   the colour discoverable. */
+.pa-swatch::after {
+  content: attr(title);
+  position: absolute; inset-block-start: calc(100% + 4px); inset-inline-start: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px; border-radius: 3px;
+  background: var(--pa-ink); color: var(--pa-paper);
+  font: 600 11px/1.4 var(--pa-font-body); white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s ease;
+  z-index: 3;
+}
+.pa-swatch:hover::after, .pa-swatch:focus-visible::after { opacity: 1; }
 .pa-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--pa-line); background: var(--sw, var(--pa-stone)); display: inline-block; }
 .pa-dot--sm { width: 10px; height: 10px; }
 .pa-dots { display: flex; gap: 4px; }
@@ -248,6 +276,16 @@
 .pa-hero__tile-label { font-family: var(--pa-font-display); font-size: 28px; font-weight: 700; line-height: 1.1; position: relative; z-index: 1; }
 .pa-hero__tile:hover .pa-hero__tile-img { opacity: 0.8; }
 
+/* P1.9: a tile with no photo. The review saw two identical flat stone boxes and
+   read them as broken. Two changes make an un-photographed tile read as
+   deliberate instead: a palette tint that alternates per tile (so the pair does
+   not look like one box repeated), and a visible border + hover shift so it
+   looks like a target rather than a placeholder. */
+.pa-hero__tile--tint { background: var(--pa-tint-1); border-color: var(--pa-line); }
+.pa-hero__tile--tint:nth-child(even) { background: var(--pa-tint-2, var(--pa-stone)); }
+.pa-hero__tile--tint:hover { background: var(--pa-tint-2, var(--pa-stone)); }
+.pa-hero__tile:focus-visible { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+
 /* Home shelves: a rail on a phone, a grid from laptop up. Both are rendered and
    the CSS picks one, so there is no JS breakpoint and no layout shift on resize. */
 .pa-home__shelf .pa-home__grid { display: none; }
@@ -303,11 +341,34 @@
 }
 
 /* About cards + footer */
+/* Home's "why Proactive" strip. Unrelated to the About page's .pa-about cards
+   (which live inside a reading column) even though the class name collides —
+   this one is a full-bleed 3-up band on a phone-first grid. */
 .pa-about { padding: 22px var(--pa-gutter) 0; display: flex; flex-direction: column; gap: 8px; }
 @media (min-width: 768px) { .pa-about { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; } .pa-about > h2 { grid-column: 1 / -1; } }
 .pa-about__card { background: var(--pa-stone); padding: 12px 14px; }
 .pa-about__card b { font-size: 14px; display: block; }
 .pa-about__card span { font-size: 13px; line-height: 1.4; color: var(--pa-muted); }
+
+/* Inside the About page's reading column the cards must not inherit the
+   full-bleed padding or the phone-first 1-up grid: they are prose, not a band.
+   Scoped to .pa-info so Home's strip is untouched. */
+.pa-info .pa-about {
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.pa-info .pa-about__card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--pa-stone);
+  border: 1px solid var(--pa-line);
+  padding: 16px;
+  border-radius: var(--pa-radius);
+}
+.pa-info .pa-about__card span { font-size: 14px; line-height: 1.55; }
 
 /* Footer: four columns on desktop, stacked on a phone. The delivery note is
    the last column because it is the one thing a shopper checks before the
@@ -393,6 +454,29 @@
 .pa-drawer__row[aria-current="page"] { font-weight: 700; }
 .pa-drawer__sub { padding-inline-start: 22px; font-size: 14px; font-weight: 500; min-height: 40px; display: flex; align-items: center; text-decoration: none; color: var(--pa-ink); }
 .pa-drawer__foot { flex: 0 0 auto; border-top: 1px solid var(--pa-line); padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Drawer category rows (P1.8).
+   A root with children is a row of two: the link fills the space, and the
+   disclosure button holds a 44px target at the end. The row is a flex
+   container rather than the row being a sibling of the button, so the link's
+   own hit area stays full-width while the chevron does not stretch. */
+.pa-drawer__item { display: flex; flex-direction: column; }
+.pa-drawer__item-row { display: flex; align-items: center; }
+.pa-drawer__item-row .pa-drawer__row { flex: 1 1 auto; min-width: 0; }
+.pa-drawer__expand {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--pa-muted);
+  /* The chevron rotates on state; a transition makes it legible rather than a
+     jump. Reduced-motion users get the same states without the animation
+     (components.css honours prefers-reduced-motion further down). */
+  transition: color .15s ease;
+}
+.pa-drawer__expand:hover, .pa-drawer__expand:focus-visible { color: var(--pa-ink); }
+.pa-drawer__expand svg { transition: transform .18s ease; }
+.pa-drawer__tree { display: flex; flex-direction: column; }
 .pa-footer__links a { text-decoration: none; }
 
 /* ------------------------ Browse (filters, chips) -------------------- */
@@ -435,6 +519,14 @@
 }
 .pa-filter-panel { display: flex; flex-direction: column; gap: 24px; }
 .pa-filter-panel__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Result count above the grid. Sits in the results column, not the toolbar, so
+   it stays next to the products it counts. */
+.pa-shop__count {
+  margin: 0 0 12px;
+  font: 600 13px/1.4 var(--pa-font-body);
+  color: var(--pa-muted);
+}
 
 .pa-price-readout { font-size: 13px; font-weight: 600; color: var(--pa-muted); }
 
@@ -501,10 +593,132 @@
   .pa-shop__sort { display: flex; }
 
   .pa-layout-shop { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+  /* 24px of air above the first group: the sidebar's top edge sits under the
+     toolbar's bottom rule, and without this the first section label ("Size")
+     was touching it. Gap between sections comes from .pa-filter-panel. */
   .pa-sidebar-filters {
     position: sticky; top: 96px; display: flex; flex-direction: column; gap: 22px;
+    padding-top: 24px;
   }
 }
+
+/* ---------------------------- Info pages ------------------------------- */
+/* Privacy / About / Terms. One container, one reading column, logical
+   properties only — so RTL is a mirror of the LTR layout rather than a
+   separate set of rules. Before this, the title sat outside the container (and
+   was clipped at the start edge in RTL) while the body sat inside it, and the
+   back button was a flex child that landed at x=0. */
+
+.pa-info { padding-block: 24px 40px; }
+.pa-info__container { display: flex; justify-content: center; }
+
+/* The reading column. margin-inline:auto inside a flex row that already
+   centres would double up, so the column is simply constrained and the row
+   centres it. */
+.pa-info__col {
+  width: 100%;
+  max-width: var(--pa-info-measure, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Text link above the title. min-height 44px satisfies the tap target without
+   looking like a button, and the border is gone — a bordered control here read
+   as a chip floating at the screen edge. */
+.pa-info__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  min-height: 44px;
+  margin-block-end: 8px;
+  font: 600 14px var(--pa-font-body);
+  color: var(--pa-muted);
+  text-decoration: none;
+  /* The arrow is the affordance; underline on hover only, so the row does not
+     compete with the h1 below it. */
+  transition: color .15s ease;
+}
+.pa-info__back:hover, .pa-info__back:focus-visible { color: var(--pa-ink); }
+.pa-info__back:hover span { text-decoration: underline; }
+.pa-info__back svg { flex: 0 0 auto; }
+
+.pa-info__title {
+  margin: 0;
+  font-family: var(--pa-font-display);
+  font-size: var(--pa-fs-heading);
+  line-height: var(--pa-lh-heading);
+  /* Long Arabic headings must not be clipped at the container's start edge:
+     break anywhere rather than overflowing. */
+  overflow-wrap: anywhere;
+}
+
+.pa-info__updated {
+  margin: 4px 0 0;
+  font: 500 13px var(--pa-font-body);
+  color: var(--pa-muted);
+}
+/* The date is localised, so it reads right-to-left in an Arabic page and
+   left-to-right in an English one even though it sits inside RTL text. */
+.pa-info__updated time { unicode-bidi: plaintext; }
+
+.pa-info__body {
+  margin-block-start: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pa-info__section { display: flex; flex-direction: column; gap: 6px; }
+.pa-info__section h2 {
+  margin: 0;
+  font-family: var(--pa-font-display);
+  font-size: 20px;
+  line-height: 1.3;
+}
+.pa-info__section p {
+  margin: 0;
+  font: 400 15px/1.8 var(--pa-font-body);
+  color: var(--pa-muted);
+}
+
+/* The closing rule spans the READING column, not the viewport and not the outer
+   container: the review caught it at 60–1860px while the heading above it sat
+   at 110–1810px. */
+.pa-info__rule {
+  margin-block: 28px 0;
+  border: 0;
+  border-block-start: 1px solid var(--pa-line);
+  width: 100%;
+}
+
+.pa-info__closing { text-align: center; font-style: italic; }
+
+/* Contact rows in the terms page: icon + label + value on one line, the icon
+   held at a fixed width so the labels align across rows in both directions. */
+.pa-contact { display: flex; flex-direction: column; gap: 8px; }
+.pa-contact > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 14px var(--pa-font-body);
+}
+.pa-contact svg { flex: 0 0 auto; color: var(--pa-muted); }
+
+/* About page cards: the icon sits beside the heading, both sharing one line, so
+   the card does not reflow when a translation is longer. */
+.pa-about__card-head,
+.pa-about__banner-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pa-about__card-head svg,
+.pa-about__banner-head svg { flex: 0 0 auto; }
+
+.pa-about__banner { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.pa-about__banner p { max-width: 640px; }
 
 /* ------------------------------ Product page ------------------------- */
 .pa-pdp { display: flex; flex-direction: column; }
@@ -732,11 +946,11 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
 .pa-radio-card b { display: block; font-size: 15px; font-weight: 700; }
 .pa-radio-card span { display: block; color: var(--pa-muted); font-size: 13px; }
 
-/* Colour selector. The painted circle is 38px inside a 44px hit area; the
-   1px ring is drawn inside so light colours still read against paper. */
+/* Compact variant for the product card / bag. The ring and the pressed state are
+   defined with the main swatch rules above and are not restated here. */
 .pa-swatch--sm { width: 28px; height: 28px; padding: 2px; }
-.pa-swatch--sm::before { inset: 2px; }
-.pa-swatch[aria-pressed="true"] { outline: 2px solid var(--pa-ink); outline-offset: 2px; }
+.pa-swatch--sm[aria-pressed="true"]::before { inset: -3px; }
+.pa-swatch--sm::after { display: none; }        /* no tooltip on a card swatch */
 .pa-swatch[disabled] { cursor: not-allowed; opacity: .55; }
 
 /* Bottom sheet: slides up, top corners only, dimmed backdrop, sticky footer.
@@ -778,6 +992,43 @@ details[open] > summary::after, .pa-acc details[open] summary::after { transform
 .pa-empty { padding: 48px var(--pa-gutter); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .pa-empty__title { font-family: var(--pa-font-display); font-size: var(--pa-fs-title); font-weight: 700; }
 .pa-empty__body { color: var(--pa-muted); font-size: 14px; max-width: 40ch; margin: 0; }
+
+/* The diagnosability hook. "E-API-404" on screen tells the owner (or whoever
+   they forward the screenshot to) which branch of the failure table in
+   docs/CATALOG_DIAGNOSIS.md this is, without a devtools session. */
+.pa-empty__code {
+  font: 500 11px/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  letter-spacing: .06em;
+  color: var(--pa-muted);
+  background: var(--pa-stone);
+  border-radius: 3px;
+  padding: 4px 6px;
+  direction: ltr;
+}
+
+/* "Showing saved items" — a quiet note that the grid came from IndexedDB.
+   Inline in the results column, never a banner: stale prices beat no shop, and
+   checkout re-checks money server-side anyway. */
+.pa-stale-note {
+  margin: 0 0 12px;
+  display: flex; align-items: center; gap: 6px;
+  font: 500 12px/1.4 var(--pa-font-body);
+  color: var(--pa-muted);
+}
+.pa-stale-note::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--pa-muted);
+  flex: 0 0 auto;
+}
+
+/* State icons: the stroke glyph that replaced the coupon page's ❌ / ⚠️ / 🎉.
+   Sized by the caller, coloured by tone. Tone is carried by a class rather than
+   an inline fill so dark mode has something to override. */
+.pa-state-icon { color: var(--pa-muted); }
+.pa-state-icon--error { color: var(--pa-sale); }
+.pa-state-icon--warn { color: var(--pa-ink); }
+.pa-state-icon--good { color: var(--pa-ink); }
 
 /* Offline banner: the catalogue survives in IndexedDB, so say so rather than
    showing an empty grid. */

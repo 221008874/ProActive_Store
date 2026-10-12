@@ -1,19 +1,20 @@
-// src/pages/TermsOfService.jsx — ProActive Fashion design system refactor.
+// src/pages/TermsOfService.jsx — terms of service.
 //
-// Content is unchanged: the same eleven numbered clauses, the same contact
-// details and the same closing line. The back handler (navigate(-1)) survives
-// on a design-system outline button; the 900px card is now a full-bleed
-// .pa-block band with a centred .pa-container measure, and the contact /
-// closing panels are .pa-callout blocks.
+// Layout is InfoPage: one container, one reading column, a text back-link above
+// the title, and a date from the document's metadata rather than a literal in
+// the markup. The eleven numbered clauses, the contact details and the closing
+// line are unchanged; the contact panel lost its three emoji (📧 📱 📍) in
+// favour of stroke icons, per the no-emoji rule.
 
-import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import StoreFooter from '../components/StoreFooter'
-import { Button, PageTitle } from '../ui'
+import InfoPage from '../components/InfoPage'
+import { IconMail, IconPhone, IconPin } from '../ui'
+
+// Revision date as content metadata. Update this when the clauses change.
+const TERMS_UPDATED_AT = '2026-02-13T00:00:00Z'
 
 export default function TermsOfService() {
   const { t, lang } = useLanguage()
-  const navigate = useNavigate()
 
   const ar = lang === 'ar'
   const L = (key, en, fallback) => {
@@ -81,40 +82,43 @@ export default function TermsOfService() {
   ]
 
   return (
-    <>
-      <PageTitle
-        title={L('termsOfServiceTitle', 'Terms of Service', 'شروط الخدمة')}
-        subtitle={<>{L('lastUpdated', 'Last Updated', 'آخر تحديث')}: February 13, 2026</>}
-        actions={
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            {L('back', 'Back', 'رجوع')}
-          </Button>
-        }
-      />
+    <InfoPage
+      title={L('termsOfServiceTitle', 'Terms of Service', 'شروط الخدمة')}
+      updatedAt={TERMS_UPDATED_AT}
+      contentLang={lang}
+      updatedLabel={L('lastUpdated', 'Last updated', 'آخر تحديث')}
+      backHref="/home"
+      backLabel={L('backToHome', 'Back to home', 'رجوع للرئيسية')}
+    >
+      {sections.map((section) => (
+        <section key={section.n} className="pa-info__section">
+          <h2>{section.n}. {section.title}</h2>
+          <p>{section.body}</p>
+          {section.contact && (
+            <div className="pa-callout pa-contact">
+              <span>
+                <IconMail width={18} height={18} />
+                <b>{L('email', 'Email', 'البريد الإلكتروني')}:</b>{' '}
+                <bdi>proactive.store.eg@gmail.com</bdi>
+              </span>
+              <span>
+                <IconPhone width={18} height={18} />
+                <b>{L('phoneNumber', 'Phone', 'الهاتف')}:</b>{' '}
+                <bdi>+20 123 456 7890</bdi>
+              </span>
+              <span>
+                <IconPin width={18} height={18} />
+                <b>{L('address', 'Address', 'العنوان')}:</b>{' '}
+                {L(null, 'Luxor, Egypt', 'الأقصر، مصر')}
+              </span>
+            </div>
+          )}
+        </section>
+      ))}
 
-      <div className="pa-block">
-        <div className="pa-container" style={{ maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {sections.map((section) => (
-            <section key={section.n} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <h2 style={{ fontSize: 20 }}>{section.n}. {section.title}</h2>
-              <p className="pa-subtitle" style={{ margin: 0, lineHeight: 1.8 }}>{section.body}</p>
-              {section.contact && (
-                <div className="pa-callout" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                  <span>📧 <b>{L('email', 'Email', 'البريد الإلكتروني')}:</b> <bdi>proactive.store.eg@gmail.com</bdi></span>
-                  <span>📱 <b>{L('phoneNumber', 'Phone', 'الهاتف')}:</b> <bdi>+20 123 456 7890</bdi></span>
-                  <span>📍 <b>{L('address', 'Address', 'العنوان')}:</b> {L(null, 'Luxor, Egypt', 'الأقصر، مصر')}</span>
-                </div>
-              )}
-            </section>
-          ))}
-
-          <div className="pa-callout" style={{ textAlign: 'center', fontStyle: 'italic' }}>
-            {L(null, 'Thank you for choosing ProActive Store - Fresh Style, Delivered', 'تجربة أني؂ة')}
-          </div>
-        </div>
+      <div className="pa-callout pa-info__closing">
+        {L(null, 'Thank you for choosing ProActive Store - Fresh Style, Delivered', 'شكراً لاختيارك برو أكتيف ستور')}
       </div>
-
-      <StoreFooter />
-    </>
+    </InfoPage>
   )
 }
