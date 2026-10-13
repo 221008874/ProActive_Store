@@ -29,6 +29,63 @@ export const MAX_QTY_PER_LINE = 20;
 export const FREE_SHIPPING_FALLBACK = 800;
 export const MAX_NAME = 80;
 
+// Per-field caps on the delivery address. Firestore rejects a document over
+// 1 MiB, so an unbounded free-text field in the request body is the cheapest
+// way to turn a valid basket into a 500: a multi-megabyte "notes" string would
+// fail the whole transaction after the client already typed it. Trimming and
+// capping here keeps the failure a clean 409 the bag can explain.
+const ADDRESS_LIMITS = {
+  governorateId: 80,
+  governorate: 120,
+  street: 200,
+  city: 120,
+  building: 120,
+  notes: 500
+};
+
+function cappedText(value, limit) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string" && typeof value !== "number") {
+    throw new CheckoutError("BAD_ADDRESS");
+  }
+  const text = String(value).trim();
+  if (text.length > limit) throw new CheckoutError("BAD_ADDRESS");
+  return text === "" ? null : text;
+}
+
+// Validates the delivery address and returns a normalised copy: only the known
+// keys, trimmed, with empty strings collapsed to null. An unknown key is
+// dropped rather than carried into the order document.
+export function validateAddress(address = {}) {
+  if (!address || typeof address !== "object" || Array.isArray(address)) {
+    throw new CheckoutError("BAD_ADDRESS");
+  }
+
+  const governorateId = cappedText(address.governorateId, ADDRESS_LIMITS.governorateId);
+  if (!governorateId) throw new CheckoutError("BAD_ADDRESS");
+
+  // Coordinates are optional (the shopper may type an address instead of
+  // dropping a pin) but must be real coordinates when present: the courier map
+  // and the distance sort both read them.
+  const coord = (value, limit) => {
+    if (value === null || value === undefined || value === "") return null;
+    const n = Number(value);
+    if (!Number.isFinite(n) || Math.abs(n) > limit) throw new CheckoutError("BAD_ADDRESS");
+    return n;
+  };
+
+  return {
+    governorateId,
+    governorate: cappedText(address.governorate, ADDRESS_LIMITS.governorate),
+    street: cappedText(address.street, ADDRESS_LIMITS.street),
+    city: cappedText(address.city, ADDRESS_LIMITS.city),
+    building: cappedText(address.building, ADDRESS_LIMITS.building),
+    notes: cappedText(address.notes, ADDRESS_LIMITS.notes),
+    lat: coord(address.lat, 90),
+    lng: coord(address.lng, 180)
+  };
+}
+
 // Same phone, same items, inside this window -> treated as one order.
 export const DUP_WINDOW_MS = 10 * 60 * 1000;
 
@@ -126,12 +183,10 @@ export function validateRequest(body = {}) {
   const email = customer.email ? String(customer.email).trim() : null;
   if (email && !EMAIL_RE.test(email)) throw new CheckoutError("BAD_CUSTOMER");
 
-  if (!address?.governorateId) throw new CheckoutError("BAD_ADDRESS");
-
   return {
     cart: cart.map((l) => ({ productId: String(l.productId), variantId: String(l.variantId), qty: Math.floor(Number(l.qty)) })),
     customer: { name: name.slice(0, MAX_NAME), phone, email },
-    address
+    address: validateAddress(address)
   };
 }
 

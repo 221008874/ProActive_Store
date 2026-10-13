@@ -83,6 +83,61 @@ describe('orderCore - request validation', () => {
     expect(() => validateRequest({ cart: CART, customer: { ...CUSTOMER, email: 'nope' }, address: ADDRESS })).toThrow(/BAD_CUSTOMER/)
     expect(validateRequest({ cart: CART, customer: { ...CUSTOMER, email: null }, address: ADDRESS }).customer.email).toBeNull()
   })
+
+  it('keeps every address field the delivery form sends', () => {
+    const full = {
+      governorateId: 'cairo', governorate: 'القاهرة', street: 'شارع التحرير',
+      city: 'الدقي', building: 'عمارة 12', notes: 'الطابق التالت', lat: 30.04, lng: 31.23
+    }
+    const out = validateRequest({ cart: CART, customer: CUSTOMER, address: full })
+    expect(out.address).toEqual(full)
+  })
+
+  it('collapses an empty field to null and trims the rest', () => {
+    const out = validateRequest({
+      cart: CART, customer: CUSTOMER,
+      address: { governorateId: ' cairo ', street: '  شارع التحرير  ', city: '', notes: null }
+    })
+    expect(out.address.governorateId).toBe('cairo')
+    expect(out.address.street).toBe('شارع التحرير')
+    expect(out.address.city).toBeNull()
+    expect(out.address.notes).toBeNull()
+  })
+
+  it('drops an unknown address key instead of carrying it into the order', () => {
+    const out = validateRequest({
+      cart: CART, customer: CUSTOMER, address: { ...ADDRESS, isAdmin: true, secret: 'x' }
+    })
+    expect(out.address).not.toHaveProperty('isAdmin')
+    expect(out.address).not.toHaveProperty('secret')
+  })
+
+  it('rejects an address field long enough to threaten the document size', () => {
+    // Firestore refuses a document over 1 MiB, so an unbounded free-text field
+    // would fail the whole transaction as a 500 after the shopper typed it.
+    for (const field of ['street', 'city', 'building', 'notes', 'governorate']) {
+      expect(
+        () => validateRequest({ cart: CART, customer: CUSTOMER, address: { ...ADDRESS, [field]: 'x'.repeat(5001) } })
+      ).toThrow(/BAD_ADDRESS/)
+    }
+  })
+
+  it('rejects coordinates that are not coordinates', () => {
+    expect(() => validateRequest({ cart: CART, customer: CUSTOMER, address: { ...ADDRESS, lat: 130 } })).toThrow(/BAD_ADDRESS/)
+    expect(() => validateRequest({ cart: CART, customer: CUSTOMER, address: { ...ADDRESS, lng: -200 } })).toThrow(/BAD_ADDRESS/)
+    expect(() => validateRequest({ cart: CART, customer: CUSTOMER, address: { ...ADDRESS, lat: 'abc' } })).toThrow(/BAD_ADDRESS/)
+    const out = validateRequest({ cart: CART, customer: CUSTOMER, address: { ...ADDRESS, lat: '30.04' } })
+    expect(out.address.lat).toBe(30.04)
+  })
+
+  it('rejects a missing governorate or an address that is not an object', () => {
+    expect(() => validateRequest({ cart: CART, customer: CUSTOMER, address: {} })).toThrow(/BAD_ADDRESS/)
+    expect(() => validateRequest({ cart: CART, customer: CUSTOMER, address: 'Cairo' })).toThrow(/BAD_ADDRESS/)
+  })
+
+  it('maps an address rejection to 409, not 500', () => {
+    expect(statusForError(new CheckoutError('BAD_ADDRESS'))).toBe(409)
+  })
 })
 
 describe('orderCore - coupon maths', () => {
