@@ -6,12 +6,10 @@
 // marked here rather than failing at the API.
 
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import {
   BagLine, Button, EmptyState, FreeShippingBar, Summary, formatEGP, loc
 } from '../../ui'
-import { getFreeShippingThreshold } from '../../services/settings'
 import { checkoutRejectionMessage } from '../../utils/checkoutMessages'
 import CouponBox from './CouponBox'
 
@@ -24,19 +22,14 @@ const label = (t, lang) => (key, en, ar) => {
 }
 
 export default function BagStep({ checkout, coupon }) {
-  const { t, lang } = useLanguage()
+const { t, lang } = useLanguage()
   const L = label(t, lang)
-  const [threshold, setThreshold] = useState(800)
 
   const {
-    items, totalPrice, shipping, effectiveMinimum, invalidLines, belowMinimum,
-    ordersOpen, updateQuantity, removeFromCart, productDetails, stockErrors,
-    setStep, error, dismissError
+    items, totals, shipping, freeShippingThreshold, effectiveMinimum, invalidLines,
+    belowMinimum, ordersOpen, updateQuantity, removeFromCart, productDetails,
+    stockErrors, setStep, error, dismissError
   } = checkout
-
-  useEffect(() => {
-    getFreeShippingThreshold().then(setThreshold).catch(() => {})
-  }, [])
 
   if (items.length === 0) {
     return (
@@ -50,7 +43,10 @@ export default function BagStep({ checkout, coupon }) {
     )
   }
 
-  const total = totalPrice + (shipping?.cost ?? 0)
+  // One source of truth for the money (useCheckout), so the figure here is the
+  // figure the server charges: subtotal - coupon discount, plus shipping only
+  // when the discounted subtotal is still under the free-shipping threshold.
+  const total = totals.total
 
   return (
     <div className="pa-checkout">
@@ -75,8 +71,11 @@ export default function BagStep({ checkout, coupon }) {
       )}
 
       <FreeShippingBar
-        subtotal={totalPrice}
-        threshold={threshold}
+        // Measured on the DISCOUNTED subtotal, because that is what the server
+        // tests against the threshold (computeTotals) - a bar that counted the
+        // pre-discount number could promise free shipping the order then pays for.
+        subtotal={totals.discounted}
+        threshold={freeShippingThreshold}
         lang={lang}
         t={{
           remaining: (amount) => (
@@ -95,7 +94,7 @@ export default function BagStep({ checkout, coupon }) {
           <span>
             {L('minimumFor', 'The minimum for this governorate is', 'الحد الأدنى للمحافظة دي')}{' '}
             <bdi>{formatEGP(effectiveMinimum, lang)}</bdi> — {L('addMoreToProceed', 'add', 'ضيف')}{' '}
-            <bdi>{formatEGP(effectiveMinimum - totalPrice, lang)}</bdi>.
+            <bdi>{formatEGP(effectiveMinimum - totals.subtotal, lang)}</bdi>.
           </span>
         </div>
       )}
@@ -139,15 +138,19 @@ export default function BagStep({ checkout, coupon }) {
 
       <Summary
         rows={[
-          { label: L('subtotal', 'Subtotal', 'الإجمالي الفرعي'), value: formatEGP(totalPrice, lang) },
+          { label: L('subtotal', 'Subtotal', 'الإجمالي الفرعي'), value: formatEGP(totals.subtotal, lang) },
           coupon.discount > 0 && {
             label: L('coupon', 'Coupon', 'كود الخصم'),
             tone: 'discount',
-            value: `-${formatEGP(coupon.discount, lang)}`
+            value: `-${formatEGP(totals.discount, lang)}`
           },
           {
             label: L('shippingTo', 'Shipping', 'الشحن'),
-            value: shipping?.available ? formatEGP(shipping.cost, lang) : L('chooseGovernorate', 'choose a governorate', 'اختار محافظة')
+            value: !shipping?.available
+              ? L('chooseGovernorate', 'choose a governorate', 'اختار محافظة')
+              : totals.shippingCost === 0 && shipping.cost > 0
+                ? L('free')
+                : formatEGP(totals.shippingCost, lang)
           },
           { label: L('total', 'Total', 'الإجمالي'), value: formatEGP(total, lang), tone: 'total' }
         ].filter(Boolean)}

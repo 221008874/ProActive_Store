@@ -129,3 +129,52 @@ describe("handler", () => {
     expect(typeof res.body).toBe("object")
   })
 })
+
+// The one route the storefront cannot work without. placeOrder used to name
+// its response field `body`, which shadowed the request body for the whole try
+// block, so the very first read of the request threw "Cannot access 'body'
+// before initialization" and EVERY checkout answered 500 SERVER_ERROR - in
+// production, for days, with a green build, because nothing ever called the
+// route. getDb() runs before any validation, so with no credentials this route
+// always 500s locally; the assertion is therefore not the code but the ERROR
+// KIND: an env/db failure (reachable, explained) and never a ReferenceError.
+describe("placeOrder regression: the TDZ shadowing bug", () => {
+  it("does not declare a block-scoped `body` that would shadow the request body", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(
+      new URL("../../server/placeOrder.js", import.meta.url),
+      "utf8"
+    );
+    // A `const { ...body } = result` inside the try block is the exact defect:
+    // it declares a block-scoped `body` that shadows the outer request body for
+    // the whole block, so the earlier `placeOrderTransaction(db, body)` throws.
+    expect(source).not.toMatch(/\b(?:const|let|var)\s*\{[^}]*\.\.\.body\b/);
+    // And the response must not be named `body` either.
+    expect(source).not.toMatch(/\.\.\.body\s*\}/);
+  });
+
+  it("answers with a database/credential error, never a ReferenceError", async () => {
+    const errors = [];
+    const realError = console.error;
+    console.error = (...args) => { errors.push(args.map(String).join(" ")); };
+    try {
+      const res = stubRes();
+      await handler(
+        {
+          query: { path: ["placeOrder"] },
+          method: "POST",
+          headers: {},
+          body: { cart: [], customer: {}, address: {} }
+        },
+        res
+      );
+      expect(res.statusCode).toBe(500); // no credentials in unit tests
+      expect(res.body?.error).toBe("SERVER_ERROR");
+    } finally {
+      console.error = realError;
+    }
+    // The signature of the bug was this exact message in the log.
+    const logged = errors.join("\n");
+    expect(logged).not.toMatch(/Cannot access 'body' before initialization/);
+  });
+})

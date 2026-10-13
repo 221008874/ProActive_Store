@@ -18,8 +18,8 @@ import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../ui/overlays'
 import { analytics } from '../services/analytics'
 import {
-  Accordion, Badge, Button, ColorDot, EmptyState, ErrorState, IconHeart, IconShare,
-  PriceTag, ProductCard, ProductRail, SizePicker, Skeleton, StockHint, thumb,
+  Accordion, Badge, BottomSheet, Button, ColorDot, EmptyState, IconHeart, IconShare,
+  IconWhatsApp, PriceTag, ProductCard, ProductRail, SizePicker, Skeleton, StockHint, thumb,
   formatEGP, loc
 } from '../ui'
 import {

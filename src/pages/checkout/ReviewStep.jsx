@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { Button, Checkbox, formatEGP, loc, thumb } from '../../ui'
+import { checkoutRejectionMessage } from '../../utils/checkoutMessages'
 import CouponBox from './CouponBox'
 
 const label = (t, lang) => (key, en, ar) => {
@@ -26,11 +27,11 @@ export default function ReviewStep({ checkout, coupon }) {
   const [agreed, setAgreed] = useState(false)
 
   const {
-    items, totalPrice, shipping, address, governorateDocs, setStep,
+    items, totals, address, governorateDocs, setStep,
     placeOrder, processing, error, ordersOpen, effectiveMinimum, belowMinimum
   } = checkout
 
-  const total = totalPrice + (shipping?.cost ?? 0)
+  const total = totals.total
   const gov = governorateDocs[address.governorate]
   const govName = gov?.name ? loc(gov.name, lang) : address.governorate
 
@@ -134,7 +135,10 @@ export default function ReviewStep({ checkout, coupon }) {
 
       {error && (
         <div className="pa-callout pa-callout--error" role="alert" style={{ margin: '0 var(--pa-gutter)' }}>
-          {L(`checkout_${error.key}`, error.key)}
+          {/* No `checkout_*` key exists in the dictionary, so falling back to the
+              key alone printed `outOfStock` / `rateLimited` to the shopper. The
+              message table is the real copy, in both languages. */}
+          {L(`checkout_${error.key}`, checkoutRejectionMessage(error.key, lang))}
         </div>
       )}
 

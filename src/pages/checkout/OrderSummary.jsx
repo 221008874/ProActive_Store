@@ -7,8 +7,11 @@
 import { formatEGP } from '../../ui'
 
 export default function OrderSummary({ checkout, coupon, L, lang }) {
-  const { totalPrice, shipping, effectiveMinimum, belowMinimum, invalidLines, ordersOpen } = checkout
-  const total = totalPrice + (shipping?.cost ?? 0)
+  const { totals, shipping, effectiveMinimum, belowMinimum, invalidLines, ordersOpen } = checkout
+  // The same breakdown the server computes (useCheckout.totals): the coupon
+  // comes off the subtotal and shipping is charged only on what is left, so
+  // this card cannot quote a total the order will not be created with.
+  const total = totals.total
 
   return (
     <div className="pa-summary-card">
@@ -16,7 +19,7 @@ export default function OrderSummary({ checkout, coupon, L, lang }) {
 
       <div className="pa-summary__row">
         <span>{L('subtotal', 'Subtotal', 'الإجمالي الفرعي')}</span>
-        <bdi>{formatEGP(totalPrice, lang)}</bdi>
+        <bdi>{formatEGP(totals.subtotal, lang)}</bdi>
       </div>
 
       {coupon.discount > 0 && (
@@ -26,9 +29,17 @@ export default function OrderSummary({ checkout, coupon, L, lang }) {
         </div>
       )}
 
-      <div className="pa-summary__row">
+<div className="pa-summary__row">
         <span>{L('shipping', 'Shipping', 'الشحن')}</span>
-        <bdi>{shipping?.available ? formatEGP(shipping.cost, lang) : L('chooseGovernorate', 'choose a governorate', 'اختار محافظة')}</bdi>
+        <bdi>
+          {!shipping?.available
+            ? L('chooseGovernorate', 'choose a governorate', 'اختر المحافظة')
+            // Free above the threshold, which the server also decides on the
+            // discounted subtotal.
+            : totals.shippingCost === 0 && shipping.cost > 0
+              ? L('free')
+              : formatEGP(totals.shippingCost, lang)}
+        </bdi>
       </div>
 
       <div className="pa-summary__row pa-summary__row--total">

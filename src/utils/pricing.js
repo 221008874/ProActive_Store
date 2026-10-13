@@ -29,6 +29,32 @@ export function computeShipping({
   }
 }
 
+/**
+ * The checkout money breakdown, mirroring the server exactly.
+ *
+ * server/_core/orderCore.js `computeTotals` is the authority: the coupon comes
+ * off the subtotal first, and free shipping is decided on what is LEFT, not on
+ * the pre-discount subtotal. Three step components used to add `subtotal +
+ * shipping` on their own, which charged for a delivery the server would not
+ * charge and quoted a total the order was never created with.
+ *
+ * `checkoutTotals.test.js` asserts this function equals the server's for the
+ * same inputs, so the two cannot drift.
+ */
+export function checkoutTotals({ subtotal, couponAmount = 0, shippingCost = 0, freeShippingThreshold = 0 }) {
+  const base = Math.max(0, Number(subtotal) || 0)
+  const discount = Math.max(0, Math.min(Number(couponAmount) || 0, base))
+  const discounted = base - discount
+  // A missing threshold means the SAME fallback as the server
+  // (FREE_SHIPPING_FALLBACK = 800), not "never free": reading it as 0 would make
+  // the client charge shipping on a 5000 EGP order the server ships free.
+  const configured = Number(freeShippingThreshold)
+  const threshold = Number.isFinite(configured) && configured > 0 ? configured : 800
+  const cost = Number(shippingCost) || 0
+  const shipping = discounted >= threshold ? 0 : cost
+  return { subtotal: base, discount, discounted, shippingCost: shipping, total: discounted + shipping }
+}
+
 export function computeTotals({ totalPrice, couponAmount = 0, shippingCost = 0 }) {
   const discountAmount = couponAmount || 0
   const subtotal = Math.max(0, totalPrice - discountAmount)

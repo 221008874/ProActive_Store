@@ -78,11 +78,23 @@ export default function CouponLanding() {
         const couponToApply = {
           id: result.code,
           code: result.code,
-          amount: result.value,
+          type: result.type,
+          value: result.value,
+          // `amount` is the discount this coupon is worth, from the server -
+          // not the coupon's own `value`, which for a percent coupon is a
+          // percentage. useCoupon.discount reads `amount` first, so storing
+          // `value` here made a 10% coupon read as 10 EGP off, and the summary
+          // row rendered "undefined% off".
+          // The landing page previews with no subtotal, so the server's `discount` is
+          // null here. Storing null means useCoupon.discount falls back to
+          // recomputing from type/value, which is the right thing to do with a
+          // bag the shopper has not filled yet.
+          amount: result.discount ?? 0,
+          minOrder: result.minOrder ?? 0,
           currency: 'EGP'
         }
 
-        setCoupon({ ...couponToApply, type: result.type, value: result.value })
+        setCoupon({ ...couponToApply })
 
         // Store in context (persists to localStorage)
         setAppliedCoupon(couponToApply)

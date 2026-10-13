@@ -128,8 +128,13 @@ export default async function handler(req, res) {
     }
 
     // The route's internal ref never reaches the shopper.
-    const { outboxRef: _outboxRef, ...body } = result;
-    return res.status(200).json(body);
+    //
+    // The response field must not be named `body`: a `const` named `body` inside
+    // this block would shadow the request body read above for the WHOLE block,
+    // so `placeOrderTransaction(db, body, ...)` would throw
+    // "Cannot access 'body' before initialization" and every checkout 500.
+    const { outboxRef: _outboxRef, ...response } = result;
+    return res.status(200).json(response);
   } catch (error) {
     const status = statusForError(error);
 

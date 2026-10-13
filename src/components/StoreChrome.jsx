@@ -21,8 +21,8 @@ import { OfflineBanner } from '../ui/states'
 import { useOnline } from '../hooks/useOnline'
 import StoreFooter from './StoreFooter'
 import {
-  AnnouncementBar, Header, TabBar, IconClose, IconSearch, IconHome, IconShop, IconHeart, IconBag,
-  IconMenu, IconGlobe, IconSun, IconMoon
+  AnnouncementBar, Header, TabBar, IconChevron, IconClose, IconSearch, IconHome, IconShop,
+  IconHeart, IconBag, IconMenu, IconGlobe, IconSun, IconMoon
 } from '../ui'
 
 // t() returns the key itself when a translation is missing, which doubles as the

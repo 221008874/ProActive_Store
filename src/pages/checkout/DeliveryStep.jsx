@@ -11,6 +11,7 @@ import { useRef } from 'react'
 import { Button, Checkbox, Field, Select, formatEGP } from '../../ui'
 import LocationPicker from '../../components/LocationPicker'
 import { validateDeliveryForm } from '../../utils/validation'
+import { checkoutRejectionMessage } from '../../utils/checkoutMessages'
 
 const label = (t, lang) => (key, en, ar) => {
   if (key) {
@@ -36,7 +37,8 @@ export default function DeliveryStep({ checkout }) {
 
   const {
     address, setField, chooseGovernorate, governorateDocs, loadingGovernorates,
-    shipping, setStep, formErrors, setFormErrors, showMap
+    shipping, setStep, formErrors, setFormErrors, showMap,
+    error, dismissError
   } = checkout
 
   // Only governorates the owner marked active, named in the shopper's language.
@@ -73,6 +75,24 @@ export default function DeliveryStep({ checkout }) {
 
   return (
     <form ref={formRef} className="pa-checkout" onSubmit={submit} noValidate>
+      {/* A rejection the SERVER sent us (bad phone format, governorate taken
+          offline, minimum order). The place order failed, the hook routes the
+          shopper back to this step - and this step used to render only
+          formErrors, so the reason vanished and the shopper saw a form that
+          looked fine with no idea why the order was refused. */}
+      {error && (
+        <div className="pa-callout pa-callout--error" role="alert" style={{ margin: '0 var(--pa-gutter) var(--pa-gap)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <b>{L('orderNotCompleted', 'Order not placed', 'الطلب مكملش')}</b>
+            <span>{L(`checkout_${error.key}`, checkoutRejectionMessage(error.key, lang))}</span>
+            <button type="button" className="pa-btn pa-btn--outline pa-btn--sm" onClick={dismissError}
+              style={{ alignSelf: 'flex-start' }}>
+              {L('dismiss', 'Dismiss', 'اقفل')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Error summary — visible even when the failing field is scrolled away. */}
       {formErrors && Object.keys(formErrors).length > 0 && (
         <div className="pa-callout pa-callout--error" role="alert" style={{ margin: '0 var(--pa-gutter) var(--pa-gap)' }}>

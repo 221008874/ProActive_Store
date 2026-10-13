@@ -8,14 +8,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { defaultGovernorateCosts } from '../config/egypt'
+import { EGYPT_GOVERNORATES, defaultGovernorateCosts } from '../config/egypt'
 import { useCart } from '../context/CartContext'
 import { useLanguage } from '../context/LanguageContext'
 import { postJson } from '../services/api'
 import { fetchGovernorates, fetchProduct, fetchPublicSettings } from '../services/catalog'
 import { loc } from '../ui'
 import { analytics } from '../services/analytics'
-import { paymentStatusFor } from '../utils/pricing'
+import { paymentStatusFor, checkoutTotals } from '../utils/pricing'
 import { classifyCheckoutError, linesForRejection } from '../utils/checkoutErrors'
 
 export const STEPS = { bag: 1, delivery: 2, review: 3 }
@@ -62,6 +62,7 @@ export function useCheckout() {
 
   const [ordersOpen, setOrdersOpen] = useState(true)
   const [minimumOrderAmount, setMinimumOrderAmount] = useState(0)
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(0)
 
   const [address, setAddress] = useState(() => ({ ...EMPTY_ADDRESS, ...(deliveryInfo ?? {}) }))
   const [formErrors, setFormErrors] = useState({})
@@ -100,11 +101,29 @@ export function useCheckout() {
       } catch (e) {
         console.error('Error loading governorate costs:', e)
         // Fall back to the built-in table so checkout is still usable against a
-        // project whose governorates were never seeded.
-        if (alive) setGovernorateDocs(defaultGovernorateCosts().reduce((acc, g) => {
-          acc[g.id] = { name: { ar: g.nameAr, en: g.name }, cost: g.cost, minOrder: 0, active: true }
-          return acc
-        }, {}))
+        // project whose governorates were never seeded - or when the API is
+        // unreachable, which is exactly when a shopper is most likely to be
+        // mid-checkout.
+        //
+        // defaultGovernorateCosts() returns an OBJECT keyed by id (the shape
+        // this state holds). The old code called .reduce() on it as if it were
+        // an array, so the fallback threw a TypeError inside an async IIFE with
+        // no .catch: an unhandled rejection, an empty governorate table, and
+        // shipping.available stuck false forever - checkout impossible, with
+        // nothing on screen to explain why.
+        if (alive) {
+          const fallback = {}
+          for (const [id, cost] of Object.entries(defaultGovernorateCosts())) {
+            const meta = EGYPT_GOVERNORATES.find((g) => g.id === id)
+            fallback[id] = {
+              name: { ar: meta?.nameAr ?? id, en: meta?.name ?? id },
+              cost: Number(cost) || 0,
+              minOrder: 0,
+              active: true
+            }
+          }
+          setGovernorateDocs(fallback)
+        }
       } finally {
         if (alive) setLoadingGovernorates(false)
       }
@@ -119,12 +138,17 @@ export function useCheckout() {
         const data = await fetchPublicSettings()
         if (!alive) return
         setMinimumOrderAmount(Number(data.minimumOrderAmount ?? 0))
+        // Free shipping is decided on the DISCOUNTED subtotal on the server
+        // (computeTotals), so the threshold has to be known here too - reading
+        // it after the fact would leave the bag charging for a delivery the
+        // order will not be charged for.
+        setFreeShippingThreshold(Number(data.freeShippingThreshold ?? 0))
         // The owner's kill switch; the server refuses orders while it is off,
         // so surfacing it here only saves a round trip.
         setOrdersOpen(data.ordersOpen !== false)
       } catch (e) {
         console.error('Error loading store settings:', e)
-        if (alive) { setMinimumOrderAmount(0); setOrdersOpen(true) }
+        if (alive) { setMinimumOrderAmount(0); setFreeShippingThreshold(0); setOrdersOpen(true) }
       }
     })()
     return () => { alive = false }
@@ -204,8 +228,31 @@ export function useCheckout() {
     return { cost, available: true }
   }, [selectedGovernorate, governorateDocs])
 
+  const couponDiscount = useMemo(() => {
+    const c = appliedCoupon
+    if (!c) return 0
+    // Same rule as useCoupon.discount: a percentage is recomputed against THIS
+    // bag (the stored `amount` was priced for whatever bag the coupon was
+    // applied to), a flat amount is taken as-is.
+    if (c.type === 'percent') return Math.round((Number(totalPrice) * Number(c.value || 0)) / 100)
+    return Number(c.amount ?? c.value ?? 0) || 0
+  }, [appliedCoupon, totalPrice])
+
+  // The one place the money is worked out. checkoutTotals is the tested mirror
+  // of the server's computeTotals, so the figure the shopper reads is the figure
+  // the order is created with. See utils/pricing.js.
+  const totals = useMemo(
+    () => checkoutTotals({
+      subtotal: totalPrice,
+      couponAmount: couponDiscount,
+      shippingCost: shipping.available ? Number(shipping.cost) || 0 : 0,
+      freeShippingThreshold
+    }),
+    [totalPrice, couponDiscount, shipping, freeShippingThreshold]
+  )
+
   const invalidLines = Object.keys(stockErrors)
-  const belowMinimum = effectiveMinimum > 0 && totalPrice < effectiveMinimum
+  const belowMinimum = effectiveMinimum > 0 && totals.subtotal < effectiveMinimum
 
   const canPlaceOrder =
     ordersOpen &&
@@ -249,7 +296,7 @@ export function useCheckout() {
 
     analytics.beginCheckout(
       items.map((i) => ({ id: i.id, productId: i.productId, variantId: i.variantId, price: i.price, quantity: i.quantity, title: i.title, color: i.color, size: i.size })),
-      totalPrice + (shipping.cost ?? 0)
+      totals.total
     )
 
     try {
@@ -362,7 +409,7 @@ export function useCheckout() {
       return { ok: false, rejection }
     }
   }, [
-    canPlaceOrder, items, address, governorateDocs, appliedCoupon, t, lang, totalPrice, shipping.cost,
+    canPlaceOrder, items, address, governorateDocs, appliedCoupon, t, lang, totals.total,
     clearCart, clearDeliveryInfo, navigate
   ])
 
@@ -371,11 +418,15 @@ export function useCheckout() {
   return {
     step, setStep, STEPS,
     items, totalItems, totalPrice,
+    // The authoritative money breakdown (subtotal, discount, shipping, total).
+    // Every step component renders its amounts from this so what the shopper
+    // sees is what the server will charge.
+    totals,
     updateQuantity, removeFromCart,
     governorateDocs, loadingGovernorates,
     productDetails, stockErrors, setStockErrors,
     invalidLines, belowMinimum, effectiveMinimum,
-    shipping, ordersOpen, minimumOrderAmount,
+    shipping, ordersOpen, minimumOrderAmount, freeShippingThreshold,
     address, setAddress, setField, chooseGovernorate, showMap,
     formErrors, setFormErrors,
     error, setError, dismissError,
