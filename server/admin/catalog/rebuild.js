@@ -6,9 +6,18 @@
 
 import { getDb } from "../../_core/serverDb.js";
 import { requireAdmin } from "../../_core/authz.js";
+import { applyCors, handlePreflight } from "../../_core/cors.js";
 import { collectCatalogData, writeSnapshot } from "../../_core/catalogCore.js";
 
 export default async function handler(req, res) {
+  // The preflight MUST be answered before the method check below: a preflight
+  // is an OPTIONS request, and the admin panel runs on its own origin, so it is
+  // always preflighted. Answering 405 here (as this route did) meant the browser
+  // never got a CORS blessing and the panel's "Publish changes" button could not
+  // reach this route at all - the publish only ever happened from the cron.
+  if (handlePreflight(req, res)) return;
+  applyCors(req, res);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });

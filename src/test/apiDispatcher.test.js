@@ -112,6 +112,42 @@ describe("handler", () => {
     expect(res.body.ok).toBe(true)
   })
 
+// A cross-origin admin call is always preflighted, because it carries an
+// Authorization header. The panel runs on its own domain, so a preflight that
+// answers 405 means the browser never gets a CORS blessing and the route is
+// unreachable from the panel - which is exactly what happened to five of the
+// seven admin routes: the method check ran before any preflight handling, so
+// "Publish changes" (and stock adjust, order status, the CSV import and the
+// Cloudinary signer) could only ever be driven from a cron or a script.
+// The rule each route must satisfy: answer OPTIONS with CORS headers BEFORE the
+// method check, and never echo an origin that is not on the ADMIN_ALLOWED_ORIGINS
+// list.
+describe("admin routes answer the CORS preflight", () => {
+  const ROUTES = [
+    "admin/order/status",
+    "admin/stock/adjust",
+    "admin/catalog/rebuild",
+    "admin/cloudinary/sign",
+    "admin/import",
+    "admin/documents/download",
+    "admin/order/document/retry"
+  ];
+
+  for (const route of ROUTES) {
+    it(`${route} handles OPTIONS before its method check`, async () => {
+      // No Origin header: the preflight path must still run and terminate the
+      // response (204), rather than fall through to the 405 method guard.
+      const res = stubRes();
+      await handler({ query: { path: route.split("/") }, method: "OPTIONS", headers: {} }, res);
+
+      expect(res.statusCode, `${route} did not answer the preflight`).toBe(204);
+      // No JSON body: a preflight must terminate, not fall through to the
+      // method guard and return an error payload the browser would surface.
+      expect(res.body?.error).toBeUndefined();
+    });
+  }
+});
+
   it("resolves a nested admin route", async () => {
     const res = stubRes()
     // Unauthenticated, so the guard rejects it - but the 401 proves the route

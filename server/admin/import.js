@@ -16,6 +16,7 @@
 import { FieldValue } from "../_core/firebaseAdmin.js";
 import { getDb } from "../_core/serverDb.js";
 import { requireAdmin } from "../_core/authz.js";
+import { applyCors, handlePreflight } from "../_core/cors.js";
 import { parseCsv } from "../_core/csv.js";
 
 const REQUIRED = ["productslug", "size", "stock"];
@@ -46,7 +47,36 @@ function normalizeRow(row) {
 
 export { normalizeRow };
 
+/**
+ * Validate a parsed CSV row's money columns.
+ *
+ * Returns `{ ok: true, price, compareAtPrice }`, or `{ ok: false, error }` for
+ * the row that must be refused. A blank, zero, negative, non-numeric or
+ * infinite price is a BAD_PRICE; a compare-at that is not above the price is a
+ * BAD_COMPARE. The import forces `status: "active"` on every row it writes, so a
+ * bad price here becomes a live, buyable, free product - which is why this check
+ * is at the row boundary rather than at write time.
+ */
+export function validateRowPricing(row) {
+  const price = Number(row?.price);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    return { ok: false, error: "BAD_PRICE" };
+  }
+
+  const compareAt = row?.compareAt ? Number(row.compareAt) : null;
+
+  if (compareAt !== null && (!Number.isFinite(compareAt) || compareAt <= price)) {
+    return { ok: false, error: "BAD_COMPARE" };
+  }
+
+  return { ok: true, price, compareAtPrice: compareAt };
+}
+
 export default async function handler(req, res) {
+  if (handlePreflight(req, res)) return;
+  applyCors(req, res);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
@@ -85,6 +115,17 @@ export default async function handler(req, res) {
     if (!slug) return res.status(400).json({ error: `BAD_ROW:${index + 2}` });
 
     if (!products.has(slug)) {
+      // A price is validated here exactly as the admin editor validates it, and
+      // exactly as checkout will later depend on: a finite number above zero.
+      // `Number(row.price ?? 0)` used to turn a blank, negative or non-numeric
+      // cell into 0 or NaN, and the row below forced status "active" - so a
+      // fat-fingered CSV produced a live, buyable, free product, and NaN made
+      // every checkout comparison silently pass.
+      const priced = validateRowPricing(row);
+      if (!priced.ok) {
+        return res.status(400).json({ error: `${priced.error}:${index + 2}` });
+      }
+
       products.set(slug, {
         slug,
         title: {
@@ -92,8 +133,8 @@ export default async function handler(req, res) {
           en: String(row.titleEn ?? slug).trim()
         },
         categoryId: String(row.category ?? "").trim() || null,
-        price: Number(row.price ?? 0),
-        compareAtPrice: row.compareAt ? Number(row.compareAt) : null,
+        price: priced.price,
+        compareAtPrice: priced.compareAtPrice,
         images: row.imageUrl ? [{ url: String(row.imageUrl).trim(), color: null, isPrimary: true }] : [],
         variants: []
       });

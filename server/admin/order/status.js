@@ -12,6 +12,7 @@
 import { FieldValue } from "../../_core/firebaseAdmin.js";
 import { getDb } from "../../_core/serverDb.js";
 import { requireAdmin } from "../../_core/authz.js";
+import { applyCors, handlePreflight } from "../../_core/cors.js";
 
 const TRANSITIONS = {
   pending: ["confirmed", "cancelled"],
@@ -48,6 +49,9 @@ function restockPlanFor(order, nextStatus, body) {
 }
 
 export default async function handler(req, res) {
+  if (handlePreflight(req, res)) return;
+  applyCors(req, res);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });

@@ -176,7 +176,13 @@ export async function fetchActiveProducts({ onRetry, attempts = 3 } = {}) {
     const snap = await getDocs(
       query(collection(db, "products_egp"), where("status", "==", "active"))
     );
-    if (snap.docs.length) return { products: snap.docs.map(withId), stale: false };
+    // An empty result is an ANSWER, not a failure. This branch only runs when no
+    // snapshot exists at all - i.e. a store that has never published - and that
+    // is exactly the state a brand-new store is in. Throwing here showed the
+    // shopper "Could not load products" over a catalogue that legitimately has
+    // nothing in it, instead of the empty state the Home and Shop pages already
+    // know how to render. A denied read still throws, from the catch below.
+    return { products: snap.docs.map(withId), stale: false };
   } catch (err) {
     throw new CatalogError(catalogCode(error) || "E-CATALOG-READ", {
       status: error?.status ?? null,
@@ -184,8 +190,6 @@ export async function fetchActiveProducts({ onRetry, attempts = 3 } = {}) {
       cause: error
     });
   }
-
-  throw new CatalogError(catalogCode(error), { status: error?.status ?? null, cause: error });
 }
 
 export async function fetchCategories() {

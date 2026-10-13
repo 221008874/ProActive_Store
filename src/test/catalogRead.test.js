@@ -195,6 +195,34 @@ describe('catalogue read path', () => {
     expect(settled.value).toEqual({ products: [{ id: 'd1', title: 'x' }], stale: false })
   })
 
+  it('treats an empty direct read as an empty catalogue, not a failure', async () => {
+    // The never-published state a brand-new store is actually in: /api/catalog
+    // answers 503 (no snapshot exists) and Firestore legitimately holds no
+    // active products. This used to fall through to the throw below, so the
+    // shopper was shown "Could not load products" over a shop that simply has
+    // nothing in it yet, instead of the empty state Home and Shop render.
+    vi.useFakeTimers()
+    getJson.mockRejectedValue(Object.assign(new Error('503'), { code: 'E-CATALOG-503', status: 503 }))
+    getDocs.mockResolvedValue({ docs: [] })
+
+    const settled = await settle(fetchActiveProducts(), 4000)
+
+    expect(settled.ok, 'an empty catalogue must not surface as an error').toBe(true)
+    expect(settled.value).toEqual({ products: [], stale: false })
+  })
+
+  it('still reports an error when the direct read is denied', async () => {
+    // The distinction that matters: empty is an answer, denied is a failure.
+    vi.useFakeTimers()
+    getJson.mockRejectedValue(Object.assign(new Error('503'), { code: 'E-CATALOG-503', status: 503 }))
+    getDocs.mockRejectedValue(Object.assign(new Error('denied'), { code: 'permission-denied' }))
+
+    const settled = await settle(fetchActiveProducts(), 4000)
+
+    expect(settled.ok).toBe(false)
+    expect(settled.error).toBeInstanceOf(CatalogError)
+  })
+
   /* --- backoff ------------------------------------------------------------- */
 
   it('retries a 500 three times with exponential backoff', async () => {

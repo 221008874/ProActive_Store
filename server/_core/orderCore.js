@@ -308,12 +308,26 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
       if (!variantSnap.exists || variantSnap.data.active === false) {
         throw new CheckoutError("UNAVAILABLE", item.variantId);
       }
-      if (Number(variantSnap.data.stock) < item.qty) {
+      // `Number(undefined)` is NaN, and NaN < qty is false - so a variant whose
+      // stock field was missing or non-numeric sailed through as if it had
+      // stock. Reading a missing field as 0 makes the honest answer: it is out.
+      const availableStock = Number(variantSnap.data.stock ?? 0);
+      if (!Number.isFinite(availableStock) || availableStock < item.qty) {
         throw new CheckoutError("OUT_OF_STOCK", `${item.productId}:${item.variantId}`);
       }
 
       const product = productSnap.data;
       const variant = variantSnap.data;
+      const unitPrice = Number(variant.priceOverride ?? product.price ?? 0);
+      // The price is the server's to defend. A missing price used to fall
+      // through `?? 0` and charge nothing, and a non-numeric one produced NaN,
+      // which is falsey against every comparison downstream (stock < qty is
+      // false, subtotal < minOrder is false) - so it passed every gate and the
+      // shopper was given an order with no amount. Both are refused here, before
+      // anything is written, as a 409 the bag can explain.
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        throw new CheckoutError("BAD_PRICE", `${item.productId}:${item.variantId}`);
+      }
       lines.push({
         item,
         productRef,
@@ -321,7 +335,7 @@ export async function placeOrderTransaction(db, body, { now = Date.now(), random
         product,
         variant,
         qty: item.qty,
-        unitPrice: Number(variant.priceOverride ?? product.price ?? 0)
+        unitPrice
       });
     }
 
@@ -535,7 +549,8 @@ export function statusForError(error) {
     "BAD_CART",
     "BAD_QTY",
     "BAD_CUSTOMER",
-    "BAD_ADDRESS"
+    "BAD_ADDRESS",
+    "BAD_PRICE"
   ];
   return known.some((k) => code.startsWith(k)) ? 409 : 500;
 }

@@ -4,6 +4,7 @@
 // logic including the guarantee that a thrown error writes nothing.
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   placeOrderTransaction,
   validateRequest,
@@ -248,6 +249,109 @@ describe('orderCore - placing an order', () => {
     expect(db.__read('products_egp/dress/variants/red_M').stock).toBe(3)
     expect(db.__read('products_egp/dress').totalStock).toBe(8)
     expect(db.__read('products_egp/dress').soldCount).toBe(2)
+  })
+
+  /* --- the price is the server's to defend -------------------------------- */
+
+  // A product document with no usable price. Each of these used to be charged
+  // at 0, or produce NaN - which is falsey against every downstream comparison,
+  // so a NaN price also meant a variant with no stock field passed the stock
+  // gate and a NaN subtotal passed the minimum-order gate.
+  for (const [label, price, stock] of [
+    ['missing price', undefined, 5],
+    ['zero price', 0, 5],
+    ['negative price', -100, 5],
+    ['non-numeric price', 'abc', 5],
+    ['infinite price', Infinity, 5]
+  ]) {
+    it(`refuses a product with a ${label}`, async () => {
+      const product = { title: { en: 'Broken' }, status: 'active' }
+      if (price !== undefined) product.price = price
+      db.__seed('products_egp/broken', product)
+      db.__seed('products_egp/broken/variants/red_M', { colorId: 'red', size: 'M', active: true, stock })
+
+      await expect(
+        place({
+          cart: [{ productId: 'broken', variantId: 'red_M', qty: 1 }],
+          customer: CUSTOMER,
+          address: ADDRESS
+        })
+      ).rejects.toThrow(/BAD_PRICE/)
+    })
+  }
+
+  it('maps a bad price to 409, not 500', () => {
+    expect(statusForError(new CheckoutError('BAD_PRICE', 'p1:red_M'))).toBe(409)
+  })
+
+  it('refuses a variant whose priceOverride is not a usable price', async () => {
+    db.__seed('products_egp/override0', { title: { en: 'Override broken' }, status: 'active', price: 500 })
+    db.__seed('products_egp/override0/variants/red_M', { colorId: 'red', size: 'M', active: true, stock: 5, priceOverride: 0 })
+
+    await expect(
+      place({
+        cart: [{ productId: 'override0', variantId: 'red_M', qty: 1 }],
+        customer: CUSTOMER,
+        address: ADDRESS
+      })
+    ).rejects.toThrow(/BAD_PRICE/)
+  })
+
+  it('refuses a variant with a missing stock field rather than selling it', async () => {
+    // Number(undefined) is NaN and NaN < qty is false, so the missing field used
+    // to read as "plenty".
+    db.__seed('products_egp/nostock', { title: { en: 'No stock' }, status: 'active', price: 500 })
+    db.__seed('products_egp/nostock/variants/red_M', { colorId: 'red', size: 'M', active: true })
+
+    await expect(
+      place({
+        cart: [{ productId: 'nostock', variantId: 'red_M', qty: 1 }],
+        customer: CUSTOMER,
+        address: ADDRESS
+      })
+    ).rejects.toThrow(/OUT_OF_STOCK/)
+  })
+
+  /* --- concurrency --------------------------------------------------------- */
+
+  // What is provable at each layer, stated plainly:
+  //
+  //   orderCore     - every read happens before every write in the transaction,
+  //                   and the decrement is FieldValue.increment, so no lost
+  //                   update. THIS is what the code is responsible for.
+  //   Firestore SDK - aborts the losing transaction with ABORTED and retries it
+  //                   (DEFAULT_MAX_TRANSACTION_ATTEMPTS = 5); on the retry the
+  //                   loser re-reads the depleted stock and throws OUT_OF_STOCK.
+  //                   This is the property that prevents overselling.
+  //   this fake     - stages writes and applies them in completion order, with
+  //                   no contention detection. It therefore CANNOT prove the
+  //                   SDK's guarantee: two overlapping transactions here simply
+  //                   both commit (and drive stock negative), which is not what
+  //                   the real Firestore would do. Asserting an outcome here
+  //                   would be testing the fake, not the product.
+  //
+  // The SDK property is verified against the real emulator by
+  // scripts/test-rules.mjs (rules) and scripts/verify-publish-path.mjs
+  // (publish path), and in production by the deployment's own behaviour.
+  it('reads stock before writing it, so the check and the decrement agree', () => {
+    // The real Firestore SDK rejects a read that follows a write in the same
+    // transaction, so this ordering is the contract the stock guarantee rests
+    // on: if it regresses, the SDK itself would start failing every order.
+    const source = readFileSync(new URL('../../server/_core/orderCore.js', import.meta.url), 'utf8')
+    const txn = source.match(/return db\.runTransaction\(async \(tx\) => \{([\s\S]*?)\n {2}\}\)/)?.[1] ?? ''
+
+    const firstWrite = txn.search(/tx\.(update|set|delete)\(/)
+    const lastRead = txn.lastIndexOf('tx.get(')
+
+    expect(firstWrite, 'no write found in the transaction').toBeGreaterThan(-1)
+    expect(lastRead, 'no read found in the transaction').toBeGreaterThan(-1)
+    expect(lastRead).toBeLessThan(firstWrite)
+  })
+
+  it('decrements with an increment, so two writers cannot lose an update', () => {
+    const source = readFileSync(new URL('../../server/_core/orderCore.js', import.meta.url), 'utf8')
+    const decrement = source.match(/tx\.update\(line\.variantRef, \{[\s\S]{0,120}?\}\)/)?.[0] ?? ''
+    expect(decrement).toContain('increment(-line.qty)')
   })
 
   it('decrements stock per variant when one product has two lines', async () => {

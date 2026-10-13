@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { parseCsv } from '../../server/_core/csv.js'
-import { normalizeRow } from '../../server/admin/import.js'
+import { normalizeRow, validateRowPricing } from '../../server/admin/import.js'
 
 const HEADER = 'productSlug,titleEn,titleAr,category,price,compareAt,color,size,stock,imageUrl'
 
@@ -68,5 +68,41 @@ describe('import row normalisation', () => {
 
   it('keeps the canonical casing and drops unknown columns', () => {
     expect(normalizeRow({ productSlug: 'dress', notes: 'ignore me' })).toEqual({ productSlug: 'dress' })
+  })
+})
+
+describe('import row pricing', () => {
+  // The import forces status "active" on every row it writes, so a price that
+  // fails here becomes a live, buyable, free product. These are the values the
+  // old `Number(row.price ?? 0)` accepted.
+  for (const [label, price] of [
+    ['missing price', undefined],
+    ['empty price', ''],
+    ['zero price', '0'],
+    ['negative price', '-50'],
+    ['non-numeric price', 'abc'],
+    ['null price', null]
+  ]) {
+    it(`refuses a ${label}`, () => {
+      const out = validateRowPricing({ productSlug: 'dress', price })
+      expect(out.ok, `${label} must be refused`).toBe(false)
+      expect(out.error).toBe('BAD_PRICE')
+    })
+  }
+
+  it('accepts a normal price', () => {
+    expect(validateRowPricing({ price: '450' })).toEqual({ ok: true, price: 450, compareAtPrice: null })
+  })
+
+  it('accepts a decimal price', () => {
+    expect(validateRowPricing({ price: '449.5' })).toEqual({ ok: true, price: 449.5, compareAtPrice: null })
+  })
+
+  it('requires a compare-at above the price, when present', () => {
+    expect(validateRowPricing({ price: '450', compareAt: '600' }))
+      .toEqual({ ok: true, price: 450, compareAtPrice: 600 })
+    expect(validateRowPricing({ price: '450', compareAt: '450' }).error).toBe('BAD_COMPARE')
+    expect(validateRowPricing({ price: '450', compareAt: '400' }).error).toBe('BAD_COMPARE')
+    expect(validateRowPricing({ price: '450', compareAt: 'abc' }).error).toBe('BAD_COMPARE')
   })
 })

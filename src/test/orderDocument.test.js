@@ -347,7 +347,7 @@ describe('cors - admin panel origins', () => {
   let res
 
   beforeEach(() => {
-    process.env.ADMIN_ALLOWED_ORIGINS = 'https://proactive-admin.vercel.app'
+    process.env.ADMIN_ALLOWED_ORIGINS = 'https://pro-active-admin.vercel.app'
     res = {
       headers: {},
       statusCode: null,
@@ -364,8 +364,8 @@ describe('cors - admin panel origins', () => {
   })
 
   it('echoes an allowlisted origin and lists the admin needs', () => {
-    expect(applyCors({ headers: { origin: 'https://proactive-admin.vercel.app' } }, res)).toBe(true)
-    expect(res.headers['access-control-allow-origin']).toBe('https://proactive-admin.vercel.app')
+    expect(applyCors({ headers: { origin: 'https://pro-active-admin.vercel.app' } }, res)).toBe(true)
+    expect(res.headers['access-control-allow-origin']).toBe('https://pro-active-admin.vercel.app')
     expect(res.headers['access-control-allow-headers']).toContain('authorization')
     expect(res.headers['access-control-allow-methods']).toContain('GET')
     expect(res.headers.vary).toBe('Origin')
@@ -378,12 +378,12 @@ describe('cors - admin panel origins', () => {
 
   it('refuses everything when no origin is configured (fail closed)', () => {
     delete process.env.ADMIN_ALLOWED_ORIGINS
-    expect(applyCors({ headers: { origin: 'https://proactive-admin.vercel.app' } }, res)).toBe(false)
+    expect(applyCors({ headers: { origin: 'https://pro-active-admin.vercel.app' } }, res)).toBe(false)
   })
 
   it('answers the preflight with 204 and the allowed methods', () => {
     const handled = handlePreflight(
-      { method: 'OPTIONS', headers: { origin: 'https://proactive-admin.vercel.app' } },
+      { method: 'OPTIONS', headers: { origin: 'https://pro-active-admin.vercel.app' } },
       res,
       'GET, OPTIONS'
     )
